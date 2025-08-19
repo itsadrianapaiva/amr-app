@@ -29,13 +29,15 @@ model Booking {
   machine               Machine       @relation(fields: [machineId], references: [id])
   startDate             DateTime
   endDate               DateTime
-  insuranceSelected     Boolean       @default(false) // New field
+  insuranceSelected     Boolean       @default(false)
   customerName          String
   customerEmail         String
   customerPhone         String
+  customerNIF           String?
   totalCost             Decimal
   depositPaid           Boolean       @default(false)
   stripePaymentIntentId String?       @unique
+  googleCalendarEventId String?
   status                BookingStatus @default(PENDING)
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
