@@ -1,0 +1,44 @@
+// Define database connection via the `DATABASE_URL` env var
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Define custom output path for generated Prisma Client
+generator client {
+  provider = "prisma-client-js"
+  seed = "ts-node --project prisma/tsconfig.json prisma/seed.ts"
+}
+
+// Data model
+model Machine {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String
+  imageUrl    String
+  dailyRate   Decimal
+  bookings    Booking[]
+}
+
+model Booking {
+  id                    Int           @id @default(autoincrement())
+  machineId             Int
+  machine               Machine       @relation(fields: [machineId], references: [id])
+  startDate             DateTime
+  endDate               DateTime
+  customerName          String
+  customerEmail         String
+  customerPhone         String
+  totalCost             Decimal
+  depositPaid           Boolean       @default(false)
+  stripePaymentIntentId String?       @unique
+  status                BookingStatus @default(PENDING)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
