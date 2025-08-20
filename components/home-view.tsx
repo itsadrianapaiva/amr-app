@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import type { Machine } from "@prisma/client";
 import { MachineCard } from "@/components/machine-card";
 import Pretitle from "@/components/ui/pretitle";
+import type { SerializableMachine } from "@/lib/types";
 
 // Will build this components in the future
 // import Hero from '@/components/Hero';
@@ -13,7 +14,7 @@ import Pretitle from "@/components/ui/pretitle";
 //also add topbar, header and footer with contact
 
 interface HomeViewProps {
-  machines: Machine[];
+  machines: SerializableMachine[];
 }
 
 export function HomeView({ machines }: HomeViewProps) {

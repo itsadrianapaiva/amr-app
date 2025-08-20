@@ -1,17 +1,16 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Machine } from "@prisma/client";
-import { ArrowRight } from "lucide-react"; // Using icons from our shadcn/ui setup
+import { ArrowRight } from "lucide-react";
+import type { SerializableMachine } from "@/lib/types";
+import { formatCurrency } from "@/lib/utils";
 
 interface MachineCardProps {
-  machine: Machine;
+  machine: SerializableMachine;
 }
 
 export function MachineCard({ machine }: MachineCardProps) {
-  const formattedRate = new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "EUR",
-  }).format(Number(machine.dailyRate));
+  const formattedRate = formatCurrency(machine.dailyRate);
 
   return (
     <div className="group relative h-[492px] w-full overflow-hidden">
@@ -34,7 +33,7 @@ export function MachineCard({ machine }: MachineCardProps) {
         </div>
         <Link
           href={`/machine/${machine.id}`}
-          className="mr-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500 text-white transition-colors hover:bg-amber-600"
+          className="mr-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500 text-white transition-colors hover:bg-accent/90"
         >
           <ArrowRight className="h-6 w-6" />
         </Link>
