@@ -33,7 +33,7 @@ export function MachineCard({ machine }: MachineCardProps) {
           <p className="text-sm">{formattedRate} / day</p>
         </div>
         <Link
-          href={`/machines/${machine.id}`} // A better link for future detail pages
+          href={`/machine/${machine.id}`}
           className="mr-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500 text-white transition-colors hover:bg-amber-600"
         >
           <ArrowRight className="h-6 w-6" />

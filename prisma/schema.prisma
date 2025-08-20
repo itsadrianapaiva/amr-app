@@ -16,9 +16,9 @@ model Machine {
   description     String
   imageUrl        String
   dailyRate       Decimal
-  weight          String    // New field
-  deposit         Decimal   // New field
-  deliveryCharge  Decimal   // New field
+  weight          String    
+  deposit         Decimal   
+  deliveryCharge  Decimal   
   bookings        Booking[]
 }
 

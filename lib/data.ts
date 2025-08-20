@@ -12,3 +12,15 @@ export async function getMachines() {
   }
 }
 
+export async function getMachineById(id: number) {
+  noStore();
+  try {
+    const machine = await db.machine.findUnique({
+      where: { id },
+    });
+    return machine;
+  } catch (error) {
+    console.error("Database Error:", error);
+    throw new Error("Failed to fetch machine.");
+  }
+}
