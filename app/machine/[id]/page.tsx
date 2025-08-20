@@ -2,6 +2,7 @@ import { getMachineById } from "@/lib/data";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { MachineSpecs } from "@/components/machine-specs";
+import Pretitle from "@/components/ui/pretitle";
 
 export default async function MachineDetailPage({
   params,
@@ -25,6 +26,7 @@ export default async function MachineDetailPage({
     <section className="py-16 md:py-24">
       <div className="container mx-auto">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-12">
+          <Pretitle center text="Machine Details" />
           {/* Column 1: Image */}
           <div className="relative h-[400px] w-full overflow-hidden rounded-lg md:h-[500px]">
             <Image
@@ -41,9 +43,7 @@ export default async function MachineDetailPage({
             <h1 className="mb-4 text-3xl font-bold md:text-4xl">
               {machine.name}
             </h1>
-            <p className="mb-6 text-muted-foreground">
-              {machine.description}
-            </p>
+            <p className="mb-6 text-muted-foreground">{machine.description}</p>
 
             <MachineSpecs machine={machine} />
 
