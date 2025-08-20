@@ -1,86 +1,147 @@
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
 
+/* ------------------------------------------------------------
+   Button Color Mapping by Semantic Tokens
+
+   PRIMARY BUTTON  (main CTAs like "Book Now")
+   - bg-primary              → Yellow tones per theme (#FFB800 / #E8A700)
+   - text-primary-foreground → Dark text on light themes (#1A1A1A) / light text on dark
+   - hover:bg-primary/90     → Slightly darker yellow for hover
+
+   SECONDARY BUTTON  (secondary CTAs like "Learn More")
+   - bg-secondary              → Orange / Amber tones per theme (#FF8C00 / #FFB347)
+   - text-secondary-foreground → White or dark text depending on theme
+   - hover:bg-secondary/90     → Darker orange/amber on hover
+
+   TERTIARY BUTTON  (low emphasis actions like "Cancel" / "Back")
+   - bg-transparent
+   - border-border           → Uses theme-specific border color (#E5E7EB / #2E2E2E)
+   - text-muted-foreground   → Subtle gray text (#6B7280 / #A1A1A1)
+   - hover:bg-surface/20     → Light/dark overlay depending on theme
+
+   These tokens adapt automatically per theme:
+   - Dark Industrial → primary #FFB800 | secondary #FF8C00 | border #2E2E2E
+   - Dark Premium    → primary #E8A700 | secondary #FFB347 | border #1F1F1F
+   - Light Minimal   → primary #FFB800 | secondary #FF8C00 | border #E5E7EB
+   - Light Warm      → primary #FFB800 | secondary #FF9933 | border #EDE6D9
+
+   Usage in components:
+   <button class="bg-primary text-primary-foreground hover:bg-primary/90">Book Now</button>
+   <button class="bg-secondary text-secondary-foreground hover:bg-secondary/90">Learn More</button>
+   <button class="border border-border text-muted-foreground hover:bg-surface/20">Cancel</button>
+------------------------------------------------------------ */
+
+
+/* Tailwind tokens. Do not change these names later. */
 @theme {
   --font-sans: var(--font-geist-sans);
 
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
+  --color-surface: hsl(var(--surface));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-border: hsl(var(--border));
+
   --color-primary: hsl(var(--primary));
   --color-primary-foreground: hsl(var(--primary-foreground));
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
+
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-
-
-  --color-border: hsl(var(--border));
-
-
   --radius: 0.5rem;
 }
 
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --primary: 222.2 84% 4.9%;
-    --secondary: 215 20.2% 65.1%;
-    --accent: 38 92% 50%;
-    --border: 214.3 31.8% 91.4%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary-foreground: 210 40% 98%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
-  }
+/* Default theme: Light Minimal */
+:root {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 10%;
+  --surface: 0 0% 97%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 10%;
+  --border: 220 14% 90%;
 
-  * {
-    @apply border-border; 
-  }
+  --primary: 45 100% 50%; /* #FFB800 */
+  --primary-foreground: 0 0% 10%;
+  --secondary: 33 100% 50%; /* #FF8C00 */
+  --secondary-foreground: 0 0% 100%;
+  --accent: 33 100% 50%;
+  --accent-foreground: 0 0% 100%;
 
-  body {
-    @apply bg-background font-sans text-secondary;
-  }
-
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    @apply text-primary;
-  }
+  --muted: 210 20% 96%;
+  --muted-foreground: 215 16% 47%;
 }
 
-@layer components {
-  .h1 {
-    @apply text-[40px] font-black uppercase leading-[1.1] xl:text-[54px];
+/* Dark Industrial */
+:root[data-theme="dark-industrial"] {
+  --background: 0 0% 5%; /* #0D0D0D */
+  --foreground: 0 0% 96%; /* off-white */
+  --surface: 0 0% 10%; /* #1A1A1A */
+  --card: 0 0% 8%;
+  --card-foreground: 0 0% 96%;
+  --border: 0 0% 18%; /* #2E2E2E */
+
+  --primary: 45 100% 50%; /* #FFB800 */
+  --primary-foreground: 0 0% 10%;
+  --secondary: 33 100% 50%; /* #FF8C00 */
+  --secondary-foreground: 0 0% 100%;
+  --accent: 33 100% 50%;
+  --accent-foreground: 0 0% 100%;
+
+  --muted: 0 0% 15%;
+  --muted-foreground: 0 0% 63%;
+}
+
+/* Dark Premium */
+:root[data-theme="dark-premium"] {
+  --background: 0 0% 0%; /* #000000 */
+  --foreground: 0 0% 100%;
+  --surface: 0 0% 7%; /* #121212 */
+  --card: 0 0% 6%;
+  --card-foreground: 0 0% 100%;
+  --border: 0 0% 12%;
+
+  --primary: 45 88% 46%; /* muted yellow */
+  --primary-foreground: 0 0% 10%;
+  --secondary: 38 100% 65%; /* soft amber */
+  --secondary-foreground: 0 0% 10%;
+  --accent: 38 100% 65%;
+  --accent-foreground: 0 0% 10%;
+
+  --muted: 0 0% 12%;
+  --muted-foreground: 0 0% 75%;
+}
+
+/* Light Warm */
+:root[data-theme="light-warm"] {
+  --background: 40 33% 98%;
+  --foreground: 0 0% 12%;
+  --surface: 0 0% 90%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 12%;
+  --border: 40 10% 88%;
+
+  --primary: 45 100% 50%; /* AMR yellow */
+  --primary-foreground: 0 0% 12%;
+  --secondary: 35 100% 55%; /* warmer orange */
+  --secondary-foreground: 0 0% 100%;
+  --accent: 35 100% 55%;
+  --accent-foreground: 0 0% 100%;
+
+  --muted: 40 16% 92%;
+  --muted-foreground: 25 10% 45%;
+}
+
+/* Base applies */
+@layer base {
+  * {
+    @apply border-border;
   }
-  .h2 {
-    @apply text-[36px] font-bold capitalize leading-[1.3] xl:text-[46px] xl:leading-[56px];
-  }
-  .h3 {
-    @apply text-3xl font-bold;
-  }
-  .h4 {
-    @apply text-2xl font-semibold;
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
   }
 }

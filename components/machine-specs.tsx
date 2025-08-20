@@ -9,22 +9,22 @@ interface MachineSpecsProps {
 export function MachineSpecs({ machine }: MachineSpecsProps) {
   const specs = [
     {
-      icon: <Euro className="h-7 w-7 text-amber-500" />, // Corrected icon
+      icon: <Euro className="h-7 w-7 text-primary" />, // Corrected icon
       label: "Daily Rate",
       value: formatCurrency(machine.dailyRate),
     },
     {
-      icon: <Weight className="h-7 w-7 text-amber-500" />,
+      icon: <Weight className="h-7 w-7 text-primary" />,
       label: "Weight",
       value: machine.weight,
     },
     {
-      icon: <ShieldCheck className="h-7 w-7 text-amber-500" />,
+      icon: <ShieldCheck className="h-7 w-7 text-primary" />,
       label: "Deposit",
       value: formatCurrency(machine.deposit),
     },
     {
-      icon: <Truck className="h-7 w-7 text-amber-500" />,
+      icon: <Truck className="h-7 w-7 text-primary" />,
       label: "Delivery Charge",
       value: formatCurrency(machine.deliveryCharge),
     },

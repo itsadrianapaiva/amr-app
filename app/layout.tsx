@@ -1,16 +1,16 @@
-import type { Metadata } from 'next';
-import { Geist } from 'next/font/google';
-import './globals.css';
-import { cn } from '@/lib/utils';
+import type { Metadata } from "next";
+import { Geist } from "next/font/google";
+import "./globals.css";
+import { cn } from "@/lib/utils";
 
 const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: 'Machinery Rental MVP',
-  description: 'Heavy machinery for rent.',
+  title: "Machinery Rental MVP",
+  description: "Heavy machinery for rent.",
 };
 
 export default function RootLayout({
@@ -19,15 +19,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={cn(
-          'min-h-screen bg-background font-sans antialiased',
-          geistSans.variable
-        )}
-      >
-        {children}
-      </body>
+    <html lang="en" suppressHydrationWarning data-theme="light-warm">
+      {/* theme can be dark-industrial, dark-premium or light-warm */}
+      <body className={cn("min-h-screen", geistSans.variable)}>{children}</body>
     </html>
   );
 }

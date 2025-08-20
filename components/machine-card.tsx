@@ -24,7 +24,7 @@ export function MachineCard({ machine }: MachineCardProps) {
       />
 
       {/* Overlay Panel: Hidden by default, slides up on hover */}
-      <div className="absolute bottom-0 flex h-24 w-full items-center justify-between bg-black/60 text-white backdrop-blur-md transition-all duration-500 translate-y-24 group-hover:translate-y-0">
+      <div className="absolute bottom-0 flex h-24 w-full items-center justify-between bg-surface/80 text-foreground backdrop-blur-md transition-all duration-500 translate-y-24 group-hover:translate-y-0">
         <div className="pl-8">
           <h4 className="font-semibold uppercase tracking-wider">
             {machine.name}
@@ -33,7 +33,7 @@ export function MachineCard({ machine }: MachineCardProps) {
         </div>
         <Link
           href={`/machine/${machine.id}`}
-          className="mr-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500 text-white transition-colors hover:bg-accent/90"
+          className="mr-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/80"
         >
           <ArrowRight className="h-6 w-6" />
         </Link>
