@@ -32,7 +32,6 @@
    <button class="border border-border text-muted-foreground hover:bg-surface/20">Cancel</button>
 ------------------------------------------------------------ */
 
-
 /* Tailwind tokens. Do not change these names later. */
 @theme {
   --font-sans: var(--font-geist-sans);

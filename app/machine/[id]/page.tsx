@@ -25,7 +25,7 @@ export default async function MachineDetailPage({
   return (
     <section className="py-16 md:py-24">
       <div className="container mx-auto">
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-12">
+        <div className="grid grid-cols-1 gap-8 lg:gap-12">
           <Pretitle center text="Machine Details" />
           {/* Column 1: Image */}
           <div className="relative h-[400px] w-full overflow-hidden rounded-lg md:h-[500px]">
