@@ -1,12 +1,14 @@
+// Goal: The function's job is to take a list of bookings (which might be overlapping or messy) and produce a clean, minimal list of date ranges that need to be blocked in the calendar. For example, if you have one booking for Aug 21-22 and another for Aug 22-23, the output should be a single disabled range: Aug 21-23.
+
 import { startOfDay, endOfDay, compareAsc, max as maxDate } from "date-fns";
 
-// A minimal shape need for bookings
+// A minimal shape need for bookings. Raw input.
 export type BookingSpan = { startDate: Date; endDate: Date };
 
 // DayPicker accepts { from: Date; to: Date } for range matchers
 export type DisabledRange = { from: Date; to: Date };
 
-// Safer to cross the RSC boundary as string
+// Safer to cross the RSC(server-client) boundary as string
 export type DisabledRangeJSON = {
   from: string;
   to: string;
@@ -23,7 +25,8 @@ export function computeDisabledRanges(spans: BookingSpan[]): {
   ranges: DisabledRange[];
   json: DisabledRangeJSON[];
 } {
-  //1. Trivial fast-path
+  //1. Trivial fast-path (guard clause)
+  //If there are no bookings, return empty ranges
   if (!spans.length) return { ranges: [], json: [] };
 
   //2. Normalize each span to full days [00:00 .. 23:59:59.999] and sort ascending

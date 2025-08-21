@@ -1,3 +1,6 @@
+//Controlled component
+//It receives its current value (date) from its parent via props
+//When the user tries to change the value, it doesn't change anything itself. Instead, it calls a function from its parent (onSelectDate) to ask the parent to make the change.
 "use client";
 
 import { format } from "date-fns";
@@ -13,6 +16,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
+//Component "contract": A component's props are its API. They define how other components can interact with it.
 interface DatePickerProps {
   date: DateRange | undefined;
   onSelectDate: (date: DateRange | undefined) => void;
