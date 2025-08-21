@@ -1,13 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { DateRange } from "react-day-picker";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { differenceInCalendarDays } from "date-fns";
-
-import { SerializableMachine } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -20,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatePicker } from "@/components/date-picker";
+import { SerializableMachine } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 
 // 1) Schema with dateRange inside the form, plus simple field validation

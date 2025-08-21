@@ -9,8 +9,8 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Machinery Rental MVP",
-  description: "Heavy machinery for rent.",
+  title: "Algarve Machinery Rental",
+  description: "Heavy machinery for rent in the Algarve area.",
 };
 
 export default function RootLayout({
