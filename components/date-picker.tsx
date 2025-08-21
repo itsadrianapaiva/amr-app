@@ -58,7 +58,10 @@ export function DatePicker({
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent
+          className="w-auto p-0 bg-surface border shadow-md"
+          align="start"
+        >
           <Calendar
             mode="range"
             defaultMonth={date?.from}
@@ -66,6 +69,11 @@ export function DatePicker({
             onSelect={onSelectDate}
             numberOfMonths={2}
             disabled={disabledDays}
+            modifiersClassNames={{
+              today:
+                "border-2 border-primary bg-transparent text-foreground rounded-md",
+            }}
+            className="rounded-md border bg-card"
           />
         </PopoverContent>
       </Popover>
