@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { Machine } from "@prisma/client";
 import { ArrowRight } from "lucide-react";
 import type { SerializableMachine } from "@/lib/types";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, toTitleCase } from "@/lib/utils";
 
 interface MachineCardProps {
   machine: SerializableMachine;
@@ -11,6 +11,7 @@ interface MachineCardProps {
 
 export function MachineCard({ machine }: MachineCardProps) {
   const formattedRate = formatCurrency(machine.dailyRate);
+  const displayName = toTitleCase(machine.name);
 
   return (
     <div className="group relative h-[492px] w-full overflow-hidden">
@@ -19,7 +20,7 @@ export function MachineCard({ machine }: MachineCardProps) {
         src={machine.imageUrl}
         fill
         className="object-cover transition-transform duration-500 group-hover:scale-105"
-        alt={`Image of ${machine.name}`}
+        alt={`Image of ${displayName}`}
         unoptimized
       />
 
@@ -27,7 +28,7 @@ export function MachineCard({ machine }: MachineCardProps) {
       <div className="absolute bottom-0 flex h-24 w-full items-center justify-between bg-surface/80 text-foreground backdrop-blur-md transition-all duration-500 translate-y-24 group-hover:translate-y-0">
         <div className="pl-8">
           <h4 className="font-semibold uppercase tracking-wider">
-            {machine.name}
+            {displayName}
           </h4>
           <p className="text-sm">{formattedRate} / day</p>
         </div>

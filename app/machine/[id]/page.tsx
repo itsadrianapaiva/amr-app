@@ -7,6 +7,7 @@ import { MachineSpecs } from "@/components/machine-specs";
 import Pretitle from "@/components/ui/pretitle";
 import { BookingForm } from "@/components/booking-form";
 import type { SerializableMachine } from "@/lib/types";
+import { toTitleCase } from "@/lib/utils";
 
 export default async function MachineDetailPage({
   params,
@@ -39,6 +40,10 @@ export default async function MachineDetailPage({
     deliveryCharge: s.deliveryCharge,
   };
 
+  // Display strings
+  const displayName = toTitleCase(machine.name);
+  const displayType = machine.type ? toTitleCase(machine.type) : "";
+
   return (
     <section className="py-16 md:py-24">
       <div className="container mx-auto">
@@ -51,7 +56,7 @@ export default async function MachineDetailPage({
               src={machine.imageUrl}
               fill
               className="object-cover"
-              alt={`Image of ${machine.name}`}
+              alt={`Image of ${displayName}`}
               unoptimized
             />
           </div>
@@ -59,8 +64,13 @@ export default async function MachineDetailPage({
           {/* Column 2: Details & Booking Form */}
           <div className="flex flex-col">
             <h1 className="mb-4 text-3xl font-bold md:text-4xl">
-              {machine.name}
+              {displayName}
             </h1>
+            {displayType && (
+              <p className="mb-4 text-sm text-muted-foreground">
+                {displayType}
+              </p>
+            )}
             <p className="mb-6 text-muted-foreground">{machine.description}</p>
 
             <MachineSpecs machine={machine} />
