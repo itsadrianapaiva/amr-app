@@ -1,3 +1,4 @@
+//Bridge between database and availability logic
 import { BookingStatus } from "@prisma/client";
 import { startOfDay } from "date-fns";
 
@@ -9,13 +10,13 @@ import {
 
 /**
  * getDisabledDateRangesForMachine
- * Returns a JSON-safe list of merged date ranges that must be disabled
- * in the calendar for a given machine.
+ * Fetch all relevant bookings for one specific machine and return a clean, JSON-safe array of date ranges that should be disabled in the calendar.
  */
 
 export async function getDisabledDateRangesForMachine(
   machineId: number
 ): Promise<DisabledRangeJSON[]> {
+  //DATABASE QUERY
   //Only care about bookings that haven't fully ended before today
   const today = startOfDay(new Date());
 

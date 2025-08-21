@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { DateRange } from "react-day-picker";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { differenceInCalendarDays } from "date-fns";
+import { differenceInCalendarDays, addDays, startOfDay } from "date-fns";
 
 import { SerializableMachine } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -116,9 +116,24 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
   const deliveryCharge = Number(machine.deliveryCharge);
   const deposit = Number(machine.deposit);
 
+  // Earliest allowed start: tomorrow at 00:00 local time
+  const minStart = startOfDay(addDays(new Date(), 1));
+
+  // Build a runtime schema that enforces minStart
+  const schemaWithMin = formSchema.superRefine((data, ctx) => {
+    const from = data.dateRange.from;
+    if (from && from < minStart) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dateRange", "from"],
+        message: "Start date cannot be today or in the past",
+      });
+    }
+  });
+
   //Initialize form
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema), //key connection between Zod and react-hook-form
+    resolver: zodResolver(schemaWithMin), //key connection between Zod and react-hook-form
     defaultValues: {
       dateRange: { from: undefined, to: undefined },
       name: "",
@@ -138,13 +153,19 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
   }, [dateRange]);
 
   // 5) Convert server JSON to Date objects for Calendar "disabled" prop
-  const disabledDays = useMemo(
+  const serverDisabled = useMemo(
     () =>
       (disabledRangesJSON ?? []).map((r) => ({
         from: new Date(r.from),
         to: new Date(r.to),
       })),
     [disabledRangesJSON]
+  );
+
+  // Policy: block today and all past days
+  const disabledDays = useMemo(
+    () => [{ before: minStart }, ...serverDisabled],
+    [minStart, serverDisabled]
   );
 
   // 6) Submit shape is ready for a Server Action later
@@ -186,6 +207,10 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
                       disabledDays={disabledDays}
                     />
                   </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Earliest start is tomorrow. Same-day rentals are not
+                    available.
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}
