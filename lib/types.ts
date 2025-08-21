@@ -1,13 +1,13 @@
 import type { Machine } from "@prisma/client";
 
-// This type converts the Decimal fields of the Machine type into strings,
-// making the data "serializable" and safe to pass from Server to Client Components.
+// Converts Prisma Decimal fields to strings for safe RSC serialization.
+// deliveryCharge and pickupCharge are nullable in the DB, so they serialize to string | null.
 export type SerializableMachine = Omit<
   Machine,
-  "dailyRate" | "deposit" | "deliveryCharge"
+  "dailyRate" | "deposit" | "deliveryCharge" | "pickupCharge"
 > & {
   dailyRate: string;
   deposit: string;
-  deliveryCharge: string;
+  deliveryCharge: string | null;
+  pickupCharge: string | null;
 };
-

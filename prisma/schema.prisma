@@ -9,35 +9,46 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// Machine model with new fields
 model Machine {
   id              Int       @id @default(autoincrement())
   name            String    @unique
+  type            String   @default("Uncategorized")
   description     String
   imageUrl        String
   dailyRate       Decimal
   weight          String    
   deposit         Decimal   
-  deliveryCharge  Decimal   
+  deliveryCharge  Decimal?
+  pickupCharge    Decimal?  
+  minDays         Int       @default(1)
   bookings        Booking[]
 }
 
-// Booking model with new insurance field
 model Booking {
   id                    Int           @id @default(autoincrement())
   machineId             Int
   machine               Machine       @relation(fields: [machineId], references: [id])
+
   startDate             DateTime
   endDate               DateTime
+
+  // Selected at checkout
   insuranceSelected     Boolean       @default(false)
+  deliverySelected      Boolean       @default(false)
+  pickupSelected        Boolean       @default(false)
+
+  // Customer details
   customerName          String
   customerEmail         String
   customerPhone         String
   customerNIF           String?
+
+  // Payment and ops
   totalCost             Decimal
   depositPaid           Boolean       @default(false)
   stripePaymentIntentId String?       @unique
   googleCalendarEventId String?
+
   status                BookingStatus @default(PENDING)
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt

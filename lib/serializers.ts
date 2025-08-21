@@ -8,15 +8,24 @@ import type { SerializableMachine } from "@/lib/types";
  */
 export function serializeMachine(m: Machine): SerializableMachine {
   return {
-    id: m.id, // number stays number
-    name: m.name, // passthrough
-    description: m.description, // passthrough
-    imageUrl: m.imageUrl, // passthrough
-    weight: m.weight, // passthrough
-    dailyRate: m.dailyRate.toString(), // Decimal -> string
-    deposit: m.deposit.toString(), // Decimal -> string
-    deliveryCharge: m.deliveryCharge.toString(), // Decimal -> string
-  };
+     // primitives passthrough
+     id: m.id,
+     name: m.name,
+     description: m.description,
+     imageUrl: m.imageUrl,
+     weight: m.weight,
+ 
+     // policy fields
+     minDays: m.minDays,
+ 
+     // Decimal -> string
+     dailyRate: m.dailyRate.toString(),
+     deposit: m.deposit.toString(),
+ 
+     // Nullable Decimal -> string | null
+     deliveryCharge: m.deliveryCharge != null ? m.deliveryCharge.toString() : null,
+     pickupCharge: m.pickupCharge != null ? m.pickupCharge.toString() : null,
+   };
 }
 
 /**

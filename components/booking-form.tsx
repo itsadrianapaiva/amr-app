@@ -1,13 +1,18 @@
 "use client";
 
 import { useMemo } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { DateRange } from "react-day-picker";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { differenceInCalendarDays, addDays, startOfDay } from "date-fns";
 
-import { SerializableMachine } from "@/lib/types";
+import type { SerializableMachine } from "@/lib/types";
+import {
+  buildBookingSchema,
+  type BookingFormValues,
+} from "@/lib/validation/booking";
+import type { DisabledRangeJSON } from "@/lib/availability";
+
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -21,57 +26,6 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatePicker } from "@/components/date-picker";
 import { formatCurrency } from "@/lib/utils";
-
-//matches what the server returns for disabled ranges
-export type DisabledRangeJSON = { from: string; to: string };
-
-// VALIDATION
-// 1) Schema with dateRange inside the form, plus simple field validation
-const dateRangeSchema = z
-  .object({
-    from: z.date().optional(),
-    to: z.date().optional(),
-  })
-  // ensure from and to are actually selected
-  .refine((r) => !!r.from, {
-    message: "Select a start date",
-    path: ["from"],
-  })
-  .refine((r) => !!r.to, {
-    message: "Select an end date",
-    path: ["to"],
-  })
-  // checks that to(end) is after from(start)
-  .refine((r) => r.from && r.to && r.from <= r.to, {
-    message: "End date cannot be before start",
-    path: ["to"],
-  })
-  // ensures at least one rental day is selected
-  //NEED TO CHANGE THIS TO EACH MACHINE BC VARIES
-  .refine(
-    (r) => r.from && r.to && differenceInCalendarDays(r.to, r.from) + 1 >= 1,
-    {
-      message: "Select at least one rental day",
-      path: ["to"],
-    }
-  );
-
-// Main schema for the entir form
-const formSchema = z.object({
-  dateRange: dateRangeSchema,
-  name: z.string().min(2, { message: "Name must be at least 2 characters" }),
-  email: z.string().regex(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, {
-    message: "Please enter a valid email",
-  }),
-  phone: z
-    .string()
-    .min(9, { message: "Please enter a valid phone number" })
-    .max(20, { message: "Phone number is too long" }),
-});
-
-// Automatically creates a type based on the schema.
-//If ever change the schema, type updates automatically
-type FormValues = z.infer<typeof formSchema>;
 
 type BookingFormProps = {
   machine: Pick<
@@ -119,21 +73,12 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
   // Earliest allowed start: tomorrow at 00:00 local time
   const minStart = startOfDay(addDays(new Date(), 1));
 
-  // Build a runtime schema that enforces minStart
-  const schemaWithMin = formSchema.superRefine((data, ctx) => {
-    const from = data.dateRange.from;
-    if (from && from < minStart) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["dateRange", "from"],
-        message: "Start date cannot be today or in the past",
-      });
-    }
-  });
+  // Build runtime-aware schema (blocks today and past)
+  const schema = buildBookingSchema(minStart);
 
   //Initialize form
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schemaWithMin), //key connection between Zod and react-hook-form
+  const form = useForm<BookingFormValues>({
+    resolver: zodResolver(schema), //key connection between Zod and react-hook-form
     defaultValues: {
       dateRange: { from: undefined, to: undefined },
       name: "",
@@ -169,7 +114,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
   );
 
   // 6) Submit shape is ready for a Server Action later
-  async function onSubmit(values: FormValues) {
+  async function onSubmit(values: BookingFormValues) {
     // Replace with a Server Action call
     // await createPendingBooking(values, machine.id)
     console.info("Booking form submitted", {
