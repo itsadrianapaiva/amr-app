@@ -1,5 +1,6 @@
 import { getMachineById } from "@/lib/data";
 import { getDisabledDateRangesForMachine } from "@/lib/availability.server";
+import { serializeMachine } from "@/lib/serializers";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { MachineSpecs } from "@/components/machine-specs";
@@ -26,15 +27,16 @@ export default async function MachineDetailPage({
   // Get merged, JSON-safe disabled ranges for this machine
   const disabledRangesJSON = await getDisabledDateRangesForMachine(machine.id);
 
-  // Adapter: convert Prisma Decimals to strings expected by SerializedMachine
+  // Use shared serializer, then pick only what the form needs
+  const s = serializeMachine(machine);
   const formMachine: Pick<
     SerializableMachine,
     "id" | "dailyRate" | "deposit" | "deliveryCharge"
   > = {
-    id: machine.id,
-    dailyRate: machine.dailyRate.toString(),
-    deposit: machine.deposit.toString(),
-    deliveryCharge: machine.deliveryCharge.toString(),
+    id: s.id,
+    dailyRate: s.dailyRate,
+    deposit: s.deposit,
+    deliveryCharge: s.deliveryCharge,
   };
 
   return (
