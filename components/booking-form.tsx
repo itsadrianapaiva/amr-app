@@ -6,6 +6,8 @@ import { DateRange } from "react-day-picker";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { differenceInCalendarDays } from "date-fns";
+
+import { SerializableMachine } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -18,15 +20,19 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatePicker } from "@/components/date-picker";
-import { SerializableMachine } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 
+//matches what the server returns for disabled ranges
+export type DisabledRangeJSON = { from: string; to: string };
+
+// VALIDATION
 // 1) Schema with dateRange inside the form, plus simple field validation
 const dateRangeSchema = z
   .object({
     from: z.date().optional(),
     to: z.date().optional(),
   })
+  // ensure from and to are actually selected
   .refine((r) => !!r.from, {
     message: "Select a start date",
     path: ["from"],
@@ -35,10 +41,13 @@ const dateRangeSchema = z
     message: "Select an end date",
     path: ["to"],
   })
+  // checks that to(end) is after from(start)
   .refine((r) => r.from && r.to && r.from <= r.to, {
     message: "End date cannot be before start",
     path: ["to"],
   })
+  // ensures at least one rental day is selected
+  //NEED TO CHANGE THIS TO EACH MACHINE BC VARIES
   .refine(
     (r) => r.from && r.to && differenceInCalendarDays(r.to, r.from) + 1 >= 1,
     {
@@ -47,6 +56,7 @@ const dateRangeSchema = z
     }
   );
 
+// Main schema for the entir form
 const formSchema = z.object({
   dateRange: dateRangeSchema,
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
@@ -59,6 +69,8 @@ const formSchema = z.object({
     .max(20, { message: "Phone number is too long" }),
 });
 
+// Automatically creates a type based on the schema.
+//If ever change the schema, type updates automatically
 type FormValues = z.infer<typeof formSchema>;
 
 type BookingFormProps = {
@@ -66,6 +78,8 @@ type BookingFormProps = {
     SerializableMachine,
     "id" | "dailyRate" | "deposit" | "deliveryCharge"
   >;
+  //optional list of disabled date ranges from server
+  disabledRangesJSON?: DisabledRangeJSON[];
 };
 
 // 2) Tiny presentational component to keep the form lean
@@ -95,31 +109,45 @@ function PriceSummary(props: {
   );
 }
 
-export function BookingForm({ machine }: BookingFormProps) {
+//COMPONENT LOGIC: STATE, DERIVED VALUES AND SUBMISSION
+export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
   // 3) Normalize numeric fields once
   const dailyRate = Number(machine.dailyRate);
   const deliveryCharge = Number(machine.deliveryCharge);
   const deposit = Number(machine.deposit);
 
+  //Initialize form
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema), //key connection between Zod and react-hook-form
     defaultValues: {
       dateRange: { from: undefined, to: undefined },
       name: "",
       email: "",
       phone: "",
     },
-    mode: "onChange",
+    mode: "onChange", // Validate on every change
   });
 
   // 4) Derive rental days from form state
+  // Subscribes to dateRange changes. when user picks new dates, it will re-render
   const dateRange = form.watch("dateRange");
+  // Cache the result of rentalDays calculation
   const rentalDays = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to) return 0;
     return differenceInCalendarDays(dateRange.to, dateRange.from) + 1;
   }, [dateRange]);
 
-  // 5) Submit shape is ready for a Server Action later
+  // 5) Convert server JSON to Date objects for Calendar "disabled" prop
+  const disabledDays = useMemo(
+    () =>
+      (disabledRangesJSON ?? []).map((r) => ({
+        from: new Date(r.from),
+        to: new Date(r.to),
+      })),
+    [disabledRangesJSON]
+  );
+
+  // 6) Submit shape is ready for a Server Action later
   async function onSubmit(values: FormValues) {
     // Replace with a Server Action call
     // await createPendingBooking(values, machine.id)
@@ -135,6 +163,7 @@ export function BookingForm({ machine }: BookingFormProps) {
     !dateRange?.to ||
     form.formState.isSubmitting;
 
+  //UI AND RENDERING
   return (
     <Card>
       <CardHeader>
@@ -154,6 +183,7 @@ export function BookingForm({ machine }: BookingFormProps) {
                     <DatePicker
                       date={field.value as DateRange | undefined}
                       onSelectDate={field.onChange}
+                      disabledDays={disabledDays}
                     />
                   </FormControl>
                   <FormMessage />
