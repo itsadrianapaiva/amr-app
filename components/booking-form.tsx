@@ -1,10 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { DateRange } from "react-day-picker";
-import { differenceInCalendarDays, addDays, startOfDay } from "date-fns";
+import { useState } from "react";
+import { addDays, startOfDay } from "date-fns";
 
 import type { SerializableMachine } from "@/lib/types";
 import {
@@ -12,6 +9,7 @@ import {
   type BookingFormValues,
 } from "@/lib/validation/booking";
 import type { DisabledRangeJSON } from "@/lib/availability";
+import { INSURANCE_CHARGE } from "@/lib/config";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -24,99 +22,46 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DatePicker } from "@/components/date-picker";
-import { formatCurrency } from "@/lib/utils";
+import { PriceSummary } from "@/components/booking/price-summary";
+import { AddOnsPanel } from "@/components/booking/add-ons-panel";
+import { DateRangeInput } from "@/components/booking/date-range-input";
+import { DateRange } from "react-day-picker";
+import { useBookingFormLogic } from "@/lib/hooks/use-booking-form-logic";
 
 type BookingFormProps = {
   machine: Pick<
     SerializableMachine,
-    "id" | "dailyRate" | "deposit" | "deliveryCharge"
+    | "id"
+    | "dailyRate"
+    | "deposit"
+    | "deliveryCharge"
+    | "pickupCharge"
+    | "minDays"
   >;
-  //optional list of disabled date ranges from server
   disabledRangesJSON?: DisabledRangeJSON[];
 };
 
-// 2) Tiny presentational component to keep the form lean
-function PriceSummary(props: {
-  rentalDays: number;
-  dailyRate: number;
-  deliveryCharge: number;
-  deposit: number;
-}) {
-  const { rentalDays, dailyRate, deliveryCharge, deposit } = props;
-  const subtotal = rentalDays * dailyRate;
-  const total = subtotal + deliveryCharge;
-  return (
-    <Card className="bg-muted/50 p-4">
-      <h3 className="font-semibold">Price Summary</h3>
-      <div className="mt-2 space-y-1 text-sm">
-        <p>
-          Subtotal ({rentalDays} days): {formatCurrency(subtotal)}
-        </p>
-        <p>Delivery: {formatCurrency(deliveryCharge)}</p>
-        <p className="font-bold">Total: {formatCurrency(total)}</p>
-        <p className="text-muted-foreground">
-          Deposit due today: {formatCurrency(deposit)}
-        </p>
-      </div>
-    </Card>
-  );
-}
-
-//COMPONENT LOGIC: STATE, DERIVED VALUES AND SUBMISSION
 export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
-  // 3) Normalize numeric fields once
   const dailyRate = Number(machine.dailyRate);
-  const deliveryCharge = Number(machine.deliveryCharge);
+  const deliveryCharge = Number(machine.deliveryCharge ?? 0);
+  const pickupCharge = Number(machine.pickupCharge ?? 0);
   const deposit = Number(machine.deposit);
+  const minDays = machine.minDays;
 
-  // Earliest allowed start: tomorrow at 00:00 local time
   const minStart = startOfDay(addDays(new Date(), 1));
+  const schema = buildBookingSchema(minStart, minDays);
 
-  // Build runtime-aware schema (blocks today and past)
-  const schema = buildBookingSchema(minStart);
-
-  //Initialize form
-  const form = useForm<BookingFormValues>({
-    resolver: zodResolver(schema), //key connection between Zod and react-hook-form
-    defaultValues: {
-      dateRange: { from: undefined, to: undefined },
-      name: "",
-      email: "",
-      phone: "",
-    },
-    mode: "onChange", // Validate on every change
+  const { form, rentalDays, disabledDays } = useBookingFormLogic({
+    schema, // concrete Zod schema for THIS machine
+    disabledRangesJSON, // server ranges to merge with policy
   });
 
-  // 4) Derive rental days from form state
-  // Subscribes to dateRange changes. when user picks new dates, it will re-render
-  const dateRange = form.watch("dateRange");
-  // Cache the result of rentalDays calculation
-  const rentalDays = useMemo(() => {
-    if (!dateRange?.from || !dateRange?.to) return 0;
-    return differenceInCalendarDays(dateRange.to, dateRange.from) + 1;
-  }, [dateRange]);
+  // Local state for add-ons
+  const [deliverySelected, setDeliverySelected] = useState(false);
+  const [pickupSelected, setPickupSelected] = useState(false);
+  const [insuranceSelected, setInsuranceSelected] = useState(false);
 
-  // 5) Convert server JSON to Date objects for Calendar "disabled" prop
-  const serverDisabled = useMemo(
-    () =>
-      (disabledRangesJSON ?? []).map((r) => ({
-        from: new Date(r.from),
-        to: new Date(r.to),
-      })),
-    [disabledRangesJSON]
-  );
-
-  // Policy: block today and all past days
-  const disabledDays = useMemo(
-    () => [{ before: minStart }, ...serverDisabled],
-    [minStart, serverDisabled]
-  );
-
-  // 6) Submit shape is ready for a Server Action later
   async function onSubmit(values: BookingFormValues) {
-    // Replace with a Server Action call
-    // await createPendingBooking(values, machine.id)
     console.info("Booking form submitted", {
       ...values,
       machineId: machine.id,
@@ -125,11 +70,9 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
 
   const isSubmitDisabled =
     !form.formState.isValid ||
-    !dateRange?.from ||
-    !dateRange?.to ||
+    rentalDays === 0 || // require a valid range (derived by the hook)
     form.formState.isSubmitting;
 
-  //UI AND RENDERING
   return (
     <Card>
       <CardHeader>
@@ -138,7 +81,6 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            {/* DATE RANGE */}
             <FormField
               control={form.control}
               name="dateRange"
@@ -146,32 +88,44 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
                 <FormItem className="flex flex-col">
                   <FormLabel>Rental Dates</FormLabel>
                   <FormControl>
-                    <DatePicker
-                      date={field.value as DateRange | undefined}
-                      onSelectDate={field.onChange}
+                    <DateRangeInput
+                      value={field.value as DateRange | undefined}
+                      onChange={field.onChange}
                       disabledDays={disabledDays}
+                      helperText="Earliest start is tomorrow. Same-day rentals are not available."
                     />
                   </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Earliest start is tomorrow. Same-day rentals are not
-                    available.
-                  </p>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            {/* PRICE SUMMARY */}
+            {/* ADD-ONS */}
+            <AddOnsPanel
+              deliverySelected={deliverySelected}
+              pickupSelected={pickupSelected}
+              insuranceSelected={insuranceSelected}
+              onToggleDelivery={setDeliverySelected}
+              onTogglePickup={setPickupSelected}
+              onToggleInsurance={setInsuranceSelected}
+              minDays={machine.minDays}
+            />
+
+            {/* PRICE SUMMARY CALL */}
             {rentalDays > 0 && (
               <PriceSummary
                 rentalDays={rentalDays}
                 dailyRate={dailyRate}
-                deliveryCharge={deliveryCharge}
                 deposit={deposit}
+                deliverySelected={deliverySelected}
+                pickupSelected={pickupSelected}
+                insuranceSelected={insuranceSelected}
+                deliveryCharge={deliveryCharge}
+                pickupCharge={pickupCharge}
+                insuranceCharge={insuranceSelected ? INSURANCE_CHARGE : null}
               />
             )}
 
-            {/* CUSTOMER DETAILS */}
             <FormField
               control={form.control}
               name="name"

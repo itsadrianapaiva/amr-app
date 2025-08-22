@@ -32,12 +32,19 @@ export default async function MachineDetailPage({
   const s = serializeMachine(machine);
   const formMachine: Pick<
     SerializableMachine,
-    "id" | "dailyRate" | "deposit" | "deliveryCharge"
+    | "id"
+    | "dailyRate"
+    | "deposit"
+    | "deliveryCharge"
+    | "pickupCharge"
+    | "minDays"
   > = {
     id: s.id,
     dailyRate: s.dailyRate,
     deposit: s.deposit,
     deliveryCharge: s.deliveryCharge,
+    pickupCharge: s.pickupCharge,
+    minDays: s.minDays,
   };
 
   // Display strings

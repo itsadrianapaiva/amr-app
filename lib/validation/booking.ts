@@ -2,11 +2,12 @@ import { z } from "zod";
 import { differenceInCalendarDays } from "date-fns";
 
 /**
- * Schema for the date range widget.
- * Keeps "from" and "to" optional so RHF can initialize empty state.
- * Then we add rules to require both and ensure chronological order.
+ * Small helper to compute inclusive rental days.
+ * Example: 2025-08-10 to 2025-08-12 => 3 days.
  */
-
+function rentalDays(from: Date, to: Date) {
+  return differenceInCalendarDays(to, from) + 1;
+}
 
 // Schema with dateRange inside the form, plus simple field validation
 const dateRangeSchema = z
@@ -27,20 +28,12 @@ const dateRangeSchema = z
   .refine((r) => r.from && r.to && r.from <= r.to, {
     message: "End date cannot be before start",
     path: ["to"],
-  })
-  // ensures at least one rental day is selected
-  //NEED TO CHANGE THIS TO EACH MACHINE BC VARIES
-  .refine(
-    (r) => r.from && r.to && differenceInCalendarDays(r.to, r.from) + 1 >= 1,
-    {
-      message: "Select at least one rental day",
-      path: ["to"],
-    }
-  );
+  });
 
 /**
  * Base form schema without runtime policies.
- * We keep minimum field rules here.
+ * Add-ons are optional booleans a user must review, not forced to true.
+ * We use z.coerce.boolean() to accept "on"/"true"/"false" from FormData as well.
  */
 export const baseBookingFormSchema = z.object({
   dateRange: dateRangeSchema,
@@ -52,16 +45,22 @@ export const baseBookingFormSchema = z.object({
     .string()
     .min(9, { message: "Please enter a valid phone number" })
     .max(20, { message: "Phone number is too long" }),
+  // Add-ons (explicit fields, default false if missing)
+  deliverySelected: z.coerce.boolean().default(false),
+  pickupSelected: z.coerce.boolean().default(false),
+  insuranceSelected: z.coerce.boolean().default(false),
 });
 
 /**
  * Build a schema with runtime business rules.
- * For now: start date must be >= minStart (tomorrow).
- * Later: we will also enforce machine.minDays here.
+ * - Start date must be >= minStart (typically tomorrow).
+ * - Enforce machine-specific minimum days.
  */
-export function buildBookingSchema(minStart: Date) {
+export function buildBookingSchema(minStart: Date, minDays: number) {
   return baseBookingFormSchema.superRefine((data, ctx) => {
-    const from = data.dateRange.from;
+    const { from, to } = data.dateRange;
+
+    // Rule 1: start date must be >= minStart
     if (from && from < minStart) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -69,10 +68,20 @@ export function buildBookingSchema(minStart: Date) {
         message: "Start date cannot be today or in the past",
       });
     }
+
+    // Rule 2: minDays per machine
+    if (from && to) {
+      const days = rentalDays(from, to);
+      if (days < minDays) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["dateRange", "to"],
+          message: `Minimum rental is ${minDays} day${minDays > 1 ? "s" : ""}`,
+        });
+      }
+    }
   });
 }
 
-// Helpful type for RHF generics
-// Automatically creates a type based on the schema.
-//If ever change the schema, type updates automatically
+// Helpful type for RHF(react hook form) generics
 export type BookingFormValues = z.infer<typeof baseBookingFormSchema>;
