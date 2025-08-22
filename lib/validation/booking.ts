@@ -63,7 +63,7 @@ export function buildBookingSchema(minStart: Date, minDays: number) {
     // Rule 1: start date must be >= minStart
     if (from && from < minStart) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         path: ["dateRange", "from"],
         message: "Start date cannot be today or in the past",
       });
@@ -76,7 +76,9 @@ export function buildBookingSchema(minStart: Date, minDays: number) {
         ctx.addIssue({
           code: "custom",
           path: ["dateRange", "to"],
-          message: `Minimum rental is ${minDays} day${minDays > 1 ? "s" : ""}`,
+          message: `Minimum rental is ${minDays} day${
+            minDays > 1 ? "s" : ""
+          } — you selected ${days}.`,
         });
       }
     }

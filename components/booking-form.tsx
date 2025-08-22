@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { DateRange } from "react-day-picker";
 import { addDays, startOfDay } from "date-fns";
 
 import type { SerializableMachine } from "@/lib/types";
@@ -25,8 +26,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PriceSummary } from "@/components/booking/price-summary";
 import { AddOnsPanel } from "@/components/booking/add-ons-panel";
 import { DateRangeInput } from "@/components/booking/date-range-input";
-import { DateRange } from "react-day-picker";
 import { useBookingFormLogic } from "@/lib/hooks/use-booking-form-logic";
+import { DateRangeSection } from "@/components/booking/sections/date-range-section";
 
 type BookingFormProps = {
   machine: Pick<
@@ -83,6 +84,26 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
     });
   }, [insuranceSelected, form]);
 
+  // Simple date error derivation: favor min-days clarity
+  const dateFromError = form.formState.errors?.dateRange?.from?.message as
+    | string
+    | undefined;
+  const dateToError = form.formState.errors?.dateRange?.to?.message as
+    | string
+    | undefined;
+
+  let dateErrorMessage: string | undefined = undefined;
+  if (dateFromError) {
+    dateErrorMessage = dateFromError;
+  } else if (dateToError) {
+    dateErrorMessage = dateToError;
+  } else if (rentalDays > 0 && rentalDays < minDays) {
+    dateErrorMessage = `Minimum rental is ${minDays} ${
+      minDays > 1 ? "days" : "day"
+    }. You selected ${rentalDays}.`;
+  }
+  const isDateInvalid = Boolean(dateErrorMessage);
+
   async function onSubmit(values: BookingFormValues) {
     const payload = {
       ...values,
@@ -110,23 +131,17 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <FormField
+            {/* Date Range with minimal alerting and live validation */}
+            <DateRangeSection
               control={form.control}
-              name="dateRange"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Rental Dates</FormLabel>
-                  <FormControl>
-                    <DateRangeInput
-                      value={field.value as DateRange | undefined}
-                      onChange={field.onChange}
-                      disabledDays={disabledDays}
-                      helperText="Earliest start is tomorrow. Same-day rentals are not available."
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              disabledDays={disabledDays}
+              helperText="Earliest start is tomorrow. Same-day rentals are not available."
+              isInvalid={isDateInvalid}
+              errorMessage={dateErrorMessage}
+              onRangeChange={() => {
+                // Trigger validation immediately so wrong ranges show the alert
+                void form.trigger("dateRange");
+              }}
             />
 
             {/* ADD-ONS */}
