@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { addDays, startOfDay } from "date-fns";
 
 import type { SerializableMachine } from "@/lib/types";
@@ -56,16 +56,45 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
     disabledRangesJSON, // server ranges to merge with policy
   });
 
-  // Local state for add-ons
+  // Local state for add-ons . opt-out default to reinforce user choice
   const [deliverySelected, setDeliverySelected] = useState(true);
   const [pickupSelected, setPickupSelected] = useState(true);
   const [insuranceSelected, setInsuranceSelected] = useState(true);
 
-  async function onSubmit(values: BookingFormValues) {
-    console.info("Booking form submitted", {
-      ...values,
-      machineId: machine.id,
+  //Sync form state with local add-on selections
+  useEffect(() => {
+    form.setValue("deliverySelected", deliverySelected, {
+      shouldValidate: true,
+      shouldDirty: true,
     });
+  }, [deliverySelected, form]);
+
+  useEffect(() => {
+    form.setValue("pickupSelected", pickupSelected, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+  }, [pickupSelected, form]);
+
+  useEffect(() => {
+    form.setValue("insuranceSelected", insuranceSelected, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+  }, [insuranceSelected, form]);
+
+  async function onSubmit(values: BookingFormValues) {
+    const payload = {
+      ...values,
+      deliverySelected,
+      pickupSelected,
+      insuranceSelected,
+      rentalDays, // derived by the hook
+      machineId: machine.id,
+    };
+
+    // Replace this with Server Action when ready
+    console.info("Booking form submitted", payload);
   }
 
   const isSubmitDisabled =
