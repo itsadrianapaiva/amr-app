@@ -18,25 +18,38 @@ import type { BookingFormValues } from "@/lib/validation/booking";
  * That keeps generics perfectly aligned with what the container uses.
  */
 export function useBookingFormLogic(args: {
-  schema: any; // Zod schema instance for BookingFormValues (kept as any to avoid generic friction)
+  schema: any; // Zod schema instance for BookingFormValues
   disabledRangesJSON?: DisabledRangeJSON[];
+  /** Optional initial values to avoid post-mount resets in containers */
+  defaultValues?: Partial<BookingFormValues>;
 }) {
-  const { schema, disabledRangesJSON } = args;
+  const { schema, disabledRangesJSON, defaultValues } = args;
 
   // Earliest allowed start: tomorrow at 00:00 local time
   const minStart = startOfDay(addDays(new Date(), 1));
 
-  // Initialize RHF once, using the provided schema
+  // Base defaults for a pristine form; callers can override via defaultValues
+  const baseDefaults: BookingFormValues = {
+    dateRange: { from: undefined, to: undefined },
+    name: "",
+    email: "",
+    phone: "",
+    // Add-ons live in the schema too; caller may provide them here to override
+    // the schema defaults (e.g., set all to true at init).
+    deliverySelected: false,
+    pickupSelected: false,
+    insuranceSelected: false,
+  };
+
+  const mergedDefaults: BookingFormValues = {
+    ...baseDefaults,
+    ...(defaultValues as BookingFormValues | undefined),
+  };
+
+  // Initialize RHF once, using the provided schema and merged defaults
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      dateRange: { from: undefined, to: undefined },
-      name: "",
-      email: "",
-      phone: "",
-      // If schema includes add-ons with defaults, Zod will supply them post-parse.
-      // We keep defaults minimal here to avoid clashes.
-    },
+    defaultValues: mergedDefaults,
     mode: "onChange",
   });
 
