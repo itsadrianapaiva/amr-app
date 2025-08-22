@@ -57,9 +57,9 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
   });
 
   // Local state for add-ons
-  const [deliverySelected, setDeliverySelected] = useState(false);
-  const [pickupSelected, setPickupSelected] = useState(false);
-  const [insuranceSelected, setInsuranceSelected] = useState(false);
+  const [deliverySelected, setDeliverySelected] = useState(true);
+  const [pickupSelected, setPickupSelected] = useState(true);
+  const [insuranceSelected, setInsuranceSelected] = useState(true);
 
   async function onSubmit(values: BookingFormValues) {
     console.info("Booking form submitted", {
