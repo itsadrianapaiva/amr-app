@@ -1,34 +1,53 @@
-import { Weight, Euro, Truck, ShieldCheck } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { Weight, Euro, Truck, ShieldCheck, CalendarDays } from "lucide-react";
+import { formatCurrency, moneyDisplay } from "@/lib/utils";
 import type { Machine } from "@prisma/client";
 
 interface MachineSpecsProps {
-  machine: Pick<Machine, "dailyRate" | "weight" | "deposit" | "deliveryCharge">;
+  machine: Pick<
+    Machine,
+    | "dailyRate"
+    | "weight"
+    | "deposit"
+    | "deliveryCharge"
+    | "pickupCharge"
+    | "minDays"
+  >;
 }
 
 export function MachineSpecs({ machine }: MachineSpecsProps) {
   const specs = [
     {
-      icon: <Euro className="h-7 w-7 text-primary" />, // Corrected icon
+      icon: <Euro className="h-7 w-7 text-primary" />,
       label: "Daily Rate",
-      value: formatCurrency(machine.dailyRate),
+      // dailyRate is required — still format defensively
+      value: formatCurrency(Number(machine.dailyRate)),
+    },
+    {
+      icon: <CalendarDays className="h-7 w-7 text-primary" />,
+      label: "Minimum Rental",
+      value: `${machine.minDays} ${machine.minDays > 1 ? "days" : "day"}`,
     },
     {
       icon: <Weight className="h-7 w-7 text-primary" />,
       label: "Weight",
-      value: machine.weight,
+      value: String(machine.weight),
     },
     {
       icon: <ShieldCheck className="h-7 w-7 text-primary" />,
       label: "Deposit",
-      value: formatCurrency(machine.deposit),
+      value: formatCurrency(Number(machine.deposit)),
     },
     {
       icon: <Truck className="h-7 w-7 text-primary" />,
       label: "Delivery Charge",
-      value: formatCurrency(machine.deliveryCharge),
+      value: moneyDisplay(machine.deliveryCharge), // "Included" | currency | "Not available"
     },
-  ];
+    {
+      icon: <Truck className="h-7 w-7 text-primary" />,
+      label: "Pickup Charge",
+      value: moneyDisplay(machine.pickupCharge), // "Included" | currency | "Not available"
+    },
+  ] as const; //treat this array as readonly to ensure type safety
 
   return (
     <div className="grid grid-cols-2 gap-4 border-y border-border/40 py-6">

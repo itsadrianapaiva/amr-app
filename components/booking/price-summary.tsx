@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
+import { computeTotals } from "@/lib/pricing";
 
 /**
  * Pure presentational component. No business logic, no RHF.
@@ -29,34 +30,39 @@ export function PriceSummary({
   pickupCharge = 0,
   insuranceCharge = null,
 }: PriceSummaryProps) {
-  const subtotal = rentalDays * dailyRate;
-  const deliveryCost = deliverySelected ? Number(deliveryCharge ?? 0) : 0;
-  const pickupCost = pickupSelected ? Number(pickupCharge ?? 0) : 0;
-  const insuranceCost = insuranceSelected ? Number(insuranceCharge ?? 0) : 0;
-  const total =
-    subtotal +
-    deliveryCost +
-    pickupCost +
-    (insuranceCharge != null ? insuranceCost : 0); // only adds to total when price is known
+  const breakdown = computeTotals({
+    rentalDays,
+    dailyRate,
+    deliverySelected,
+    pickupSelected,
+    insuranceSelected,
+    deliveryCharge,
+    pickupCharge,
+    insuranceCharge,
+  });
 
   return (
     <Card className="bg-muted/50 p-4">
       <h3 className="font-semibold">Price Summary</h3>
       <div className="mt-2 space-y-1 text-sm">
         <p>
-          Subtotal ({rentalDays} days): {formatCurrency(subtotal)}
+          Subtotal ({breakdown.rentalDays} days):{" "}
+          {formatCurrency(breakdown.subtotal)}
         </p>
 
-        {deliverySelected && <p>Delivery: {formatCurrency(deliveryCost)}</p>}
-        {pickupSelected && <p>Pickup: {formatCurrency(pickupCost)}</p>}
+        {deliverySelected && (
+          <p>Delivery: {formatCurrency(breakdown.delivery)}</p>
+        )}
+        {pickupSelected && <p>Pickup: {formatCurrency(breakdown.pickup)}</p>}
 
         {insuranceSelected &&
           (insuranceCharge != null ? (
-            <p>Insurance: {formatCurrency(insuranceCost)}</p>
+            <p>Insurance: {formatCurrency(breakdown.insurance)}</p>
           ) : (
             <p>Insurance: TBD</p>
           ))}
-        <p className="font-bold">Total: {formatCurrency(total)}</p>
+
+        <p className="font-bold">Total: {formatCurrency(breakdown.total)}</p>
         <p className="text-muted-foreground">
           Deposit due today: {formatCurrency(deposit)}
         </p>

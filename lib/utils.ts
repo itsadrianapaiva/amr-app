@@ -16,6 +16,20 @@ export function formatCurrency(amount: number | string | Decimal) {
   }).format(numericAmount);
 }
 
+/**
+ * Display helper for optional money fields (DB Decimal | string | number | null).
+ * - null/invalid → "Not available"
+ * - 0 → "Included"
+ * - >0 → formatted currency via formatCurrency
+ */
+export function moneyDisplay(val: unknown): string {
+  if (val == null) return "Not available";
+  const num = Number(val);
+  if (Number.isNaN(num)) return "Not available";
+  if (num === 0) return "Included";
+  return formatCurrency(num);
+}
+
 // This function transforms a string so each word starts uppercase and the rest lowercase. Keeps punctuation like slashes and hyphens intact while capitalizing word starts.
 export function toTitleCase(input: string): string {
   if (!input) return "";

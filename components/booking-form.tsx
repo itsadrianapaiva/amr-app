@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { addDays, startOfDay } from "date-fns";
 
 import type { SerializableMachine } from "@/lib/types";
