@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { DateRange } from "react-day-picker";
 import { addDays, startOfDay } from "date-fns";
 
 import type { SerializableMachine } from "@/lib/types";
@@ -13,21 +12,13 @@ import type { DisabledRangeJSON } from "@/lib/availability";
 import { INSURANCE_CHARGE } from "@/lib/config";
 
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { Form } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PriceSummary } from "@/components/booking/price-summary";
 import { AddOnsPanel } from "@/components/booking/add-ons-panel";
-import { DateRangeInput } from "@/components/booking/date-range-input";
 import { useBookingFormLogic } from "@/lib/hooks/use-booking-form-logic";
 import { DateRangeSection } from "@/components/booking/sections/date-range-section";
+import { ContactSection } from "@/components/booking/sections/contact-section";
 
 type BookingFormProps = {
   machine: Pick<
@@ -170,67 +161,8 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
               />
             )}
 
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel htmlFor="name">Full Name</FormLabel>
-                  <FormControl>
-                    <Input
-                      id="name"
-                      placeholder="Your full name"
-                      autoComplete="name"
-                      required
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel htmlFor="email">Email</FormLabel>
-                  <FormControl>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="your.email@example.com"
-                      autoComplete="email"
-                      required
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel htmlFor="phone">Phone Number</FormLabel>
-                  <FormControl>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="Contact phone number"
-                      autoComplete="tel"
-                      required
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* CONTACT SECTION */}
+            <ContactSection control={form.control} />
 
             <Button type="submit" disabled={isSubmitDisabled}>
               {form.formState.isSubmitting ? "Submitting..." : "Submit"}
