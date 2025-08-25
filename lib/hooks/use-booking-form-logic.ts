@@ -35,10 +35,18 @@ export function useBookingFormLogic(args: {
     email: "",
     phone: "",
     // Add-ons live in the schema too; caller may provide them here to override
-    // the schema defaults (e.g., set all to true at init).
-    deliverySelected: false,
-    pickupSelected: false,
-    insuranceSelected: false,
+    deliverySelected: true,
+    pickupSelected: true,
+    insuranceSelected: true,
+    operatorSelected: false,
+    // basic billing defaults
+    billingIsBusiness: false,
+    billingCompanyName: "",
+    billingTaxId: "",
+    billingAddressLine1: "",
+    billingPostalCode: "",
+    billingCity: "",
+    billingCountry: "",
   };
 
   const mergedDefaults: BookingFormValues = {

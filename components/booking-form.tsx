@@ -70,7 +70,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
       billingPostalCode: "",
       billingCity: "",
       billingCountry: "",
-    } as Partial<BookingFormValues> as any,
+    } as Partial<BookingFormValues>,
   });
 
   // Read add-on values directly from RHF
@@ -83,7 +83,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
     "deliverySelected",
     "pickupSelected",
     "insuranceSelected",
-    "operatorSelected" as any, //type to be added
+    "operatorSelected",
   ]) as boolean[];
 
   // Derive date error using shared helper
@@ -198,9 +198,8 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
                   shouldValidate: true,
                 })
               }
-              // (cast while schema catches up)
               onToggleOperator={() =>
-                form.setValue("operatorSelected" as any, !operatorSelected, {
+                form.setValue("operatorSelected", !operatorSelected, {
                   shouldDirty: true,
                   shouldValidate: true,
                 })
