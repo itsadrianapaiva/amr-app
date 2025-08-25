@@ -13,7 +13,7 @@ import { INSURANCE_CHARGE } from "@/lib/config";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PriceSummary } from "@/components/booking/price-summary";
+import PriceSummary from "@/components/booking/price-summary";
 import { AddOnsPanel } from "@/components/booking/add-ons-panel";
 import { useBookingFormLogic } from "@/lib/hooks/use-booking-form-logic";
 import { DateRangeSection } from "@/components/booking/sections/date-range-section";
