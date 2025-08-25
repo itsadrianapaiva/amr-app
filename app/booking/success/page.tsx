@@ -7,7 +7,7 @@ type PageProps = {
   searchParams: Promise<{ session_id?: string }>;
 };
 
-// Small helper: be lenient and return strings
+// Small helper: Read metadata we set on the Checkout Session
 function getMeta(session: any) {
   const m = session?.metadata ?? {};
   return {
@@ -73,9 +73,9 @@ export default async function SuccessPage({ searchParams }: PageProps) {
     );
   }
 
-  // idempotent way
   // If the user refreshes this page, we do not double confirm.
-  // Confirm booking if needed (no revalidatePath here)
+  // Confirm booking if needed (idempotent)
+  let didPromote = false;
   await db.$transaction(async (tx) => {
     const existing = await tx.booking.findUnique({
       where: { id: bookingId },
@@ -104,13 +104,36 @@ export default async function SuccessPage({ searchParams }: PageProps) {
           status: BookingStatus.CONFIRMED,
         },
       });
+      didPromote = true;
     }
   });
+
+  // 2) Best-effort revalidation via API route (allowed outside render)
+  if (didPromote) {
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.APP_URL ||
+      "http://localhost:3000";
+
+    try {
+      const body = typeof machineId === "number" ? { machineId } : {};
+      await fetch(`${appUrl}/api/revalidate-after-confirm`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify(body),
+      });
+    } catch {
+      // Non-fatal: UI still renders; stale pages will update on next request.
+    }
+  }
 
   return (
     <main className="container mx-auto py-16">
       <h1 className="text-2xl font-semibold">Booking confirmed</h1>
-      <p className="mt-2">Thank you. Your deposit was processed successfully.</p>
+      <p className="mt-2">
+        Thank you. Your deposit was processed successfully.
+      </p>
 
       <div className="mt-6 grid gap-1 text-sm text-muted-foreground">
         <p>
@@ -135,9 +158,13 @@ export default async function SuccessPage({ searchParams }: PageProps) {
       </div>
 
       <div className="mt-8 flex gap-6">
-        <a href="/" className="underline">Back to catalog</a>
+        <a href="/" className="underline">
+          Back to catalog
+        </a>
         {typeof machineId === "number" && (
-          <a href={`/machine/${machineId}`} className="underline">Go to machine</a>
+          <a href={`/machine/${machineId}`} className="underline">
+            Go to machine
+          </a>
         )}
       </div>
     </main>
