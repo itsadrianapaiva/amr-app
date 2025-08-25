@@ -1,12 +1,17 @@
 import { Checkbox } from "@/components/ui/checkbox";
+import AddOnRow from '@/components/booking/add-on-row';
 
 type AddOnsPanelProps = {
   deliverySelected: boolean;
   pickupSelected: boolean;
   insuranceSelected: boolean;
+  operatorSelected: boolean;
+
   onToggleDelivery: (v: boolean) => void;
   onTogglePickup: (v: boolean) => void;
   onToggleInsurance: (v: boolean) => void;
+  onToggleOperator: (v: boolean) => void;
+
   minDays: number;
 };
 
@@ -19,60 +24,47 @@ export function AddOnsPanel({
   deliverySelected,
   pickupSelected,
   insuranceSelected,
+  operatorSelected,
   onToggleDelivery,
   onTogglePickup,
   onToggleInsurance,
+  onToggleOperator,
   minDays,
 }: AddOnsPanelProps) {
   return (
     <div className="mt-6 space-y-4">
-      {/* Delivery */}
-      <div className="flex items-center justify-between rounded-lg border p-3">
-        <div>
-          <p className="font-medium">Delivery</p>
-          <p className="text-sm text-muted-foreground">
-            Save time — we’ll bring the machine to your site.
-          </p>
-        </div>
-        <Checkbox
-          checked={deliverySelected}
-          onCheckedChange={(v) => onToggleDelivery(Boolean(v))}
-        />
-      </div>
+      <AddOnRow
+        id="delivery"
+        title="Delivery"
+        description="Save time - we will bring the machine to your site."
+        checked={deliverySelected}
+        onToggle={onToggleDelivery}
+      />
 
-      {/* Pickup */}
-      <div className="flex items-center justify-between rounded-lg border p-3">
-        <div>
-          <p className="font-medium">Pickup</p>
-          <p className="text-sm text-muted-foreground">
-            We collect it when you’re done — no hassle.
-          </p>
-        </div>
-        <Checkbox
-          checked={pickupSelected}
-          onCheckedChange={(v) => onTogglePickup(Boolean(v))}
-        />
-      </div>
+      <AddOnRow
+        id="pickup"
+        title="Pickup"
+        description="We collect it when you are done - no hassle."
+        checked={pickupSelected}
+        onToggle={onTogglePickup}
+      />
 
-      {/* Insurance */}
-      <div className="flex items-center justify-between rounded-lg border p-3">
-        <div>
-          <p className="font-medium">
-            Insurance
-            <span className="ml-2 rounded bg-primary/10 px-2 py-0.5 text-xs">
-              Recommended
-            </span>
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Covers accidental damage. Without insurance, you’re responsible for
-            repair costs.
-          </p>
-        </div>
-        <Checkbox
-          checked={insuranceSelected}
-          onCheckedChange={(v) => onToggleInsurance(Boolean(v))}
-        />
-      </div>
+      <AddOnRow
+        id="insurance"
+        title="Insurance"
+        description="Covers accidental damage. Without insurance, you are responsible for repair costs."
+        checked={insuranceSelected}
+        onToggle={onToggleInsurance}
+        badge="Recommended"
+      />
+
+      <AddOnRow
+        id="operator"
+        title="Driver / Operator"
+        description="Certified operator to run the machine safely - charged per day."
+        checked={operatorSelected}
+        onToggle={onToggleOperator}
+      />
 
       <p className="text-xs text-muted-foreground">
         Minimum rental: {minDays} {minDays > 1 ? "days" : "day"}.
