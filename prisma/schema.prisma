@@ -33,15 +33,25 @@ model Booking {
   endDate               DateTime
 
   // Selected at checkout
-  insuranceSelected     Boolean       @default(false)
-  deliverySelected      Boolean       @default(false)
-  pickupSelected        Boolean       @default(false)
+  insuranceSelected     Boolean       @default(true)
+  deliverySelected      Boolean       @default(true)
+  pickupSelected        Boolean       @default(true)
+  operatorSelected   Boolean          @default(false)
 
   // Customer details
   customerName          String
   customerEmail         String
   customerPhone         String
   customerNIF           String?
+
+  // Business invoicing fields (optional)
+  billingIsBusiness     Boolean         @default(false)
+  billingCompanyName    String?
+  billingTaxId          String?
+  billingAddressLine1   String?
+  billingPostalCode     String?
+  billingCity           String?
+  billingCountry        String?
 
   // Payment and ops
   totalCost             Decimal
