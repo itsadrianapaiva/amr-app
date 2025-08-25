@@ -35,21 +35,88 @@ const dateRangeSchema = z
  * Add-ons are optional booleans a user must review, not forced to true.
  * We use z.coerce.boolean() to accept "on"/"true"/"false" from FormData as well.
  */
-export const baseBookingFormSchema = z.object({
-  dateRange: dateRangeSchema,
-  name: z.string().min(2, { message: "Name must be at least 2 characters" }),
-  email: z.string().regex(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, {
-    message: "Please enter a valid email",
-  }),
-  phone: z
-    .string()
-    .min(9, { message: "Please enter a valid phone number" })
-    .max(20, { message: "Phone number is too long" }),
-  // Add-ons (explicit fields, default false if missing)
-  deliverySelected: z.coerce.boolean().default(false),
-  pickupSelected: z.coerce.boolean().default(false),
-  insuranceSelected: z.coerce.boolean().default(false),
-});
+export const baseBookingFormSchema = z
+  .object({
+    //Dates
+    dateRange: dateRangeSchema,
+
+    //Contact
+    name: z.string().min(2, { message: "Name is required." }),
+    email: z
+      .string()
+      .regex(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, {
+        message: "Enter a valid email",
+      }),
+    phone: z
+      .string()
+      .min(9, { message: "Enter a valid phone number" })
+      .max(20, { message: "Phone number is too long" }),
+
+    // Add-ons
+    deliverySelected: z.coerce.boolean().default(true),
+    pickupSelected: z.coerce.boolean().default(true),
+    insuranceSelected: z.coerce.boolean().default(true),
+    operatorSelected: z.coerce.boolean().default(false),
+
+    // Business invoicing toggle + fields
+    billingIsBusiness: z.coerce.boolean().default(false),
+    billingCompanyName: z
+      .string()
+      .min(2, "Company name is required")
+      .optional(),
+    billingTaxId: z.string().min(9, "Tax ID is required").optional(), // permissive; refine later
+    billingAddressLine1: z.string().min(2, "Address is required").optional(),
+    billingPostalCode: z.string().min(2, "Postal code is required").optional(),
+    billingCity: z.string().min(2, "City is required").optional(),
+    billingCountry: z.string().min(2, "Country is required").optional(),
+  })
+  .superRefine((val, ctx) => {
+    // Conditionally require invoicing fields only when booking as a business
+    if (val.billingIsBusiness) {
+      if (!val.billingCompanyName?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Company name is required",
+          path: ["billingCompanyName"],
+        });
+      }
+      if (!val.billingTaxId?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Tax ID is required",
+          path: ["billingTaxId"],
+        });
+      }
+      if (!val.billingAddressLine1?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Address is required",
+          path: ["billingAddressLine1"],
+        });
+      }
+      if (!val.billingPostalCode?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Postal code is required",
+          path: ["billingPostalCode"],
+        });
+      }
+      if (!val.billingCity?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          message: "City is required",
+          path: ["billingCity"],
+        });
+      }
+      if (!val.billingCountry?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Country is required",
+          path: ["billingCountry"],
+        });
+      }
+    }
+  });
 
 /**
  * Build a schema with runtime business rules.
