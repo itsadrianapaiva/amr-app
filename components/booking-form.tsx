@@ -1,4 +1,3 @@
-// components/booking-form.tsx
 "use client";
 
 import { addDays, startOfDay } from "date-fns";
