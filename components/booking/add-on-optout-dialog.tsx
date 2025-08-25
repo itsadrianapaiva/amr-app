@@ -45,7 +45,7 @@ function AddOnOptOutDialog({
   const items: string[] = [];
   if (missing.insurance) {
     items.push(
-      "Without Insurance, you are responsible for any damage during the rental."
+      "Without Insurance, you are responsible for any damage during the rental. Don't risk losing your deposit, go back and add it."
     );
   }
   if (missing.delivery) {
@@ -70,8 +70,7 @@ function AddOnOptOutDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Before you continue</AlertDialogTitle>
           <AlertDialogDescription>
-            You are proceeding without some recommended add-ons. Please read and
-            confirm you understand the responsibilities:
+            Please read and confirm you understand the responsibilities:
           </AlertDialogDescription>
         </AlertDialogHeader>
 

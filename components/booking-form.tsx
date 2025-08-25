@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { addDays, startOfDay } from "date-fns";
 
 import type { SerializableMachine } from "@/lib/types";
@@ -15,11 +16,14 @@ import { Form } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PriceSummary } from "@/components/booking/price-summary";
 import { AddOnsPanel } from "@/components/booking/add-ons-panel";
-import { useBookingFormLogic } from "@/lib/hooks/use-booking-form-logic";
 import { DateRangeSection } from "@/components/booking/sections/date-range-section";
 import { ContactSection } from "@/components/booking/sections/contact-section";
 import { BillingSection } from "@/components/booking/sections/billing-section";
 import { deriveDateRangeError } from "@/lib/forms/date-range-errors";
+import { useBookingFormLogic } from "@/lib/hooks/use-booking-form-logic";
+import AddOnOptOutDialog, {
+  type MissingAddOns,
+} from "@/components/booking/add-on-optout-dialog";
 
 type BookingFormProps = {
   machine: Pick<
@@ -90,19 +94,56 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
       minDays,
     });
 
-  //Temporary submit handler (server action will replace this)
-  async function onSubmit(values: BookingFormValues) {
-    const payload = {
-      ...values,
-      deliverySelected,
-      pickupSelected,
-      insuranceSelected,
-      operatorSelected,
-      rentalDays,
-      machineId: machine.id,
-    };
-    // Stripe server action will replace this
+  //Opt-out dialog state
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [missing, setMissing] = React.useState<MissingAddOns>({
+    insurance: false,
+    delivery: false,
+    pickup: false,
+    operator: false,
+  });
+  const stagedValuesRef = React.useRef<BookingFormValues | null>(null);
+
+  // Base submit (will be replaced by a server action later)
+  async function baseOnSubmit(values: BookingFormValues) {
+    const payload = { ...values, rentalDays, machineId: machine.id };
     console.info("Booking form submitted", payload);
+  }
+
+  // Intercept submit to require acknowledgment when opting out
+  function onSubmitIntercept(values: BookingFormValues) {
+    const missingNow: MissingAddOns = {
+      insurance: !insuranceSelected,
+      delivery: !deliverySelected,
+      pickup: !pickupSelected,
+      operator: !operatorSelected,
+    };
+
+    // If any critical add-on is off, open the dialog and defer submit
+    if (
+      missingNow.insurance ||
+      missingNow.delivery ||
+      missingNow.pickup ||
+      missingNow.operator
+    ) {
+      setMissing(missingNow);
+      stagedValuesRef.current = values;
+      setDialogOpen(true);
+      return;
+    }
+
+    // Otherwise proceed immediately
+    return baseOnSubmit(values);
+  }
+
+  // Called by dialog after user acknowledges responsibilities
+  function handleDialogConfirm() {
+    setDialogOpen(false);
+    const staged = stagedValuesRef.current;
+    if (staged) {
+      void baseOnSubmit(staged);
+      stagedValuesRef.current = null;
+    }
   }
 
   const isSubmitDisabled =
@@ -114,8 +155,19 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
         <CardTitle>Book this Machine</CardTitle>
       </CardHeader>
       <CardContent>
+        {/* The dialog is mounted here; AlertDialog portals handle overlay */}
+        <AddOnOptOutDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          missing={missing}
+          onConfirm={handleDialogConfirm}
+        />
+
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          <form
+            onSubmit={form.handleSubmit(onSubmitIntercept)}
+            className="space-y-8"
+          >
             {/* Date Range with minimal alerting and live validation */}
             <DateRangeSection
               control={form.control}
@@ -182,6 +234,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
             {/* Contact fields */}
             <ContactSection control={form.control} />
 
+            {/* Company invoicing when applicable */}
             <BillingSection />
 
             <Button type="submit" disabled={isSubmitDisabled}>
