@@ -28,12 +28,10 @@ export function BillingSection({ className }: BillingSectionProps) {
 
   return (
     <section className={cn("mt-8", className)}>
-      <h3 className="text-base font-semibold tracking-tight">
-        Billing information
-      </h3>
+      <h3 className="text-base font-semibold tracking-normal">Billing information</h3>
 
       {/* Toggle: booking for a company? */}
-      <div className="mt-4 flex items-center justify-between rounded-lg border p-3">
+      <div className="mt-4 flex items-center justify-between rounded-lg border p-3 ">
         <div>
           <p className="font-medium">Booking for a company?</p>
           <p className="text-sm text-muted-foreground">
@@ -44,7 +42,7 @@ export function BillingSection({ className }: BillingSectionProps) {
         {/* Native checkbox keeps RHF simple and avoids a Controller */}
         <input
           type="checkbox"
-          className="h-4 w-4 accent-primary"
+          className="h-4 w-4 accent-primary space-y-6"
           {...register("billingIsBusiness")}
         />
       </div>
@@ -53,7 +51,7 @@ export function BillingSection({ className }: BillingSectionProps) {
       {billingIsBusiness && (
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
           {/* Company name */}
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="billingCompanyName">Company name</Label>
             <Input
               id="billingCompanyName"
@@ -67,7 +65,7 @@ export function BillingSection({ className }: BillingSectionProps) {
           </div>
 
           {/* Tax ID (NIF/NIPC) */}
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="billingTaxId">Tax ID (NIF/NIPC)</Label>
             <Input id="billingTaxId" {...register("billingTaxId")} />
             {errors?.billingTaxId?.message ? (
@@ -78,7 +76,7 @@ export function BillingSection({ className }: BillingSectionProps) {
           </div>
 
           {/* Address line 1 */}
-          <div className="md:col-span-2">
+          <div className="md:col-span-2 space-y-2">
             <Label htmlFor="billingAddressLine1">Address line 1</Label>
             <Input
               id="billingAddressLine1"
@@ -92,7 +90,7 @@ export function BillingSection({ className }: BillingSectionProps) {
           </div>
 
           {/* Postal code */}
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="billingPostalCode">Postal code</Label>
             <Input id="billingPostalCode" {...register("billingPostalCode")} />
             {errors?.billingPostalCode?.message ? (
@@ -103,7 +101,7 @@ export function BillingSection({ className }: BillingSectionProps) {
           </div>
 
           {/* City */}
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="billingCity">City</Label>
             <Input id="billingCity" {...register("billingCity")} />
             {errors?.billingCity?.message ? (
@@ -114,7 +112,7 @@ export function BillingSection({ className }: BillingSectionProps) {
           </div>
 
           {/* Country */}
-          <div className="md:col-span-2">
+          <div className="md:col-span-2 space-y-2">
             <Label htmlFor="billingCountry">Country</Label>
             <Input id="billingCountry" {...register("billingCountry")} />
             {errors?.billingCountry?.message ? (

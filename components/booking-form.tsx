@@ -132,8 +132,8 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
             <AddOnsPanel
               deliverySelected={!!deliverySelected}
               pickupSelected={!!pickupSelected}
-              insuranceSelected={!!insuranceSelected}
               operatorSelected={!!operatorSelected}
+              insuranceSelected={!!insuranceSelected}
               onToggleDelivery={() =>
                 form.setValue("deliverySelected", !deliverySelected, {
                   shouldDirty: true,
@@ -146,15 +146,15 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
                   shouldValidate: true,
                 })
               }
-              onToggleInsurance={() =>
-                form.setValue("insuranceSelected", !insuranceSelected, {
+              // (cast while schema catches up)
+              onToggleOperator={() =>
+                form.setValue("operatorSelected" as any, !operatorSelected, {
                   shouldDirty: true,
                   shouldValidate: true,
                 })
               }
-              // (cast while schema catches up)
-              onToggleOperator={() =>
-                form.setValue("operatorSelected" as any, !operatorSelected, {
+              onToggleInsurance={() =>
+                form.setValue("insuranceSelected", !insuranceSelected, {
                   shouldDirty: true,
                   shouldValidate: true,
                 })
