@@ -64,12 +64,18 @@ export default async function SuccessPage({ searchParams }: PageProps) {
           We could not match your booking automatically. Our team will follow
           up.
         </p>
+        <div className="mt-8">
+          <a href="/" className="underline">
+            Back to catalog
+          </a>
+        </div>
       </main>
     );
   }
 
-  // Promote booking in a safe, idempotent way
+  // idempotent way
   // If the user refreshes this page, we do not double confirm.
+  // Confirm booking if needed (no revalidatePath here)
   await db.$transaction(async (tx) => {
     const existing = await tx.booking.findUnique({
       where: { id: bookingId },
@@ -104,11 +110,13 @@ export default async function SuccessPage({ searchParams }: PageProps) {
   return (
     <main className="container mx-auto py-16">
       <h1 className="text-2xl font-semibold">Booking confirmed</h1>
-      <p className="mt-2">
-        Thank you. Your deposit was processed successfully.
-      </p>
+      <p className="mt-2">Thank you. Your deposit was processed successfully.</p>
 
       <div className="mt-6 grid gap-1 text-sm text-muted-foreground">
+        <p>
+          Booking ID:{" "}
+          <span className="font-medium text-foreground">{bookingId}</span>
+        </p>
         {startDate && endDate && (
           <p>
             Dates:{" "}
@@ -116,7 +124,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
             <span className="font-medium text-foreground">{endDate}</span>
           </p>
         )}
-        {machineId && (
+        {typeof machineId === "number" && (
           <p>
             Machine:{" "}
             <a href={`/machine/${machineId}`} className="underline">
@@ -126,10 +134,11 @@ export default async function SuccessPage({ searchParams }: PageProps) {
         )}
       </div>
 
-      <div className="mt-8">
-        <a href="/" className="underline">
-          Back to catalog
-        </a>
+      <div className="mt-8 flex gap-6">
+        <a href="/" className="underline">Back to catalog</a>
+        {typeof machineId === "number" && (
+          <a href={`/machine/${machineId}`} className="underline">Go to machine</a>
+        )}
       </div>
     </main>
   );
