@@ -8,16 +8,17 @@ import {
   type BookingFormValues,
 } from "@/lib/validation/booking";
 import type { DisabledRangeJSON } from "@/lib/availability";
-import { INSURANCE_CHARGE } from "@/lib/config";
+import { INSURANCE_CHARGE, OPERATOR_CHARGE } from "@/lib/config";
 
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import PriceSummary from "@/components/booking/price-summary";
+import { PriceSummary } from "@/components/booking/price-summary";
 import { AddOnsPanel } from "@/components/booking/add-ons-panel";
 import { useBookingFormLogic } from "@/lib/hooks/use-booking-form-logic";
 import { DateRangeSection } from "@/components/booking/sections/date-range-section";
 import { ContactSection } from "@/components/booking/sections/contact-section";
+import { BillingSection } from "@/components/booking/sections/billing-section";
 import { deriveDateRangeError } from "@/lib/forms/date-range-errors";
 
 type BookingFormProps = {
@@ -43,7 +44,8 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
   const minStart = startOfDay(addDays(new Date(), 1));
   const schema = buildBookingSchema(minStart, minDays);
 
-  // Pass initial add-on defaults so there is no mount-time reset
+  // RHF + defaults: keep add-ons explicit to avoid mount-time flips.
+  // We’ll formalize operator + billing fields in the Zod schema shortly.
   const { form, rentalDays, disabledDays } = useBookingFormLogic({
     schema,
     disabledRangesJSON,
@@ -55,14 +57,29 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
       deliverySelected: true,
       pickupSelected: true,
       insuranceSelected: true,
-    },
+      operatorSelected: false,
+      // basic billing defaults
+      billingIsBusiness: false,
+      billingCompanyName: "",
+      billingTaxId: "",
+      billingAddressLine1: "",
+      billingPostalCode: "",
+      billingCity: "",
+      billingCountry: "",
+    } as Partial<BookingFormValues> as any,
   });
 
   // Read add-on values directly from RHF
-  const [deliverySelected, pickupSelected, insuranceSelected] = form.watch([
+  const [
+    deliverySelected,
+    pickupSelected,
+    insuranceSelected,
+    operatorSelected,
+  ] = form.watch([
     "deliverySelected",
     "pickupSelected",
     "insuranceSelected",
+    "operatorSelected" as any, //type to be added
   ]) as boolean[];
 
   // Derive date error using shared helper
@@ -73,16 +90,18 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
       minDays,
     });
 
+  //Temporary submit handler (server action will replace this)
   async function onSubmit(values: BookingFormValues) {
     const payload = {
       ...values,
       deliverySelected,
       pickupSelected,
       insuranceSelected,
+      operatorSelected,
       rentalDays,
       machineId: machine.id,
     };
-    // Server Action will replace this
+    // Stripe server action will replace this
     console.info("Booking form submitted", payload);
   }
 
@@ -114,6 +133,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
               deliverySelected={!!deliverySelected}
               pickupSelected={!!pickupSelected}
               insuranceSelected={!!insuranceSelected}
+              operatorSelected={!!operatorSelected}
               onToggleDelivery={() =>
                 form.setValue("deliverySelected", !deliverySelected, {
                   shouldDirty: true,
@@ -132,6 +152,13 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
                   shouldValidate: true,
                 })
               }
+              // (cast while schema catches up)
+              onToggleOperator={() =>
+                form.setValue("operatorSelected" as any, !operatorSelected, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
+              }
               minDays={machine.minDays}
             />
 
@@ -146,15 +173,19 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
                 insuranceSelected={!!insuranceSelected}
                 deliveryCharge={deliveryCharge}
                 pickupCharge={pickupCharge}
-                insuranceCharge={insuranceSelected ? INSURANCE_CHARGE : null}
+                insuranceCharge={INSURANCE_CHARGE}
+                operatorSelected={!!operatorSelected}
+                operatorCharge={operatorSelected ? OPERATOR_CHARGE : null}
               />
             )}
 
             {/* Contact fields */}
             <ContactSection control={form.control} />
 
+            <BillingSection />
+
             <Button type="submit" disabled={isSubmitDisabled}>
-              {form.formState.isSubmitting ? "Submitting..." : "Submit"}
+              {form.formState.isSubmitting ? "Submitting..." : "Book Now"}
             </Button>
           </form>
         </Form>

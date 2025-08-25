@@ -36,7 +36,7 @@ type PriceSummaryProps = {
  * Keeps the component dumb and stable across client/server.
  */
 
-export default function PriceSummary({
+export function PriceSummary({
   rentalDays,
   dailyRate,
   deliverySelected = true,
@@ -126,3 +126,5 @@ export default function PriceSummary({
     </Card>
   );
 }
+
+export default PriceSummary;
