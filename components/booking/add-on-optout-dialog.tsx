@@ -45,7 +45,7 @@ function AddOnOptOutDialog({
   const items: string[] = [];
   if (missing.insurance) {
     items.push(
-      "Without Insurance, you are responsible for any damage during the rental. Don't risk losing your deposit, go back and add it."
+      "Without Insurance, you are responsible for any damage, loss or theft during the rental. Don't take the risk, go back and add it."
     );
   }
   if (missing.delivery) {

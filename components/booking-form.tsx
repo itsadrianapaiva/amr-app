@@ -11,6 +11,8 @@ import {
 import type { DisabledRangeJSON } from "@/lib/availability";
 import { INSURANCE_CHARGE, OPERATOR_CHARGE } from "@/lib/config";
 
+import { createDepositCheckoutAction } from "@/app/actions/create-deposit-checkout";
+
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -104,10 +106,26 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
   });
   const stagedValuesRef = React.useRef<BookingFormValues | null>(null);
 
-  // Base submit (will be replaced by a server action later)
+  // NEW: lightweight submit error for inline feedback
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
+
+  // UPDATED: submit calls our server action and redirects to Stripe
   async function baseOnSubmit(values: BookingFormValues) {
-    const payload = { ...values, rentalDays, machineId: machine.id };
-    console.info("Booking form submitted", payload);
+    setSubmitError(null);
+    try {
+      // Keep payload minimal. Server re-validates and recomputes totals.
+      const payload = { ...values, machineId: machine.id };
+      const { url } = await createDepositCheckoutAction(payload);
+      // Hard redirect to Stripe Checkout
+      window.location.assign(url);
+    } catch (err) {
+      // Show a concise, actionable error
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Something went wrong creating the checkout.";
+      setSubmitError(message);
+    }
   }
 
   // Intercept submit to require acknowledgment when opting out
@@ -236,9 +254,14 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
             {/* Company invoicing when applicable */}
             <BillingSection />
 
-            <Button type="submit" disabled={isSubmitDisabled}>
-              {form.formState.isSubmitting ? "Submitting..." : "Book Now"}
-            </Button>
+            <div className="space-y-2">
+              <Button type="submit" disabled={isSubmitDisabled}>
+                {form.formState.isSubmitting ? "Booking..." : "Book Now"}
+              </Button>
+              {submitError && (
+                <p className="text-sm text-red-600">{submitError}</p>
+              )}
+            </div>
           </form>
         </Form>
       </CardContent>

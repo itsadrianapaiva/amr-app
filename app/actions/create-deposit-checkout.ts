@@ -20,7 +20,7 @@ import { computeTotals } from "@/lib/pricing";
 import { INSURANCE_CHARGE, OPERATOR_CHARGE } from "@/lib/config";
 import { getStripe, toMoney } from "@/lib/stripe";
 
-// ---- helpers (small & focused) ----
+//  helpers (small & focused) 
 function tomorrowStart(): Date {
   return startOfDay(addDays(new Date(), 1));
 }
