@@ -84,6 +84,8 @@ export async function createDepositCheckoutAction(
       nif: parsed.customerNIF ?? null,
     },
 
+    siteAddress: parsed.siteAddress,
+
     billing: {
       isBusiness: Boolean(parsed.billingIsBusiness),
       companyName: parsed.billingCompanyName ?? null,
