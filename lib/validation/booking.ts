@@ -1,21 +1,18 @@
 import { z } from "zod";
 import { differenceInCalendarDays } from "date-fns";
 
-/**
- * Small helper to compute inclusive rental days.
- * Example: 2025-08-10 to 2025-08-12 => 3 days.
- */
+// Section: helpers
+/** Inclusive rental days (e.g., 10→12 = 3 days). */
 function rentalDays(from: Date, to: Date) {
   return differenceInCalendarDays(to, from) + 1;
 }
 
-// Schema with dateRange inside the form, plus simple field validation
+// Section: date range schema
 const dateRangeSchema = z
   .object({
     from: z.date().optional(),
     to: z.date().optional(),
   })
-  // ensure from and to are actually selected
   .refine((r) => !!r.from, {
     message: "Select a start date",
     path: ["from"],
@@ -24,23 +21,24 @@ const dateRangeSchema = z
     message: "Select an end date",
     path: ["to"],
   })
-  // checks that to(end) is after from(start)
   .refine((r) => r.from && r.to && r.from <= r.to, {
     message: "End date cannot be before start",
     path: ["to"],
   });
 
+// Section: base form schema
 /**
- * Base form schema without runtime policies.
- * Add-ons are optional booleans a user must review, not forced to true.
- * We use z.coerce.boolean() to accept "on"/"true"/"false" from FormData as well.
+ * Note on business fields:
+ * - They are base-optional. Required checks are enforced only when billingIsBusiness=true.
+ * Note on customerNIF:
+ * - Optional personal NIF for receipts. If provided, must be 9 digits.
  */
 export const baseBookingFormSchema = z
   .object({
-    //Dates
+    // Dates
     dateRange: dateRangeSchema,
 
-    //Contact
+    // Contact
     name: z.string().min(2, { message: "Name is required." }),
     email: z
       .string()
@@ -51,6 +49,7 @@ export const baseBookingFormSchema = z
       .string()
       .min(9, { message: "Enter a valid phone number" })
       .max(20, { message: "Phone number is too long" }),
+    customerNIF: z.string().optional().nullable(),
 
     // Add-ons
     deliverySelected: z.coerce.boolean().default(true),
@@ -60,18 +59,17 @@ export const baseBookingFormSchema = z
 
     // Business invoicing toggle + fields
     billingIsBusiness: z.coerce.boolean().default(false),
-    billingCompanyName: z
-      .string()
-      .min(2, "Company name is required")
-      .optional(),
-    billingTaxId: z.string().min(9, "Tax ID is required").optional(), // permissive; refine later
-    billingAddressLine1: z.string().min(2, "Address is required").optional(),
-    billingPostalCode: z.string().min(2, "Postal code is required").optional(),
-    billingCity: z.string().min(2, "City is required").optional(),
-    billingCountry: z.string().min(2, "Country is required").optional(),
+
+    // Base-optional invoicing fields
+    billingCompanyName: z.string().optional().nullable(),
+    billingTaxId: z.string().optional().nullable(),
+    billingAddressLine1: z.string().optional().nullable(),
+    billingPostalCode: z.string().optional().nullable(),
+    billingCity: z.string().optional().nullable(),
+    billingCountry: z.string().optional().nullable(),
   })
   .superRefine((val, ctx) => {
-    // Conditionally require invoicing fields only when booking as a business
+    // Require invoicing fields only when booking as a business
     if (val.billingIsBusiness) {
       if (!val.billingCompanyName?.trim()) {
         ctx.addIssue({
@@ -116,18 +114,24 @@ export const baseBookingFormSchema = z
         });
       }
     }
+
+    // Optional personal NIF validation - only if provided
+    const nif = val.customerNIF?.trim();
+    if (nif && !/^\d{9}$/.test(nif)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Enter a valid NIF (9 digits)",
+        path: ["customerNIF"],
+      });
+    }
   });
 
-/**
- * Build a schema with runtime business rules.
- * - Start date must be >= minStart (typically tomorrow).
- * - Enforce machine-specific minimum days.
- */
+// Section: composed schema with runtime business rules
 export function buildBookingSchema(minStart: Date, minDays: number) {
   return baseBookingFormSchema.superRefine((data, ctx) => {
     const { from, to } = data.dateRange;
 
-    // Rule 1: start date must be >= minStart
+    // Start date must be >= minStart
     if (from && from < minStart) {
       ctx.addIssue({
         code: "custom",
@@ -136,7 +140,7 @@ export function buildBookingSchema(minStart: Date, minDays: number) {
       });
     }
 
-    // Rule 2: minDays per machine
+    // Enforce machine-specific minimum days
     if (from && to) {
       const days = rentalDays(from, to);
       if (days < minDays) {
@@ -145,12 +149,12 @@ export function buildBookingSchema(minStart: Date, minDays: number) {
           path: ["dateRange", "to"],
           message: `Minimum rental is ${minDays} day${
             minDays > 1 ? "s" : ""
-          } — you selected ${days}.`,
+          } - you selected ${days}.`,
         });
       }
     }
   });
 }
 
-// Helpful type for RHF(react hook form) generics
+// Section: export type for RHF generics
 export type BookingFormValues = z.infer<typeof baseBookingFormSchema>;
