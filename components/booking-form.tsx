@@ -1,15 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { addDays, startOfDay } from "date-fns";
 
 import type { SerializableMachine } from "@/lib/types";
-import {
-  buildBookingSchema,
-  type BookingFormValues,
-} from "@/lib/validation/booking";
+import type { BookingFormValues } from "@/lib/validation/booking";
 import type { DisabledRangeJSON } from "@/lib/availability";
-import { INSURANCE_CHARGE, OPERATOR_CHARGE } from "@/lib/config";
 
 import { createDepositCheckoutAction } from "@/app/actions/create-deposit-checkout";
 
@@ -23,6 +18,7 @@ import { useBookingFormLogic } from "@/lib/hooks/use-booking-form-logic";
 import { useBookingDraft } from "@/lib/hooks/use-booking-draft";
 import { useOptOutGate } from "@/lib/hooks/use-optout-gate";
 import { useMachinePricing } from "@/lib/hooks/use-machine-pricing";
+import { useDatePolicy } from "@/lib/hooks/use-date-policy";
 
 type BookingFormProps = {
   machine: Pick<
@@ -48,9 +44,8 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
       minDays: machine.minDays,
     });
 
-  // 2) Date policy and schema (min start is tomorrow 00:00)
-  const minStart = startOfDay(addDays(new Date(), 1));
-  const schema = buildBookingSchema(minStart, minDays);
+  // 2) Date policy (earliest start = tomorrow 00:00) + concrete Zod schema
+  const { schema } = useDatePolicy({ minDays });
 
   // 3) RHF setup via centralized logic
   const { form, rentalDays, disabledDays } = useBookingFormLogic({
