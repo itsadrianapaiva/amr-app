@@ -60,15 +60,14 @@ export const baseBookingFormSchema = z
 
     // Business invoicing toggle + fields
     billingIsBusiness: z.coerce.boolean().default(false),
-    billingCompanyName: z
-      .string()
-      .min(2, "Company name is required")
-      .optional(),
-    billingTaxId: z.string().min(9, "Tax ID is required").optional(), // permissive; refine later
-    billingAddressLine1: z.string().min(2, "Address is required").optional(),
-    billingPostalCode: z.string().min(2, "Postal code is required").optional(),
-    billingCity: z.string().min(2, "City is required").optional(),
-    billingCountry: z.string().min(2, "Country is required").optional(),
+
+    // Base-optional: empty strings from RHF are allowed here; we enforce when billingIsBusiness=true
+    billingCompanyName: z.string().optional().nullable(),
+    billingTaxId: z.string().optional().nullable(),
+    billingAddressLine1: z.string().optional().nullable(),
+    billingPostalCode: z.string().optional().nullable(),
+    billingCity: z.string().optional().nullable(),
+    billingCountry: z.string().optional().nullable(),
   })
   .superRefine((val, ctx) => {
     // Conditionally require invoicing fields only when booking as a business

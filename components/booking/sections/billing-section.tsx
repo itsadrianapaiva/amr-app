@@ -28,7 +28,9 @@ export function BillingSection({ className }: BillingSectionProps) {
 
   return (
     <section className={cn("mt-8", className)}>
-      <h3 className="text-base font-semibold tracking-normal">Billing information</h3>
+      <h3 className="text-base font-semibold tracking-normal">
+        Billing information
+      </h3>
 
       {/* Toggle: booking for a company? */}
       <div className="mt-4 flex items-center justify-between rounded-lg border p-3 ">

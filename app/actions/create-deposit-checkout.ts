@@ -5,12 +5,7 @@
  * and create a Stripe Checkout Session for the **deposit** only.
  */
 
-import {
-  startOfDay,
-  addDays,
-  differenceInCalendarDays,
-  formatISO,
-} from "date-fns";
+import { differenceInCalendarDays, formatISO } from "date-fns";
 import { BookingStatus } from "@prisma/client";
 
 import { getMachineById } from "@/lib/data";
@@ -20,13 +15,39 @@ import { computeTotals } from "@/lib/pricing";
 import { INSURANCE_CHARGE, OPERATOR_CHARGE } from "@/lib/config";
 import { getStripe, toMoney } from "@/lib/stripe";
 
-//  helpers (small & focused) 
-function tomorrowStart(): Date {
-  return startOfDay(addDays(new Date(), 1));
+// Lisbon calendar-day helpers (avoid TZ bugs)
+function partsForLisbon(d: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Lisbon",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  return {
+    y: Number(parts.find((p) => p.type === "year")?.value),
+    m: Number(parts.find((p) => p.type === "month")?.value),
+    d: Number(parts.find((p) => p.type === "day")?.value),
+  };
 }
+
+/** 00:00 **Lisbon** for the given instant, expressed as a UTC Date. */
+function lisbonDateOnlyUTC(d: Date) {
+  const { y, m, d: day } = partsForLisbon(d);
+  return new Date(Date.UTC(y, m - 1, day));
+}
+
+/** Start of **tomorrow in Lisbon** (00:00 Lisbon), expressed as a UTC Date. */
+function tomorrowStartLisbonUTC(): Date {
+  const { y, m, d } = partsForLisbon(new Date());
+  return new Date(Date.UTC(y, m - 1, d + 1));
+}
+
+//  helpers (small & focused)
 function asDate(v: unknown): Date | undefined {
   if (!v) return undefined;
-  return v instanceof Date ? v : new Date(String(v));
+  const d = v instanceof Date ? v : new Date(String(v));
+  // Normalize to Lisbon calendar-day to avoid cross-TZ midnight issues.
+  return lisbonDateOnlyUTC(d);
 }
 function rentalDays(from: Date, to: Date) {
   return differenceInCalendarDays(to, from) + 1;
@@ -50,7 +71,7 @@ export async function createDepositCheckoutAction(
   if (!machine) throw new Error("Machine not found.");
 
   const minDays = machine.minDays;
-  const minStart = tomorrowStart();
+  const minStart = tomorrowStartLisbonUTC();
 
   // 3) Validate the payload (dates, contact, add-ons, billing).
   //    Coerce dateRange to Date objects before Zod for safety across environments.
