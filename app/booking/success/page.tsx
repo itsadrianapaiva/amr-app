@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { BookingStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
+import ClearBookingDraft from "@/components/booking/clear-draft-on-mount";
 
 type PageProps = {
   searchParams: Promise<{ session_id?: string }>;
@@ -130,6 +131,11 @@ export default async function SuccessPage({ searchParams }: PageProps) {
 
   return (
     <main className="container mx-auto py-16">
+      {/* clear the per-machine draft now that we're on the success page */}
+      {typeof machineId === "number" && (
+        <ClearBookingDraft machineId={machineId} />
+      )}
+
       <h1 className="text-2xl font-semibold">Booking confirmed</h1>
       <p className="mt-2">
         Thank you. Your deposit was processed successfully.
@@ -159,7 +165,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
 
       <div className="mt-8 flex gap-6">
         <a href="/" className="underline">
-          Back to catalog
+          Back to homepage
         </a>
         {typeof machineId === "number" && (
           <a href={`/machine/${machineId}`} className="underline">

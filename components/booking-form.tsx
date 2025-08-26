@@ -27,6 +27,7 @@ import { useBookingFormLogic } from "@/lib/hooks/use-booking-form-logic";
 import AddOnOptOutDialog, {
   type MissingAddOns,
 } from "@/components/booking/add-on-optout-dialog";
+import { useBookingDraft } from "@/lib/hooks/use-booking-draft";
 
 type BookingFormProps = {
   machine: Pick<
@@ -85,6 +86,10 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
     } as Partial<BookingFormValues>,
   });
 
+  // Session draft (load on mount, save on change)
+  // The hook encapsulates serialization, versioning and debounce.
+  useBookingDraft({ form, machineId: machine.id });
+
   // Read add-on values directly from RHF
   const [
     deliverySelected,
@@ -119,7 +124,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
   // lightweight submit error for inline feedback
   const [submitError, setSubmitError] = React.useState<string | null>(null);
 
-  // UPDATED: submit calls our server action and redirects to Stripe
+  // submit calls our server action and redirects to Stripe
   async function baseOnSubmit(values: BookingFormValues) {
     setSubmitError(null);
     try {
