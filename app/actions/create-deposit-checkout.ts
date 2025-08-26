@@ -4,8 +4,6 @@
  * Server action: validate booking payload, compute totals, create PENDING booking,
  * and create a Stripe Checkout Session for the **deposit** only.
  */
-
-import { differenceInCalendarDays } from "date-fns";
 import { BookingStatus } from "@prisma/client";
 
 import { getMachineById } from "@/lib/data";
@@ -16,43 +14,11 @@ import { INSURANCE_CHARGE, OPERATOR_CHARGE } from "@/lib/config";
 import { getStripe } from "@/lib/stripe";
 import { buildDepositCheckoutSessionParams } from "@/lib/stripe/checkout";
 
-// Lisbon calendar-day helpers (avoid TZ bugs)
-function partsForLisbon(d: Date) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Lisbon",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(d);
-  return {
-    y: Number(parts.find((p) => p.type === "year")?.value),
-    m: Number(parts.find((p) => p.type === "month")?.value),
-    d: Number(parts.find((p) => p.type === "day")?.value),
-  };
-}
-
-/** 00:00 **Lisbon** for the given instant, expressed as a UTC Date. */
-function lisbonDateOnlyUTC(d: Date) {
-  const { y, m, d: day } = partsForLisbon(d);
-  return new Date(Date.UTC(y, m - 1, day));
-}
-
-/** Start of **tomorrow in Lisbon** (00:00 Lisbon), expressed as a UTC Date. */
-function tomorrowStartLisbonUTC(): Date {
-  const { y, m, d } = partsForLisbon(new Date());
-  return new Date(Date.UTC(y, m - 1, d + 1));
-}
-
-//  helpers (small & focused)
-function asDate(v: unknown): Date | undefined {
-  if (!v) return undefined;
-  const d = v instanceof Date ? v : new Date(String(v));
-  // Normalize to Lisbon calendar-day to avoid cross-TZ midnight issues.
-  return lisbonDateOnlyUTC(d);
-}
-function rentalDays(from: Date, to: Date) {
-  return differenceInCalendarDays(to, from) + 1;
-}
+import {
+  tomorrowStartLisbonUTC,
+  asLisbonDateOnly,
+  rentalDaysInclusive,
+} from "@/lib/dates/lisbon";
 
 /**
  * Input is loosely typed: we rely on Zod to validate/parse.
@@ -80,14 +46,14 @@ export async function createDepositCheckoutAction(
   const parsed = schema.parse({
     ...(input as Record<string, unknown>),
     dateRange: {
-      from: asDate((input as any)?.dateRange?.from),
-      to: asDate((input as any)?.dateRange?.to),
+      from: asLisbonDateOnly((input as any)?.dateRange?.from),
+      to: asLisbonDateOnly((input as any)?.dateRange?.to),
     },
   });
 
   const from = parsed.dateRange.from!;
   const to = parsed.dateRange.to!;
-  const days = rentalDays(from, to);
+  const days = rentalDaysInclusive(from, to);
 
   // 4) Compute totals *server-side* with authoritative numbers.
   const totals = computeTotals({
@@ -165,4 +131,3 @@ export async function createDepositCheckoutAction(
 
   return { url: session.url };
 }
-
