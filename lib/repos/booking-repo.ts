@@ -34,6 +34,14 @@ export type PendingBookingDTO = {
     nif?: string | null; // optional personal NIF
   };
 
+  // Operational site address (not invoicing)
+  siteAddress?: {
+    line1?: string | null;
+    postalCode?: string | null;
+    city?: string | null;
+    notes?: string | null;
+  };
+
   // Invoicing (business)
   billing: {
     isBusiness: boolean;
@@ -67,6 +75,7 @@ export async function createPendingBooking(dto: PendingBookingDTO) {
     operatorSelected,
     customer,
     billing,
+    siteAddress,
     totals,
   } = dto;
 
@@ -85,6 +94,11 @@ export async function createPendingBooking(dto: PendingBookingDTO) {
       customerEmail: customer.email,
       customerPhone: customer.phone,
       customerNIF: toNull(customer.nif ?? null),
+
+      siteAddressLine1: toNull(siteAddress?.line1 ?? null),
+      siteAddressPostalCode: toNull(siteAddress?.postalCode ?? null),
+      siteAddressCity: toNull(siteAddress?.city ?? null),
+      siteAddressNotes: toNull(siteAddress?.notes ?? null),
 
       billingIsBusiness: billing.isBusiness,
       billingCompanyName: toNull(billing.companyName ?? null),

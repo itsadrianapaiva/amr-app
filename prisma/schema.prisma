@@ -44,6 +44,12 @@ model Booking {
   customerPhone         String
   customerNIF           String?
 
+  /// Operational site address (NOT for invoicing)
+  siteAddressLine1      String?
+  siteAddressPostalCode String?
+  siteAddressCity       String?
+  siteAddressNotes      String?
+
   // Business invoicing fields (optional)
   billingIsBusiness     Boolean         @default(false)
   billingCompanyName    String?
