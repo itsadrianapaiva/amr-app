@@ -13,18 +13,13 @@ import { INSURANCE_CHARGE, OPERATOR_CHARGE } from "@/lib/config";
 
 import { createDepositCheckoutAction } from "@/app/actions/create-deposit-checkout";
 
-import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PriceSummary } from "@/components/booking/price-summary";
-import { AddOnsPanel } from "@/components/booking/add-ons-panel";
-import { DateRangeSection } from "@/components/booking/sections/date-range-section";
-import { ContactSection } from "@/components/booking/sections/contact-section";
-import { BillingSection } from "@/components/booking/sections/billing-section";
-import DeliveryAddressSection from "./booking/sections/delivery-address-section";
+import AddOnOptOutDialog from "@/components/booking/add-on-optout-dialog";
+import BookingFormFields from "@/components/booking/booking-form-fields";
+
 import { deriveDateRangeError } from "@/lib/forms/date-range-errors";
 import { useBookingFormLogic } from "@/lib/hooks/use-booking-form-logic";
-import AddOnOptOutDialog from "@/components/booking/add-on-optout-dialog";
 import { useBookingDraft } from "@/lib/hooks/use-booking-draft";
 import { useOptOutGate } from "@/lib/hooks/use-optout-gate";
 import { useMachinePricing } from "@/lib/hooks/use-machine-pricing";
@@ -43,50 +38,35 @@ type BookingFormProps = {
 };
 
 export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
-  const {
-    dailyRate,
-    deposit,
-    deliveryCharge,
-    pickupCharge,
-    minDays,
-  } = useMachinePricing({
-    dailyRate: machine.dailyRate,
-    deposit: machine.deposit,
-    deliveryCharge: machine.deliveryCharge,
-    pickupCharge: machine.pickupCharge,
-    minDays: machine.minDays,
-  });
+  // 1) Pricing numbers coerced and memoized
+  const { dailyRate, deposit, deliveryCharge, pickupCharge, minDays } =
+    useMachinePricing({
+      dailyRate: machine.dailyRate,
+      deposit: machine.deposit,
+      deliveryCharge: machine.deliveryCharge,
+      pickupCharge: machine.pickupCharge,
+      minDays: machine.minDays,
+    });
 
-  // Schema built with minStart policy (tomorrow 00:00)
+  // 2) Date policy and schema (min start is tomorrow 00:00)
   const minStart = startOfDay(addDays(new Date(), 1));
   const schema = buildBookingSchema(minStart, minDays);
 
-  // RHF + defaults: keep add-ons explicit to avoid mount-time flips.
-  // We’ll formalize operator + billing fields in the Zod schema shortly.
+  // 3) RHF setup via centralized logic
   const { form, rentalDays, disabledDays } = useBookingFormLogic({
     schema,
     disabledRangesJSON,
     defaultValues: {
-      // Date range
       dateRange: { from: undefined, to: undefined },
-      // Contact
       name: "",
       email: "",
       phone: "",
       customerNIF: "",
-      // Operational site address defaults - keep inputs controlled
-      siteAddress: {
-        line1: "",
-        postalCode: "",
-        city: "",
-        notes: "",
-      },
-      // add-ons
+      siteAddress: { line1: "", postalCode: "", city: "", notes: "" },
       deliverySelected: true,
       pickupSelected: true,
       insuranceSelected: true,
       operatorSelected: false,
-      // billings
       billingIsBusiness: false,
       billingCompanyName: "",
       billingTaxId: "",
@@ -97,11 +77,10 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
     } as Partial<BookingFormValues>,
   });
 
-  // Session draft (load on mount, save on change)
-  // The hook encapsulates serialization, versioning and debounce.
+  // 4) Session draft (load on mount, debounce save on change)
   useBookingDraft({ form, machineId: machine.id });
 
-  // Live add-on values directly from RHF
+  // 5) Live add-on values from RHF
   const [
     deliverySelected,
     pickupSelected,
@@ -114,20 +93,20 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
     "operatorSelected",
   ]) as boolean[];
 
-  // Derive date error using shared helper
+  // 6) Date error for presenter visuals
   const { message: dateErrorMessage, invalid: isDateInvalid } =
     deriveDateRangeError({
-      errors: form.formState.errors as any, // keep helper decoupled from RHF types
+      errors: form.formState.errors as any,
       rentalDays,
       minDays,
     });
 
-  // submit calls our server action and redirects to Stripe
+  // 7) Submit handler (server action) — creates PENDING booking and opens Stripe
   async function baseOnSubmit(values: BookingFormValues) {
     try {
       const payload = { ...values, machineId: machine.id };
       const { url } = await createDepositCheckoutAction(payload);
-      window.location.assign(url); // Keep draft; we clear on success page
+      window.location.assign(url); // keep draft; success page clears it
     } catch (err) {
       const message =
         err instanceof Error
@@ -137,7 +116,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
     }
   }
 
-  // Opt-out gating extracted to a tiny hook (removes local dialog state/refs)
+  // 8) Opt-out gating (keeps UX logic out of presenter)
   const { dialogOpen, setDialogOpen, missing, onSubmitAttempt, onConfirm } =
     useOptOutGate({
       insuranceOn: !!insuranceSelected,
@@ -147,10 +126,10 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
       onProceed: baseOnSubmit,
     });
 
-  // Only block when dates are invalid/empty or we’re submitting.
-  // RHF + resolver will still prevent submission and surface errors if any required field is invalid.
+  // 9) Derived flags for presenter
   const isSubmitDisabled =
     form.formState.isSubmitting || rentalDays === 0 || isDateInvalid;
+  const showAddress = deliverySelected || pickupSelected;
 
   return (
     <Card>
@@ -158,7 +137,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
         <CardTitle>Book this Machine</CardTitle>
       </CardHeader>
       <CardContent>
-        {/* Dialog mounted once; uses portal overlay */}
+        {/* Dialog lives here; presenter stays stateless */}
         <AddOnOptOutDialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
@@ -167,26 +146,24 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
         />
 
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmitAttempt)}
-            className="space-y-8"
-          >
-            {/* Date range with minimal alerting and live validation */}
-            <DateRangeSection
+          <form onSubmit={form.handleSubmit(onSubmitAttempt)}>
+            <BookingFormFields
               control={form.control}
               disabledDays={disabledDays}
               helperText="Earliest start is tomorrow. Same-day rentals are not available."
-              isInvalid={isDateInvalid}
-              errorMessage={dateErrorMessage}
+              isDateInvalid={isDateInvalid}
+              dateErrorMessage={dateErrorMessage ?? undefined}
               onRangeChange={() => void form.trigger("dateRange")}
-            />
-
-            {/* Add-ons controlled by RHF */}
-            <AddOnsPanel
+              rentalDays={rentalDays}
+              dailyRate={dailyRate}
+              deposit={deposit}
+              deliveryCharge={deliveryCharge}
+              pickupCharge={pickupCharge}
+              minDays={minDays}
               deliverySelected={!!deliverySelected}
               pickupSelected={!!pickupSelected}
-              operatorSelected={!!operatorSelected}
               insuranceSelected={!!insuranceSelected}
+              operatorSelected={!!operatorSelected}
               onToggleDelivery={() => {
                 form.setValue("deliverySelected", !deliverySelected, {
                   shouldDirty: true,
@@ -201,59 +178,22 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
                 });
                 void form.trigger("siteAddress");
               }}
-              onToggleOperator={() =>
-                form.setValue("operatorSelected", !operatorSelected, {
-                  shouldDirty: true,
-                  shouldValidate: true,
-                })
-              }
               onToggleInsurance={() =>
                 form.setValue("insuranceSelected", !insuranceSelected, {
                   shouldDirty: true,
                   shouldValidate: true,
                 })
               }
-              minDays={machine.minDays}
+              onToggleOperator={() =>
+                form.setValue("operatorSelected", !operatorSelected, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
+              }
+              showAddress={showAddress}
+              isSubmitDisabled={isSubmitDisabled}
+              rootError={form.formState.errors.root?.message ?? null}
             />
-
-            {/* Price summary renders only when we have at least 1 rental day */}
-            {rentalDays > 0 && (
-              <PriceSummary
-                rentalDays={rentalDays}
-                dailyRate={dailyRate}
-                deposit={deposit}
-                deliverySelected={!!deliverySelected}
-                pickupSelected={!!pickupSelected}
-                insuranceSelected={!!insuranceSelected}
-                deliveryCharge={deliveryCharge}
-                pickupCharge={pickupCharge}
-                insuranceCharge={INSURANCE_CHARGE}
-                operatorSelected={!!operatorSelected}
-                operatorCharge={operatorSelected ? OPERATOR_CHARGE : null}
-              />
-            )}
-
-            {/* Contact fields */}
-            <ContactSection control={form.control} />
-
-            {/* Delivery/Pickup address when either is selected */}
-            {(deliverySelected || pickupSelected) && (
-              <DeliveryAddressSection control={form.control} />
-            )}
-
-            {/* Company invoicing when applicable */}
-            <BillingSection />
-
-            <div className="space-y-2">
-              <Button type="submit" disabled={isSubmitDisabled}>
-                {form.formState.isSubmitting ? "Booking..." : "Book Now"}
-              </Button>
-              {form.formState.errors.root?.message && (
-                <p className="text-sm text-red-600">
-                  {form.formState.errors.root.message}
-                </p>
-              )}
-            </div>
           </form>
         </Form>
       </CardContent>
