@@ -4,8 +4,6 @@
  * Server action: validate booking payload, compute totals, create PENDING booking,
  * and create a Stripe Checkout Session for the **deposit** only.
  */
-import { BookingStatus } from "@prisma/client";
-
 import { getMachineById } from "@/lib/data";
 import { db } from "@/lib/db";
 import { buildBookingSchema } from "@/lib/validation/booking";
@@ -20,6 +18,11 @@ import {
   rentalDaysInclusive,
 } from "@/lib/dates/lisbon";
 
+import {
+  createPendingBooking,
+  type PendingBookingDTO,
+} from "@/lib/repos/booking-repo";
+
 /**
  * Input is loosely typed: we rely on Zod to validate/parse.
  * The client should pass all fields from BookingFormValues plus machineId.
@@ -27,22 +30,16 @@ import {
 export async function createDepositCheckoutAction(
   input: unknown
 ): Promise<{ url: string }> {
-  // 1) Extract machineId early to fetch authoritative machine data.
+  // 1) Fetch machine
   const machineId = Number((input as any)?.machineId);
-  if (!Number.isFinite(machineId)) {
+  if (!Number.isFinite(machineId))
     throw new Error("Invalid or missing machineId.");
-  }
-
-  // 2) Load machine and derive runtime policy inputs.
   const machine = await getMachineById(machineId);
   if (!machine) throw new Error("Machine not found.");
 
-  const minDays = machine.minDays;
+  // 2) Build schema with runtime rules and parse input (dates normalized to Lisbon day)
   const minStart = tomorrowStartLisbonUTC();
-
-  // 3) Validate the payload (dates, contact, add-ons, billing).
-  //    Coerce dateRange to Date objects before Zod for safety across environments.
-  const schema = buildBookingSchema(minStart, minDays);
+  const schema = buildBookingSchema(minStart, machine.minDays);
   const parsed = schema.parse({
     ...(input as Record<string, unknown>),
     dateRange: {
@@ -55,7 +52,7 @@ export async function createDepositCheckoutAction(
   const to = parsed.dateRange.to!;
   const days = rentalDaysInclusive(from, to);
 
-  // 4) Compute totals *server-side* with authoritative numbers.
+  // 3) Compute totals *server-side* with authoritative numbers.
   const totals = computeTotals({
     rentalDays: days,
     dailyRate: Number(machine.dailyRate),
@@ -69,42 +66,40 @@ export async function createDepositCheckoutAction(
     operatorCharge: OPERATOR_CHARGE,
   });
 
-  // The deposit we charge now is the machine's configured deposit.
-  const depositEuros = Number(machine.deposit);
+  // 4) Persist a PENDING booking via the repo (no Prisma here)
+  const dto: PendingBookingDTO = {
+    machineId: machine.id,
+    startDate: from,
+    endDate: to,
 
-  // 5) Create a PENDING booking row (no payment intent yet — that arrives post-checkout).
-  const booking = await db.booking.create({
-    data: {
-      machineId: machine.id,
-      startDate: from,
-      endDate: to,
+    insuranceSelected: parsed.insuranceSelected,
+    deliverySelected: parsed.deliverySelected,
+    pickupSelected: parsed.pickupSelected,
+    operatorSelected: Boolean(parsed.operatorSelected),
 
-      insuranceSelected: parsed.insuranceSelected,
-      deliverySelected: parsed.deliverySelected,
-      pickupSelected: parsed.pickupSelected,
-      operatorSelected: Boolean(parsed.operatorSelected),
-
-      customerName: parsed.name,
-      customerEmail: parsed.email,
-      customerPhone: parsed.phone,
-      customerNIF: parsed.customerNIF ?? null,
-
-      billingIsBusiness: Boolean(parsed.billingIsBusiness),
-      billingCompanyName: parsed.billingCompanyName ?? null,
-      billingTaxId: parsed.billingTaxId ?? null,
-      billingAddressLine1: parsed.billingAddressLine1 ?? null,
-      billingPostalCode: parsed.billingPostalCode ?? null,
-      billingCity: parsed.billingCity ?? null,
-      billingCountry: parsed.billingCountry ?? null,
-
-      totalCost: totals.total, // store the authoritative grand total (euros)
-      depositPaid: false,
-      // stripePaymentIntentId: set on webhook after checkout completion
-      status: BookingStatus.PENDING,
+    customer: {
+      name: parsed.name,
+      email: parsed.email,
+      phone: parsed.phone,
+      nif: parsed.customerNIF ?? null,
     },
-  });
 
-  // 6) Create Stripe Checkout Session for the *deposit only*.
+    billing: {
+      isBusiness: Boolean(parsed.billingIsBusiness),
+      companyName: parsed.billingCompanyName ?? null,
+      taxId: parsed.billingTaxId ?? null,
+      addressLine1: parsed.billingAddressLine1 ?? null,
+      postalCode: parsed.billingPostalCode ?? null,
+      city: parsed.billingCity ?? null,
+      country: parsed.billingCountry ?? null,
+    },
+
+    totals: { total: totals.total },
+  };
+
+  const booking = await createPendingBooking(dto);
+
+  // 5) Create Stripe Checkout Session for the *deposit only*.
   // IN PRODUCTION set one of the envs explicitly to your actual app URL.
   const stripe = getStripe();
   const appUrl =
@@ -118,7 +113,7 @@ export async function createDepositCheckoutAction(
     from,
     to,
     days,
-    depositEuros,
+    depositEuros: Number(machine.deposit),
     customerEmail: parsed.email,
     appUrl,
   });
