@@ -24,10 +24,9 @@ import { BillingSection } from "@/components/booking/sections/billing-section";
 import DeliveryAddressSection from "./booking/sections/delivery-address-section";
 import { deriveDateRangeError } from "@/lib/forms/date-range-errors";
 import { useBookingFormLogic } from "@/lib/hooks/use-booking-form-logic";
-import AddOnOptOutDialog, {
-  type MissingAddOns,
-} from "@/components/booking/add-on-optout-dialog";
+import AddOnOptOutDialog from "@/components/booking/add-on-optout-dialog";
 import { useBookingDraft } from "@/lib/hooks/use-booking-draft";
+import { useOptOutGate } from "@/lib/hooks/use-optout-gate";
 
 type BookingFormProps = {
   machine: Pick<
@@ -111,73 +110,30 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
       minDays,
     });
 
-  //Opt-out dialog state
-  const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [missing, setMissing] = React.useState<MissingAddOns>({
-    insurance: false,
-    delivery: false,
-    pickup: false,
-    operator: false,
-  });
-  const stagedValuesRef = React.useRef<BookingFormValues | null>(null);
-
-  // lightweight submit error for inline feedback
-  const [submitError, setSubmitError] = React.useState<string | null>(null);
-
   // submit calls our server action and redirects to Stripe
   async function baseOnSubmit(values: BookingFormValues) {
-    setSubmitError(null);
     try {
-      // Keep payload minimal. Server re-validates and recomputes totals.
       const payload = { ...values, machineId: machine.id };
       const { url } = await createDepositCheckoutAction(payload);
-      // Hard redirect to Stripe Checkout
-      window.location.assign(url);
+      window.location.assign(url); // Keep draft; we clear on success page
     } catch (err) {
-      // Show a concise, actionable error
       const message =
         err instanceof Error
           ? err.message
           : "Something went wrong creating the checkout.";
-      setSubmitError(message);
+      form.setError("root", { type: "server", message });
     }
   }
 
-  // Intercept submit to require acknowledgment when opting out
-  function onSubmitIntercept(values: BookingFormValues) {
-    const missingNow: MissingAddOns = {
-      insurance: !insuranceSelected,
-      delivery: !deliverySelected,
-      pickup: !pickupSelected,
-      operator: !operatorSelected,
-    };
-
-    // If any critical add-on is off, open the dialog and defer submit
-    if (
-      missingNow.insurance ||
-      missingNow.delivery ||
-      missingNow.pickup ||
-      missingNow.operator
-    ) {
-      setMissing(missingNow);
-      stagedValuesRef.current = values;
-      setDialogOpen(true);
-      return;
-    }
-
-    // Otherwise proceed immediately
-    return baseOnSubmit(values);
-  }
-
-  // Called by dialog after user acknowledges responsibilities
-  function handleDialogConfirm() {
-    setDialogOpen(false);
-    const staged = stagedValuesRef.current;
-    if (staged) {
-      void baseOnSubmit(staged);
-      stagedValuesRef.current = null;
-    }
-  }
+  // Opt-out gating extracted to a tiny hook (removes local dialog state/refs)
+  const { dialogOpen, setDialogOpen, missing, onSubmitAttempt, onConfirm } =
+    useOptOutGate({
+      insuranceOn: !!insuranceSelected,
+      deliveryOn: !!deliverySelected,
+      pickupOn: !!pickupSelected,
+      operatorOn: !!operatorSelected,
+      onProceed: baseOnSubmit,
+    });
 
   // Only block when dates are invalid/empty or we’re submitting.
   // RHF + resolver will still prevent submission and surface errors if any required field is invalid.
@@ -190,29 +146,27 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
         <CardTitle>Book this Machine</CardTitle>
       </CardHeader>
       <CardContent>
-        {/* The dialog is mounted here; AlertDialog portals handle overlay */}
+        {/* Dialog mounted once; uses portal overlay */}
         <AddOnOptOutDialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           missing={missing}
-          onConfirm={handleDialogConfirm}
+          onConfirm={onConfirm}
         />
 
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(onSubmitIntercept)}
+            onSubmit={form.handleSubmit(onSubmitAttempt)}
             className="space-y-8"
           >
-            {/* Date Range with minimal alerting and live validation */}
+            {/* Date range with minimal alerting and live validation */}
             <DateRangeSection
               control={form.control}
               disabledDays={disabledDays}
               helperText="Earliest start is tomorrow. Same-day rentals are not available."
               isInvalid={isDateInvalid}
               errorMessage={dateErrorMessage}
-              onRangeChange={() => {
-                void form.trigger("dateRange");
-              }}
+              onRangeChange={() => void form.trigger("dateRange")}
             />
 
             {/* Add-ons controlled by RHF */}
@@ -226,7 +180,6 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
                   shouldDirty: true,
                   shouldValidate: true,
                 });
-                // Re-validate conditional address requirements
                 void form.trigger("siteAddress");
               }}
               onTogglePickup={() => {
@@ -234,7 +187,6 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
                   shouldDirty: true,
                   shouldValidate: true,
                 });
-                // Re-validate conditional address requirements
                 void form.trigger("siteAddress");
               }}
               onToggleOperator={() =>
@@ -252,7 +204,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
               minDays={machine.minDays}
             />
 
-            {/* Price summary */}
+            {/* Price summary renders only when we have at least 1 rental day */}
             {rentalDays > 0 && (
               <PriceSummary
                 rentalDays={rentalDays}
@@ -272,7 +224,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
             {/* Contact fields */}
             <ContactSection control={form.control} />
 
-            {/* Delivery/Pickup address - shown when either is selected */}
+            {/* Delivery/Pickup address when either is selected */}
             {(deliverySelected || pickupSelected) && (
               <DeliveryAddressSection control={form.control} />
             )}
@@ -284,8 +236,10 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
               <Button type="submit" disabled={isSubmitDisabled}>
                 {form.formState.isSubmitting ? "Booking..." : "Book Now"}
               </Button>
-              {submitError && (
-                <p className="text-sm text-red-600">{submitError}</p>
+              {form.formState.errors.root?.message && (
+                <p className="text-sm text-red-600">
+                  {form.formState.errors.root.message}
+                </p>
               )}
             </div>
           </form>
