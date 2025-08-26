@@ -21,6 +21,7 @@ import { AddOnsPanel } from "@/components/booking/add-ons-panel";
 import { DateRangeSection } from "@/components/booking/sections/date-range-section";
 import { ContactSection } from "@/components/booking/sections/contact-section";
 import { BillingSection } from "@/components/booking/sections/billing-section";
+import DeliveryAddressSection from "./booking/sections/delivery-address-section";
 import { deriveDateRangeError } from "@/lib/forms/date-range-errors";
 import { useBookingFormLogic } from "@/lib/hooks/use-booking-form-logic";
 import AddOnOptOutDialog, {
@@ -60,11 +61,20 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
       name: "",
       email: "",
       phone: "",
+      customerNIF: "",
+      // Operational site address defaults - keep inputs controlled
+      siteAddress: {
+        line1: "",
+        postalCode: "",
+        city: "",
+        notes: "",
+      },
+      // add-ons
       deliverySelected: true,
       pickupSelected: true,
       insuranceSelected: true,
       operatorSelected: false,
-      // basic billing defaults
+      // billings
       billingIsBusiness: false,
       billingCompanyName: "",
       billingTaxId: "",
@@ -106,7 +116,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
   });
   const stagedValuesRef = React.useRef<BookingFormValues | null>(null);
 
-  // NEW: lightweight submit error for inline feedback
+  // lightweight submit error for inline feedback
   const [submitError, setSubmitError] = React.useState<string | null>(null);
 
   // UPDATED: submit calls our server action and redirects to Stripe
@@ -206,18 +216,22 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
               pickupSelected={!!pickupSelected}
               operatorSelected={!!operatorSelected}
               insuranceSelected={!!insuranceSelected}
-              onToggleDelivery={() =>
+              onToggleDelivery={() => {
                 form.setValue("deliverySelected", !deliverySelected, {
                   shouldDirty: true,
                   shouldValidate: true,
-                })
-              }
-              onTogglePickup={() =>
+                });
+                // Re-validate conditional address requirements
+                void form.trigger("siteAddress");
+              }}
+              onTogglePickup={() => {
                 form.setValue("pickupSelected", !pickupSelected, {
                   shouldDirty: true,
                   shouldValidate: true,
-                })
-              }
+                });
+                // Re-validate conditional address requirements
+                void form.trigger("siteAddress");
+              }}
               onToggleOperator={() =>
                 form.setValue("operatorSelected", !operatorSelected, {
                   shouldDirty: true,
@@ -252,6 +266,11 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
 
             {/* Contact fields */}
             <ContactSection control={form.control} />
+
+            {/* Delivery/Pickup address - shown when either is selected */}
+            {(deliverySelected || pickupSelected) && (
+              <DeliveryAddressSection control={form.control} />
+            )}
 
             {/* Company invoicing when applicable */}
             <BillingSection />

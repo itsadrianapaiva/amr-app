@@ -26,6 +26,14 @@ const dateRangeSchema = z
     path: ["to"],
   });
 
+/** Operational address for delivery/pickup (NOT invoicing) */
+const siteAddressSchema = z.object({
+  line1: z.string().optional().nullable(),
+  postalCode: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+
 // Section: base form schema
 /**
  * Note on business fields:
@@ -56,6 +64,9 @@ export const baseBookingFormSchema = z
     pickupSelected: z.coerce.boolean().default(true),
     insuranceSelected: z.coerce.boolean().default(true),
     operatorSelected: z.coerce.boolean().default(false),
+
+    // Operational site address (base-optional)
+    siteAddress: siteAddressSchema.optional(),
 
     // Business invoicing toggle + fields
     billingIsBusiness: z.coerce.boolean().default(false),
@@ -123,6 +134,33 @@ export const baseBookingFormSchema = z
         message: "Enter a valid NIF (9 digits)",
         path: ["customerNIF"],
       });
+    }
+
+    // Require siteAddress when either delivery OR pickup is selected
+    const needsSite = Boolean(val.deliverySelected || val.pickupSelected);
+    if (needsSite) {
+      const sa = val.siteAddress ?? {};
+      if (!sa.line1?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Delivery/Pickup address is required",
+          path: ["siteAddress", "line1"],
+        });
+      }
+      if (!sa.postalCode?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Postal code is required",
+          path: ["siteAddress", "postalCode"],
+        });
+      }
+      if (!sa.city?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          message: "City is required",
+          path: ["siteAddress", "city"],
+        });
+      }
     }
   });
 

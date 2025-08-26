@@ -34,6 +34,7 @@ export function useBookingFormLogic(args: {
     name: "",
     email: "",
     phone: "",
+    customerNIF: "",
     // Add-ons live in the schema too; caller may provide them here to override
     deliverySelected: true,
     pickupSelected: true,
