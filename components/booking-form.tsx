@@ -164,8 +164,10 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
     }
   }
 
+  // Only block when dates are invalid/empty or we’re submitting.
+  // RHF + resolver will still prevent submission and surface errors if any required field is invalid.
   const isSubmitDisabled =
-    !form.formState.isValid || rentalDays === 0 || form.formState.isSubmitting;
+    form.formState.isSubmitting || rentalDays === 0 || isDateInvalid;
 
   return (
     <Card>

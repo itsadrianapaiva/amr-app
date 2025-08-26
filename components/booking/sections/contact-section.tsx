@@ -7,23 +7,25 @@ import {
   FormLabel,
   FormControl,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import type { BookingFormValues } from "@/lib/validation/booking";
 
 type ContactSectionProps = {
-  /** RHF control from the parent form */
-  control: Control<any>;
+  control: Control<BookingFormValues>;
 };
 
 /**
  * ContactSection
- * Encapsulates name, email, and phone fields.
- * - No schema or validation logic here
- * - Pure presentational RHF fields
+ * - Collects customer name, email, phone, and optional personal NIF.
+ * - NIF is optional. If provided, schema enforces 9 digits.
+ * - Keeps to the "sections accept control only" convention.
  */
 export function ContactSection({ control }: ContactSectionProps) {
   return (
     <div className="space-y-6">
+      {/* Name */}
       <FormField
         control={control}
         name="name"
@@ -44,6 +46,7 @@ export function ContactSection({ control }: ContactSectionProps) {
         )}
       />
 
+      {/* Email */}
       <FormField
         control={control}
         name="email"
@@ -65,6 +68,7 @@ export function ContactSection({ control }: ContactSectionProps) {
         )}
       />
 
+      {/* Phone */}
       <FormField
         control={control}
         name="phone"
@@ -79,6 +83,34 @@ export function ContactSection({ control }: ContactSectionProps) {
                 autoComplete="tel"
                 required
                 {...field}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      {/* Optional personal NIF (null-safe) */}
+      <FormField
+        control={control}
+        name="customerNIF"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel htmlFor="customerNIF">NIF (optional)</FormLabel>
+            <FormControl>
+              <Input
+                id="customerNIF"
+                inputMode="numeric"
+                pattern="\d*"
+                maxLength={9}
+                placeholder="9 digits"
+                {...field}
+                /* Ensure value is never null for <input> */
+                value={field.value ?? ""}
+                onChange={(e) => {
+                  const digitsOnly = e.target.value.replace(/\D+/g, "");
+                  field.onChange(digitsOnly);
+                }}
               />
             </FormControl>
             <FormMessage />

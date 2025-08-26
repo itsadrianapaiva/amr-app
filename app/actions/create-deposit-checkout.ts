@@ -120,6 +120,7 @@ export async function createDepositCheckoutAction(
       customerName: parsed.name,
       customerEmail: parsed.email,
       customerPhone: parsed.phone,
+      customerNIF: parsed.customerNIF ?? null,
 
       billingIsBusiness: Boolean(parsed.billingIsBusiness),
       billingCompanyName: parsed.billingCompanyName ?? null,
