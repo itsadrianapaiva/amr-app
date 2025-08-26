@@ -5,7 +5,7 @@
  * and create a Stripe Checkout Session for the **deposit** only.
  */
 
-import { differenceInCalendarDays, formatISO } from "date-fns";
+import { differenceInCalendarDays } from "date-fns";
 import { BookingStatus } from "@prisma/client";
 
 import { getMachineById } from "@/lib/data";
@@ -13,7 +13,8 @@ import { db } from "@/lib/db";
 import { buildBookingSchema } from "@/lib/validation/booking";
 import { computeTotals } from "@/lib/pricing";
 import { INSURANCE_CHARGE, OPERATOR_CHARGE } from "@/lib/config";
-import { getStripe, toMoney } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
+import { buildDepositCheckoutSessionParams } from "@/lib/stripe/checkout";
 
 // Lisbon calendar-day helpers (avoid TZ bugs)
 function partsForLisbon(d: Date) {
@@ -145,35 +146,18 @@ export async function createDepositCheckoutAction(
     process.env.APP_URL ||
     "http://localhost:3000";
 
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    customer_email: parsed.email,
-    client_reference_id: String(booking.id),
-    metadata: {
-      bookingId: String(booking.id),
-      machineId: String(machine.id),
-      startDate: formatISO(from, { representation: "date" }),
-      endDate: formatISO(to, { representation: "date" }),
-    },
-    line_items: [
-      {
-        price_data: {
-          ...toMoney(depositEuros),
-          product_data: {
-            name: `Booking deposit — ${machine.name}`,
-            description: `Dates: ${formatISO(from, {
-              representation: "date",
-            })} to ${formatISO(to, { representation: "date" })} (${days} day${
-              days > 1 ? "s" : ""
-            })`,
-          },
-        },
-        quantity: 1,
-      },
-    ],
-    success_url: `${appUrl}/booking/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl}/machine/${machine.id}?checkout=cancelled`,
+  const sessionParams = buildDepositCheckoutSessionParams({
+    bookingId: booking.id,
+    machine: { id: machine.id, name: machine.name },
+    from,
+    to,
+    days,
+    depositEuros,
+    customerEmail: parsed.email,
+    appUrl,
   });
+
+  const session = await stripe.checkout.sessions.create(sessionParams);
 
   if (!session.url) {
     throw new Error("Stripe session did not return a URL.");
@@ -181,3 +165,4 @@ export async function createDepositCheckoutAction(
 
   return { url: session.url };
 }
+
