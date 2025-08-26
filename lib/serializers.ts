@@ -3,15 +3,15 @@ import type { SerializableMachine } from "@/lib/types";
 
 /**
  * serializeMachine
- * Converts Prisma Decimal fields to strings so the result is
- * safe to send through React Server Components and props.
+ * Convert Prisma Decimal fields into strings and pick only client-safe fields.
+ * Keeps UI types decoupled from the DB schema.
  */
 export function serializeMachine(m: Machine): SerializableMachine {
   return {
-    // primitives passthrough
+    // primitives / nullable text
     id: m.id,
     name: m.name,
-    type: m.type,
+    type: m.type, // Prisma enum is a string union; safe for our `string` UI type
     description: m.description,
     imageUrl: m.imageUrl,
     weight: m.weight,
@@ -32,7 +32,7 @@ export function serializeMachine(m: Machine): SerializableMachine {
 
 /**
  * serializeMachines
- * Small helper to map arrays without repeating logic.
+ * Map helper to avoid repeating logic.
  */
 export function serializeMachines(ms: Machine[]): SerializableMachine[] {
   return ms.map(serializeMachine);

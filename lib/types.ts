@@ -1,11 +1,19 @@
-import type { Machine } from "@prisma/client";
+// Explicit client-safe shape for machines crossing RSC/client boundaries.
+// Decimal-like values are strings; nullable money stays `string | null`.
+// No Prisma imports here to avoid coupling UI types to the DB schema.
 
-// Converts Prisma Decimal fields to strings for safe RSC serialization.
-// deliveryCharge and pickupCharge are nullable in the DB, so they serialize to string | null.
-export type SerializableMachine = Omit<
-  Machine,
-  "dailyRate" | "deposit" | "deliveryCharge" | "pickupCharge"
-> & {
+export type SerializableMachine = {
+  id: number;
+  name: string;
+  type: string;                 // keep UI-decoupled from Prisma enums
+  description: string | null;
+  imageUrl: string | null;
+  weight: string | null;
+
+  // Policy fields
+  minDays: number;
+
+  // Money/Decimal as strings (safe serialization, no float drift)
   dailyRate: string;
   deposit: string;
   deliveryCharge: string | null;

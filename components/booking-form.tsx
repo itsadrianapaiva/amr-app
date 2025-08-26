@@ -27,6 +27,7 @@ import { useBookingFormLogic } from "@/lib/hooks/use-booking-form-logic";
 import AddOnOptOutDialog from "@/components/booking/add-on-optout-dialog";
 import { useBookingDraft } from "@/lib/hooks/use-booking-draft";
 import { useOptOutGate } from "@/lib/hooks/use-optout-gate";
+import { useMachinePricing } from "@/lib/hooks/use-machine-pricing";
 
 type BookingFormProps = {
   machine: Pick<
@@ -42,12 +43,21 @@ type BookingFormProps = {
 };
 
 export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
-  const dailyRate = Number(machine.dailyRate);
-  const deliveryCharge = Number(machine.deliveryCharge ?? 0);
-  const pickupCharge = Number(machine.pickupCharge ?? 0);
-  const deposit = Number(machine.deposit);
-  const minDays = machine.minDays;
+  const {
+    dailyRate,
+    deposit,
+    deliveryCharge,
+    pickupCharge,
+    minDays,
+  } = useMachinePricing({
+    dailyRate: machine.dailyRate,
+    deposit: machine.deposit,
+    deliveryCharge: machine.deliveryCharge,
+    pickupCharge: machine.pickupCharge,
+    minDays: machine.minDays,
+  });
 
+  // Schema built with minStart policy (tomorrow 00:00)
   const minStart = startOfDay(addDays(new Date(), 1));
   const schema = buildBookingSchema(minStart, minDays);
 
@@ -57,7 +67,9 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
     schema,
     disabledRangesJSON,
     defaultValues: {
+      // Date range
       dateRange: { from: undefined, to: undefined },
+      // Contact
       name: "",
       email: "",
       phone: "",
@@ -89,7 +101,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
   // The hook encapsulates serialization, versioning and debounce.
   useBookingDraft({ form, machineId: machine.id });
 
-  // Read add-on values directly from RHF
+  // Live add-on values directly from RHF
   const [
     deliverySelected,
     pickupSelected,
