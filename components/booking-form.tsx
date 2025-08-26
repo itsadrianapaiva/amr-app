@@ -19,6 +19,7 @@ import { useBookingDraft } from "@/lib/hooks/use-booking-draft";
 import { useOptOutGate } from "@/lib/hooks/use-optout-gate";
 import { useMachinePricing } from "@/lib/hooks/use-machine-pricing";
 import { useDatePolicy } from "@/lib/hooks/use-date-policy";
+import { useAddonToggles } from "@/lib/hooks/use-addon-toggles";
 
 type BookingFormProps = {
   machine: Pick<
@@ -75,18 +76,18 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
   // 4) Session draft (load on mount, debounce save on change)
   useBookingDraft({ form, machineId: machine.id });
 
-  // 5) Live add-on values from RHF
-  const [
+  // 5) DRY add-on state + handlers
+  const {
     deliverySelected,
     pickupSelected,
     insuranceSelected,
     operatorSelected,
-  ] = form.watch([
-    "deliverySelected",
-    "pickupSelected",
-    "insuranceSelected",
-    "operatorSelected",
-  ]) as boolean[];
+    showAddress,
+    onToggleDelivery,
+    onTogglePickup,
+    onToggleInsurance,
+    onToggleOperator,
+  } = useAddonToggles(form);
 
   // 6) Date error for presenter visuals
   const { message: dateErrorMessage, invalid: isDateInvalid } =
@@ -124,7 +125,6 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
   // 9) Derived flags for presenter
   const isSubmitDisabled =
     form.formState.isSubmitting || rentalDays === 0 || isDateInvalid;
-  const showAddress = deliverySelected || pickupSelected;
 
   return (
     <Card>
@@ -132,7 +132,6 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
         <CardTitle>Book this Machine</CardTitle>
       </CardHeader>
       <CardContent>
-        {/* Dialog lives here; presenter stays stateless */}
         <AddOnOptOutDialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
@@ -155,36 +154,14 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
               deliveryCharge={deliveryCharge}
               pickupCharge={pickupCharge}
               minDays={minDays}
-              deliverySelected={!!deliverySelected}
-              pickupSelected={!!pickupSelected}
-              insuranceSelected={!!insuranceSelected}
-              operatorSelected={!!operatorSelected}
-              onToggleDelivery={() => {
-                form.setValue("deliverySelected", !deliverySelected, {
-                  shouldDirty: true,
-                  shouldValidate: true,
-                });
-                void form.trigger("siteAddress");
-              }}
-              onTogglePickup={() => {
-                form.setValue("pickupSelected", !pickupSelected, {
-                  shouldDirty: true,
-                  shouldValidate: true,
-                });
-                void form.trigger("siteAddress");
-              }}
-              onToggleInsurance={() =>
-                form.setValue("insuranceSelected", !insuranceSelected, {
-                  shouldDirty: true,
-                  shouldValidate: true,
-                })
-              }
-              onToggleOperator={() =>
-                form.setValue("operatorSelected", !operatorSelected, {
-                  shouldDirty: true,
-                  shouldValidate: true,
-                })
-              }
+              deliverySelected={deliverySelected}
+              pickupSelected={pickupSelected}
+              insuranceSelected={insuranceSelected}
+              operatorSelected={operatorSelected}
+              onToggleDelivery={onToggleDelivery}
+              onTogglePickup={onTogglePickup}
+              onToggleInsurance={onToggleInsurance}
+              onToggleOperator={onToggleOperator}
               showAddress={showAddress}
               isSubmitDisabled={isSubmitDisabled}
               rootError={form.formState.errors.root?.message ?? null}
