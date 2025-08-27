@@ -8,6 +8,7 @@ import { createAllDayEvent } from "@/lib/google-calendar";
 // Accept minimal customer + address fields required by the Booking schema
 const ManagerBookingSchema = z.object({
   passcode: z.string().min(1, "Missing passcode"),
+  managerName: z.string().min(1).default("OPS"),
   machineId: z.number().int().positive(),
   // Dates as calendar strings
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD"),
@@ -49,7 +50,8 @@ export async function createManagerBooking(input: ManagerBookingInput) {
   const parsed = ManagerBookingSchema.parse(input);
   const expected = process.env.OPS_PASSCODE;
   if (!expected) throw new Error("Server misconfigured: missing OPS_PASSCODE");
-  if (parsed.passcode !== expected) throw new Error("Unauthorized: invalid passcode");
+  if (parsed.passcode !== expected)
+    throw new Error("Unauthorized: invalid passcode");
 
   // 2) Ensure machine exists (for Calendar title)
   const machine = await db.machine.findUnique({
@@ -114,19 +116,23 @@ export async function createManagerBooking(input: ManagerBookingInput) {
       addOns.length ? `Add-ons: ${addOns.join(", ")}` : null,
       parsed.siteAddress?.line1 ? `Site: ${parsed.siteAddress.line1}` : null,
       parsed.siteAddress?.postalCode || parsed.siteAddress?.city
-        ? `City/Postal: ${[parsed.siteAddress?.postalCode, parsed.siteAddress?.city]
+        ? `City/Postal: ${[
+            parsed.siteAddress?.postalCode,
+            parsed.siteAddress?.city,
+          ]
             .filter(Boolean)
             .join(" ")}`
         : null,
       parsed.siteAddress?.notes ? `Notes: ${parsed.siteAddress.notes}` : null,
-      `Payment: WAIVED (ops)`,
+      `Booked by: ${parsed.managerName}`,
+      `Payment: WAIVED (OPS)`,
     ].filter(Boolean);
 
     const eventId = await createAllDayEvent({
       summary: `AMR Rental – ${machine.name}`,
       description: lines.join("\n"),
       startDate: parsed.startDate, // inclusive
-      endDate: parsed.endDate,     // inclusive; helper adds +1 day for Google
+      endDate: parsed.endDate, // inclusive; helper adds +1 day for Google
       location: parsed.siteAddress?.line1 || undefined,
     });
 
