@@ -3,6 +3,11 @@ import { BookingStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
 import ClearBookingDraft from "@/components/booking/clear-draft-on-mount";
+import { createAllDayEvent } from "@/lib/google-calendar";
+
+// Ensure Node runtime for googleapis + Stripe
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type PageProps = {
   searchParams: Promise<{ session_id?: string }>;
@@ -67,7 +72,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
         </p>
         <div className="mt-8">
           <a href="/" className="underline">
-            Back to catalog
+            Back to homepage
           </a>
         </div>
       </main>
@@ -108,6 +113,47 @@ export default async function SuccessPage({ searchParams }: PageProps) {
       didPromote = true;
     }
   });
+
+  // 1) Create a Google Calendar event AFTER promotion (best-effort, non-blocking)
+  if (didPromote && startDate && endDate) {
+    try {
+      // Fetch machine name for a nicer Calendar title
+      const machineName =
+        typeof machineId === "number"
+          ? (
+              await db.machine.findUnique({
+                where: { id: machineId },
+                select: { name: true },
+              })
+            )?.name ?? "Machine"
+          : "Machine";
+
+      const summary = `AMR Rental – ${machineName}`;
+      const description = [
+        `Booking #${bookingId}`,
+        `Dates: ${startDate} → ${endDate}`,
+        piId ? `PaymentIntent: ${piId}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      const eventId = await createAllDayEvent({
+        summary,
+        description,
+        startDate, // inclusive; helper will add +1 day for Google end.date
+        endDate, // inclusive
+      });
+
+      // Persist the Calendar event id (ignore if schema lacks the field)
+      await db.booking.update({
+        where: { id: bookingId },
+        data: { googleCalendarEventId: eventId },
+      });
+    } catch (err) {
+      // Do not fail the success page if Calendar write fails
+      console.error("Calendar write failed:", err);
+    }
+  }
 
   // 2) Best-effort revalidation via API route (allowed outside render)
   if (didPromote) {
