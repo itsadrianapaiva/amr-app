@@ -17,7 +17,7 @@ export function MachineCard({ machine }: MachineCardProps) {
     <div className="group relative h-[492px] w-full overflow-hidden">
       {/* Background Image: Fills the container and zooms slightly on hover */}
       <Image
-        src={machine.imageUrl}
+        src={machine.imageUrl || "/fallback-image.jpg"}
         fill
         className="object-cover transition-transform duration-500 group-hover:scale-105"
         alt={`Image of ${displayName}`}
