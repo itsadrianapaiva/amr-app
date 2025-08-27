@@ -1,42 +1,12 @@
 "use server";
 
-import { z } from "zod";
 import { db } from "@/lib/db";
 import { BookingStatus } from "@prisma/client";
 import { createAllDayEvent } from "@/lib/google-calendar";
-
-// Accept minimal customer + address fields required by the Booking schema
-const ManagerBookingSchema = z.object({
-  passcode: z.string().min(1, "Missing passcode"),
-  managerName: z.string().min(1).default("OPS"),
-  machineId: z.number().int().positive(),
-  // Dates as calendar strings
-  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD"),
-  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD"),
-  // Add-ons (safe defaults)
-  delivery: z.boolean().optional().default(false),
-  pickup: z.boolean().optional().default(false),
-  insurance: z.boolean().optional().default(false),
-  operator: z.boolean().optional().default(false),
-  // Customer (Booking schema requires these—defaults keep testing easy)
-  customerName: z.string().min(1).default("OPS Booking"),
-  customerEmail: z.string().email().default("ops@example.com"),
-  customerPhone: z.string().min(3).default("000000000"),
-  customerNIF: z.string().optional().nullable(),
-  // Operational site address (not invoicing) — map to 4 columns on write
-  siteAddress: z
-    .object({
-      line1: z.string().optional().nullable(),
-      postalCode: z.string().optional().nullable(),
-      city: z.string().optional().nullable(),
-      notes: z.string().optional().nullable(),
-    })
-    .optional(),
-  // Optional explicit total for ops; default to 0 for “waived” bookings
-  totalCost: z.number().nonnegative().default(0),
-});
-
-type ManagerBookingInput = z.infer<typeof ManagerBookingSchema>;
+import {
+  ManagerBookingSchema,
+  type ManagerBookingInput,
+} from "@/lib/validation/manager-booking";
 
 /**
  * Internal-only action: create a CONFIRMED booking with payment waived.
