@@ -3,9 +3,8 @@ import { BookingStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
 import ClearBookingDraft from "@/components/booking/clear-draft-on-mount";
-import { createAllDayEvent } from "@/lib/google-calendar";
 
-// Ensure Node runtime for googleapis + Stripe
+// Ensure Node runtime for Stripe
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -64,23 +63,22 @@ export default async function SuccessPage({ searchParams }: PageProps) {
   // If we somehow lack booking id, show a simple explanation
   if (!Number.isFinite(bookingId)) {
     return (
-      <main className="container mx-auto py-16">
+      <div className="mx-auto max-w-2xl space-y-6 p-6">
         <h1 className="text-2xl font-semibold">Payment received</h1>
-        <p className="mt-2">
+        <p className="text-sm text-gray-700">
           We could not match your booking automatically. Our team will follow
           up.
         </p>
-        <div className="mt-8">
+        <div className="flex items-center gap-3 pt-2">
           <a href="/" className="underline">
             Back to homepage
           </a>
         </div>
-      </main>
+      </div>
     );
   }
 
-  // If the user refreshes this page, we do not double confirm.
-  // Confirm booking if needed (idempotent)
+  // Idempotent promotion to CONFIRMED
   let didPromote = false;
   await db.$transaction(async (tx) => {
     const existing = await tx.booking.findUnique({
@@ -95,7 +93,6 @@ export default async function SuccessPage({ searchParams }: PageProps) {
 
     if (!existing) return;
 
-    // Only update if paid and not already confirmed
     if (
       paid &&
       !existing.depositPaid &&
@@ -114,48 +111,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
     }
   });
 
-  // 1) Create a Google Calendar event AFTER promotion (best-effort, non-blocking)
-  if (didPromote && startDate && endDate) {
-    try {
-      // Fetch machine name for a nicer Calendar title
-      const machineName =
-        typeof machineId === "number"
-          ? (
-              await db.machine.findUnique({
-                where: { id: machineId },
-                select: { name: true },
-              })
-            )?.name ?? "Machine"
-          : "Machine";
-
-      const summary = `AMR Rental – ${machineName}`;
-      const description = [
-        `Booking #${bookingId}`,
-        `Dates: ${startDate} → ${endDate}`,
-        piId ? `PaymentIntent: ${piId}` : null,
-      ]
-        .filter(Boolean)
-        .join("\n");
-
-      const eventId = await createAllDayEvent({
-        summary,
-        description,
-        startDate, // inclusive; helper will add +1 day for Google end.date
-        endDate, // inclusive
-      });
-
-      // Persist the Calendar event id (ignore if schema lacks the field)
-      await db.booking.update({
-        where: { id: bookingId },
-        data: { googleCalendarEventId: eventId },
-      });
-    } catch (err) {
-      // Do not fail the success page if Calendar write fails
-      console.error("Calendar write failed:", err);
-    }
-  }
-
-  // 2) Best-effort revalidation via API route (allowed outside render)
+  // Best-effort revalidation via API route (allowed outside render)
   if (didPromote) {
     const appUrl =
       process.env.NEXT_PUBLIC_APP_URL ||
@@ -175,50 +131,45 @@ export default async function SuccessPage({ searchParams }: PageProps) {
     }
   }
 
+  // ——— UI
   return (
-    <main className="container mx-auto py-16">
+    <div className="mx-auto max-w-2xl space-y-6 p-6">
       {/* clear the per-machine draft now that we're on the success page */}
       {typeof machineId === "number" && (
         <ClearBookingDraft machineId={machineId} />
       )}
 
       <h1 className="text-2xl font-semibold">Booking confirmed</h1>
-      <p className="mt-2">
+      <p className="text-sm text-gray-700">
         Thank you. Your deposit was processed successfully.
       </p>
 
-      <div className="mt-6 grid gap-1 text-sm text-muted-foreground">
-        <p>
-          Booking ID:{" "}
-          <span className="font-medium text-foreground">{bookingId}</span>
-        </p>
-        {startDate && endDate && (
+      <div className="rounded-md border bg-gray-50 p-4 text-sm text-gray-800 w-[60%]">
+        <div className="space-y-1">
           <p>
-            Dates:{" "}
-            <span className="font-medium text-foreground">{startDate}</span> to{" "}
-            <span className="font-medium text-foreground">{endDate}</span>
+            Booking ID:{" "}
+            <span className="font-medium text-foreground">{bookingId}</span>
           </p>
-        )}
-        {typeof machineId === "number" && (
-          <p>
-            Machine:{" "}
-            <a href={`/machine/${machineId}`} className="underline">
-              View machine
-            </a>
-          </p>
-        )}
+          {startDate && endDate && (
+            <p>
+              Dates:{" "}
+              <span className="font-medium text-foreground">{startDate}</span>{" "}
+              to <span className="font-medium text-foreground">{endDate}</span>
+            </p>
+          )}
+        </div>
       </div>
 
-      <div className="mt-8 flex gap-6">
-        <a href="/" className="underline">
+      <div className="flex items-center gap-3">
+        <a href="/" className="rounded-md bg-black px-4 py-2 text-white">
           Back to homepage
         </a>
         {typeof machineId === "number" && (
           <a href={`/machine/${machineId}`} className="underline">
-            Go to machine
+            View machine
           </a>
         )}
       </div>
-    </main>
+    </div>
   );
 }

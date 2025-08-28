@@ -104,7 +104,8 @@ export async function createOpsBookingAction(
       where: {
         machineId: machineIdNum,
         status: "CONFIRMED",
-        NOT: { OR: [{ endDate: { lt: start } }, { startDate: { gt: end } }] },
+        startDate: { lte: end },
+        endDate: { gte: start },
       },
       select: { id: true },
     });
@@ -154,13 +155,7 @@ export async function createOpsBookingAction(
       // ignore; not critical to ops flow
     }
 
-    // 8) Revalidate the ops page so the next submit sees a fresh tree
-    try {
-      revalidatePath("/ops");
-    } catch {
-      // revalidate is best-effort; never fail the action
-    }
-
+    // Success: return only serializable primitives
     return { ok: true, bookingId: String(created.id) };
   } catch (e: any) {
     console.error("OPS action failed:", e);
