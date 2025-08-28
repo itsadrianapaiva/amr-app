@@ -1,6 +1,3 @@
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
 import { db } from "@/lib/db";
 import OpsCreateBookingForm from "@/components/ops/ops-create-booking-form";
 import { createOpsBookingAction } from "./actions";

@@ -76,9 +76,9 @@ export default function OpsCreateBookingForm({
 
   // Helpers to repopulate values when ok:false (action echoes values)
   const values = (!state?.ok ? state?.values : undefined) as
-    | Partial<Record<string, string>>
+    | Record<string, string>
     | undefined;
-  const v = (k: string) => values?.[k] ?? "";
+  const machineDefault = values?.machineId ?? "";
 
   // Helper to surface first field error
   const fe = (k: string) =>
@@ -121,17 +121,18 @@ export default function OpsCreateBookingForm({
           Machine
         </label>
         <select
+          key={machineDefault}
           id="machineId"
           name="machineId"
           required
           className="mt-1 w-full rounded-md border px-3 py-2"
-          defaultValue={v("machineId")}
+          defaultValue={machineDefault}
         >
           <option value="" disabled>
             Select a machine…
           </option>
           {machines.map((m) => (
-            <option key={m.id} value={m.id}>
+            <option key={m.id} value={String(m.id)}>
               {m.name}
             </option>
           ))}
@@ -151,7 +152,7 @@ export default function OpsCreateBookingForm({
             type="date"
             min={minYmd}
             required
-            defaultValue={v("startYmd")}
+            defaultValue={values?.startYmd}
             className="mt-1 w-full rounded-md border px-3 py-2"
           />
           <FieldError msg={fe("startYmd")} />
@@ -166,7 +167,7 @@ export default function OpsCreateBookingForm({
             type="date"
             min={minYmd}
             required
-            defaultValue={v("endYmd")}
+            defaultValue={values?.endYmd}
             className="mt-1 w-full rounded-md border px-3 py-2"
           />
           <FieldError msg={fe("endYmd")} />
@@ -183,7 +184,7 @@ export default function OpsCreateBookingForm({
             id="managerName"
             name="managerName"
             required
-            defaultValue={v("managerName")}
+            defaultValue={values?.managerName}
             className="mt-1 w-full rounded-md border px-3 py-2"
           />
           <FieldError msg={fe("managerName")} />
@@ -195,7 +196,7 @@ export default function OpsCreateBookingForm({
           <input
             id="customerName"
             name="customerName"
-            defaultValue={v("customerName")}
+            defaultValue={values?.customerName} 
             className="mt-1 w-full rounded-md border px-3 py-2"
           />
           <FieldError msg={fe("customerName")} />
@@ -211,7 +212,7 @@ export default function OpsCreateBookingForm({
           id="siteAddressLine1"
           name="siteAddressLine1"
           required
-          defaultValue={v("siteAddressLine1")}
+          defaultValue={values?.siteAddressLinel}
           className="mt-1 w-full rounded-md border px-3 py-2"
         />
         <FieldError msg={fe("siteAddressLine1")} />
@@ -223,7 +224,7 @@ export default function OpsCreateBookingForm({
         <input
           id="siteAddressCity"
           name="siteAddressCity"
-          defaultValue={v("siteAddressCity")}
+          defaultValue={values?.siteAddressCity} 
           className="mt-1 w-full rounded-md border px-3 py-2"
         />
         <FieldError msg={fe("siteAddressCity")} />
@@ -236,7 +237,7 @@ export default function OpsCreateBookingForm({
           id="siteAddressNotes"
           name="siteAddressNotes"
           rows={2}
-          defaultValue={v("siteAddressNotes")}
+          defaultValue={values?.siteAddressNotes}
           className="mt-1 w-full rounded-md border px-3 py-2"
         />
         <FieldError msg={fe("siteAddressNotes")} />
