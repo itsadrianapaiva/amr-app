@@ -8,6 +8,9 @@ import OpsBookingFields, {
   type MachineOption,
 } from "@/components/ops/ops-booking-fields";
 
+type DisabledRange = { from: string; to: string };
+type DisabledByMachine = Record<string, DisabledRange[]>;
+
 type Props = {
   machines: MachineOption[];
   minYmd: string;
@@ -15,29 +18,29 @@ type Props = {
     prev: OpsActionResult | null,
     formData: FormData
   ) => Promise<OpsActionResult>;
+  /** Map of machineId → disabled date ranges (YYYY-MM-DD), from the server */
+  disabledByMachine: DisabledByMachine;
 };
 
 export default function OpsCreateBookingForm({
   machines,
   minYmd,
   serverAction,
+  disabledByMachine,
 }: Props) {
   const router = useRouter();
 
-  // Bind to the server action directly; initial state is null and never throws.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [state, formAction] = (React as any).useActionState(
     serverAction,
     null as OpsActionResult | null
   );
 
-  // Sticky values for defaultValue hydration when validation fails.
   const values = (!state?.ok ? state?.values : undefined) as
     | Record<string, string>
     | undefined;
   const machineDefault = values?.machineId ?? "";
 
-  // Tiny helper: first field error by key.
   const fe = React.useCallback(
     (k: string) => (!state?.ok ? state?.fieldErrors?.[k]?.[0] : undefined),
     [state]
@@ -59,29 +62,30 @@ export default function OpsCreateBookingForm({
     }
   }, [state?.ok, state?.bookingId, router]);
 
+  // TEMP: allow passing the new prop without changing child types in this step.
+  const FieldsAny = OpsBookingFields as any;
+
   return (
     <form action={formAction} className="space-y-6" noValidate>
-      {/* Only error banner remains; success navigates away */}
       {state?.ok === false && (
         <Banner kind="error">
           {state.formError || "Please fix the errors and try again."}
         </Banner>
       )}
 
-      <OpsBookingFields
+      <FieldsAny
         machines={machines}
         minYmd={minYmd}
         values={values}
         machineDefault={machineDefault}
         fe={fe}
+        disabledByMachine={disabledByMachine}
       />
 
       <SubmitButton />
     </form>
   );
 }
-
-/* ——— Presentational helpers kept local to the container ——— */
 
 function Banner({
   kind,

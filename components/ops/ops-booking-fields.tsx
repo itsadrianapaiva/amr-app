@@ -1,8 +1,13 @@
 "use client";
 
 import * as React from "react";
+import { DateRangeInput } from "../booking/date-range-input";
+import type { DateRange as RDPDateRange } from "react-day-picker";
 
 export type MachineOption = { id: number; name: string };
+
+type DisabledRange = { from: string; to: string };
+type DisabledByMachine = Record<string, DisabledRange[]>;
 
 type Props = {
   machines: MachineOption[];
@@ -13,12 +18,15 @@ type Props = {
   machineDefault?: string;
   /** First field error by key, supplied by the container/hook. */
   fe: (k: string) => string | undefined;
+  /** Map of machineId → disabled date ranges (YYYY-MM-DD), from the server */
+  disabledByMachine: DisabledByMachine;
 };
 
 /**
  * OpsBookingFields
  * Pure presentational form sections for the /ops booking form.
- * No local state. No side-effects. Controlled entirely via props.
+ * Adds client-side stickiness for the machine select and shared DateRangeInput
+ * with visual "blocked dates" pulled from the DB.
  */
 export default function OpsBookingFields({
   machines,
@@ -26,8 +34,9 @@ export default function OpsBookingFields({
   values,
   machineDefault = "",
   fe,
+  disabledByMachine,
 }: Props) {
-  // Sticky machine selection (persists across validation errors)
+  // ——— Sticky machine selection ———
   const [selectedMachineId, setSelectedMachineId] = React.useState<string>("");
 
   // Initialize from (1) server-provided values, (2) sessionStorage, (3) prop default.
@@ -59,6 +68,39 @@ export default function OpsBookingFields({
     []
   );
 
+  // ——— Date range state (RDPDateRange | undefined) ———
+  const initialRange: RDPDateRange | undefined = React.useMemo(() => {
+    if (values?.startYmd) {
+      return {
+        from: ymdToDate(values.startYmd),
+        to: values?.endYmd ? ymdToDate(values.endYmd) : undefined,
+      };
+    }
+    return undefined;
+  }, [values?.startYmd, values?.endYmd]);
+
+  const [range, setRange] = React.useState<RDPDateRange | undefined>(
+    initialRange
+  );
+
+  // Keep state in sync if server sends new values after a failed submit
+  React.useEffect(() => {
+    setRange(initialRange);
+  }, [initialRange?.from?.getTime(), initialRange?.to?.getTime()]);
+
+  // Build disabled matchers for the selected machine: before min date + booked ranges
+  const minDate = React.useMemo(() => ymdToDate(minYmd), [minYmd]);
+
+  const disabledDays = React.useMemo(() => {
+    const base: any[] = [{ before: minDate }];
+    const key = selectedMachineId ? String(selectedMachineId) : "";
+    const ranges = (disabledByMachine?.[key] || []).map((r) => ({
+      from: ymdToDate(r.from),
+      to: ymdToDate(r.to),
+    }));
+    return base.concat(ranges);
+  }, [minDate, selectedMachineId, disabledByMachine]);
+
   return (
     <>
       {/* Machine + Dates */}
@@ -87,36 +129,42 @@ export default function OpsBookingFields({
           <FieldError msg={fe("machineId")} />
         </div>
 
-        <div>
-          <label htmlFor="startYmd" className="block text-sm font-medium">
-            Start date
-          </label>
-          <input
-            id="startYmd"
-            name="startYmd"
-            type="date"
-            min={minYmd}
-            required
-            defaultValue={values?.startYmd ?? ""}
-            className="mt-1 w-full rounded-md border px-3 py-2"
-          />
-          <FieldError msg={fe("startYmd")} />
-        </div>
+        {/* Shared DateRangeInput (spans two columns on md+) */}
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium">Rental dates</label>
+          <div className="mt-1">
+            {/* NOTE: date-range-input expects RDP's DateRange (with required `from`) for `value`,
+               but allows `undefined` in onChange. We keep internal state as RDPDateRange | undefined
+               and cast at the boundary to avoid preselecting a day when empty. */}
+            <DateRangeInput
+              value={range as unknown as RDPDateRange}
+              onChange={(next) => setRange(next as RDPDateRange | undefined)}
+              disabledDays={disabledDays}
+            />
+          </div>
 
-        <div>
-          <label htmlFor="endYmd" className="block text-sm font-medium">
-            End date
-          </label>
+          {/* Hidden inputs to keep the existing server action contract unchanged */}
           <input
-            id="endYmd"
-            name="endYmd"
-            type="date"
-            min={minYmd}
-            required
-            defaultValue={values?.endYmd ?? ""}
-            className="mt-1 w-full rounded-md border px-3 py-2"
+            type="hidden"
+            name="startYmd"
+            value={range?.from ? formatYmd(range.from) : ""}
           />
-          <FieldError msg={fe("endYmd")} />
+          <input
+            type="hidden"
+            name="endYmd"
+            value={range?.to ? formatYmd(range.to) : ""}
+          />
+
+          {/* Inline server-side validation feedback */}
+          <div className="mt-1 grid gap-1">
+            <FieldError msg={fe("startYmd")} />
+            <FieldError msg={fe("endYmd")} />
+          </div>
+
+          {/* Helper text / policy hint */}
+          <p className="mt-1 text-xs text-gray-600">
+            Earliest start: tomorrow. Blocked dates are grayed out.
+          </p>
         </div>
       </div>
 
@@ -220,4 +268,19 @@ export default function OpsBookingFields({
 function FieldError({ msg }: { msg?: string }) {
   if (!msg) return null;
   return <p className="mt-1 text-sm text-red-600">{msg}</p>;
+}
+
+/** Parse 'YYYY-MM-DD' into a Date (avoids timezone off-by-ones). */
+function ymdToDate(ymd: string): Date {
+  const [y, m, d] = ymd.split("-").map((n) => parseInt(n, 10));
+  return new Date(Date.UTC(y, (m || 1) - 1, d || 1));
+}
+
+/** Format Date → 'YYYY-MM-DD' */
+function formatYmd(d?: Date): string {
+  if (!d) return "";
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
