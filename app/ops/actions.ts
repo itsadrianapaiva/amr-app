@@ -2,7 +2,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { ManagerOpsSchema } from "@/lib/validation/manager-booking";
-import { revalidatePath } from "next/cache";
 
 export type OpsActionResult =
   | {
