@@ -1,279 +1,178 @@
-// components/ops/ops-create-booking-form.tsx
 "use client";
 
 import * as React from "react";
-import { useTransition, useState } from "react";
-import type { ManagerBookingActionResult } from "@/app/ops/actions";
+import type { OpsActionResult } from "@/app/ops/actions";
 
-// Keep the prop surface small and explicit.
 type MachineOption = { id: number; name: string };
-
-type OpsCreateBookingFormProps = {
+type Props = {
   machines: MachineOption[];
-  // Server-computed Lisbon "today" in YYYY-MM-DD for <input type="date" min="...">
   minYmd: string;
-  // Pass the Server Action directly; it returns our discriminated union.
-  serverAction: (
-    input: Record<string, any>
-  ) => Promise<ManagerBookingActionResult>;
+  serverAction: (prev: OpsActionResult | null, formData: FormData) => Promise<OpsActionResult>;
 };
 
-export default function OpsCreateBookingForm({
-  machines,
-  minYmd,
-  serverAction,
-}: OpsCreateBookingFormProps) {
-  const [isPending, startTransition] = useTransition();
-  const [result, setResult] = useState<ManagerBookingActionResult | null>(null);
+function FieldError({ msg }: { msg?: string }) {
+  if (!msg) return null;
+  return <p className="mt-1 text-xs text-red-600">{msg}</p>;
+}
 
-  // Helper to read the first error for a field key.
-  const firstError = (key: string) =>
-    result && !result.ok && result.fieldErrors && result.fieldErrors[key]?.[0];
+function SubmitButton() {
+  const { pending } = (React as any).useFormStatus?.() ?? { pending: false };
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="mt-6 w-full rounded-md bg-black px-4 py-2 text-white disabled:opacity-60"
+    >
+      {pending ? "Creating..." : "Create booking"}
+    </button>
+  );
+}
 
-  // Submit handler: serialize fields → call server action → render union result.
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const payload = Object.fromEntries(fd.entries()); // plain object, all strings
-    setResult(null);
+export default function OpsCreateBookingForm({ machines, minYmd, serverAction }: Props) {
+  const formRef = React.useRef<HTMLFormElement>(null);
+  const [state, formAction] = (React as any).useActionState(serverAction, null as OpsActionResult | null);
 
-    startTransition(async () => {
-      const r = await serverAction(payload);
-      setResult(r);
-    });
-  }
+  // Reset form after successful booking
+  React.useEffect(() => {
+    if (state?.ok) formRef.current?.reset();
+  }, [state?.ok]);
 
-  // Tiny success banner
-  const success = result && result.ok;
+  const fe = (k: string) => (!state?.ok ? state?.fieldErrors?.[k]?.[0] : undefined);
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
-      {/* Non-field formError banner */}
-      {!success && result && !result.ok && result.formError ? (
-        <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">
-          {result.formError}
+    <form ref={formRef} action={formAction} className="mx-10 space-y-5">
+      {/* Banners */}
+      {!state?.ok && state?.formError && (
+        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {state.formError}
         </div>
-      ) : null}
-
-      {/* Success banner */}
-      {success ? (
-        <div className="rounded-md border border-green-300 bg-green-50 p-3 text-sm text-green-700">
-          Booking created successfully. ID: <strong>{result.bookingId}</strong>
-          {result.calendar?.eventId ? (
-            <>
-              {" "}
-              • Calendar event: <code>{result.calendar.eventId}</code>
-            </>
-          ) : null}
+      )}
+      {state?.ok && (
+        <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+          Booking created.{" "}
+          {state.calendar?.htmlLink ? (
+            <a className="underline" href={state.calendar.htmlLink} target="_blank" rel="noreferrer">
+              Open in Calendar
+            </a>
+          ) : (
+            "Calendar updated."
+          )}
         </div>
-      ) : null}
+      )}
 
       {/* Machine */}
-      <div className="space-y-1">
-        <label className="block text-sm font-medium">Machine</label>
+      <div>
+        <label htmlFor="machineId" className="block text-sm font-medium">
+          Machine
+        </label>
         <select
+          id="machineId"
           name="machineId"
-          className="w-full rounded-md border p-2 text-sm"
-          defaultValue={machines[0]?.id ?? ""}
+          required
+          className="mt-1 w-full rounded-md border px-3 py-2"
+          defaultValue=""
         >
+          <option value="" disabled>
+            Select a machine…
+          </option>
           {machines.map((m) => (
             <option key={m.id} value={m.id}>
               {m.name}
             </option>
           ))}
         </select>
-        {firstError("machineId") ? (
-          <p className="text-xs text-red-600">{firstError("machineId")}</p>
-        ) : null}
+        <FieldError msg={fe("machineId")} />
       </div>
 
       {/* Dates */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1">
-          <label className="block text-sm font-medium">Start date</label>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <label htmlFor="startYmd" className="block text-sm font-medium">
+            Start date
+          </label>
           <input
+            id="startYmd"
+            name="startYmd"
             type="date"
-            name="startDate"
             min={minYmd}
-            className="w-full rounded-md border p-2 text-sm"
             required
+            className="mt-1 w-full rounded-md border px-3 py-2"
           />
-          {firstError("startDate") ? (
-            <p className="text-xs text-red-600">{firstError("startDate")}</p>
-          ) : null}
+          <FieldError msg={fe("startYmd")} />
         </div>
-
-        <div className="space-y-1">
-          <label className="block text-sm font-medium">End date</label>
+        <div>
+          <label htmlFor="endYmd" className="block text-sm font-medium">
+            End date
+          </label>
           <input
+            id="endYmd"
+            name="endYmd"
             type="date"
-            name="endDate"
             min={minYmd}
-            className="w-full rounded-md border p-2 text-sm"
             required
+            className="mt-1 w-full rounded-md border px-3 py-2"
           />
-          {firstError("endDate") ? (
-            <p className="text-xs text-red-600">{firstError("endDate")}</p>
-          ) : null}
+          <FieldError msg={fe("endYmd")} />
         </div>
       </div>
 
-      {/* Manager  */}
-      <div className="space-y-1">
-        <label className="block text-sm font-medium">Manager name</label>
-        <input
-          name="managerName"
-          className="w-full rounded-md border p-2 text-sm"
-          required
-        />
-        {firstError("managerName") ? (
-          <p className="text-xs text-red-600">{firstError("managerName")}</p>
-        ) : null}
-      </div>
-
-      {/* Customer (all optional for ops) */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="space-y-1">
-          <label className="block text-sm font-medium">
+      {/* Names */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <label htmlFor="managerName" className="block text-sm font-medium">
+            Manager name
+          </label>
+          <input id="managerName" name="managerName" required className="mt-1 w-full rounded-md border px-3 py-2" />
+          <FieldError msg={fe("managerName")} />
+        </div>
+        <div>
+          <label htmlFor="customerName" className="block text-sm font-medium">
             Customer name (optional)
           </label>
-          <input
-            name="customerName"
-            className="w-full rounded-md border p-2 text-sm"
-            defaultValue="Not provided"
-          />
-          {firstError("customerName") ? (
-            <p className="text-xs text-red-600">{firstError("customerName")}</p>
-          ) : null}
+          <input id="customerName" name="customerName" className="mt-1 w-full rounded-md border px-3 py-2" />
+          <FieldError msg={fe("customerName")} />
         </div>
+      </div>
 
-        <div className="space-y-1">
-          <label className="block text-sm font-medium">
-            Customer email (optional)
+      {/* Site */}
+      <div>
+        <label htmlFor="siteAddressLine1" className="block text-sm font-medium">
+          Site address
+        </label>
+        <input
+          id="siteAddressLine1"
+          name="siteAddressLine1"
+          required
+          className="mt-1 w-full rounded-md border px-3 py-2"
+        />
+        <FieldError msg={fe("siteAddressLine1")} />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <label htmlFor="siteAddressCity" className="block text-sm font-medium">
+            City (optional)
           </label>
-          <input
-            type="email"
-            name="customerEmail"
-            defaultValue="ops@bookings.com"
-            className="w-full rounded-md border p-2 text-sm"
-          />
-          {firstError("customerEmail") ? (
-            <p className="text-xs text-red-600">
-              {firstError("customerEmail")}
-            </p>
-          ) : null}
         </div>
-
-        <div className="space-y-1">
-          <label className="block text-sm font-medium">
-            Customer phone (optional)
+        <input id="siteAddressCity" name="siteAddressCity" className="mt-1 w-full rounded-md border px-3 py-2 md:col-span-1" />
+        <div className="md:col-span-2">
+          <label htmlFor="siteAddressNotes" className="block text-sm font-medium">
+            Notes (optional)
           </label>
-          <input
-            type="tel"
-            name="customerPhone"
-            defaultValue='"N/A"'
-            className="w-full rounded-md border p-2 text-sm"
-          />
-          {firstError("customerPhone") ? (
-            <p className="text-xs text-red-600">
-              {firstError("customerPhone")}
-            </p>
-          ) : null}
+          <textarea id="siteAddressNotes" name="siteAddressNotes" rows={2} className="mt-1 w-full rounded-md border px-3 py-2" />
+          <FieldError msg={fe("siteAddressNotes")} />
         </div>
       </div>
 
-      {/* Site address  */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="space-y-1 sm:col-span-2">
-          <label className="block text-sm font-medium">Site address</label>
-          <input
-            name="siteAddressLine1"
-            className="w-full rounded-md border p-2 text-sm"
-          />
-          {firstError("siteAddressLine1") ? (
-            <p className="text-xs text-red-600">
-              {firstError("siteAddressLine1")}
-            </p>
-          ) : null}
-        </div>
+      {/* Passcode */}
+      <div>
+        <label htmlFor="opsPasscode" className="block text-sm font-medium">
+          Ops passcode
+        </label>
+        <input id="opsPasscode" name="opsPasscode" type="password" required className="mt-1 w-full rounded-md border px-3 py-2" />
+        <FieldError msg={fe("opsPasscode")} />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1">
-          <label className="block text-sm font-medium">City (optional)</label>
-          <input
-            name="siteAddressCity"
-            className="w-full rounded-md border p-2 text-sm"
-          />
-          {firstError("siteAddressCity") ? (
-            <p className="text-xs text-red-600">
-              {firstError("siteAddressCity")}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="space-y-1">
-          <label className="block text-sm font-medium">
-            Address Notes (optional)
-          </label>
-          <input
-            name="siteAddressNotes"
-            className="w-full rounded-md border p-2 text-sm"
-          />
-          {firstError("siteAddressNotes") ? (
-            <p className="text-xs text-red-600">
-              {firstError("siteAddressNotes")}
-            </p>
-          ) : null}
-        </div>
-      </div>
-
-      {/* Financials + auth */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1">
-          <label className="block text-sm font-medium">Total cost (EUR)</label>
-          <input
-            type="number"
-            name="totalCost"
-            step="0.01"
-            inputMode="decimal"
-            min="0"
-            className="w-full rounded-md border p-2 text-sm"
-            defaultValue="0"
-          />
-          {firstError("totalCost") ? (
-            <p className="text-xs text-red-600">{firstError("totalCost")}</p>
-          ) : null}
-        </div>
-
-        <div className="space-y-1">
-          <label className="block text-sm font-medium">PASSCODE (REQUIRED)</label>
-          <input
-            type="password"
-            name="opsPasscode"
-            className="w-full rounded-md border p-2 text-sm"
-            required
-          />
-          {firstError("opsPasscode") ? (
-            <p className="text-xs text-red-600">{firstError("opsPasscode")}</p>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={isPending}
-          className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-60"
-        >
-          {isPending ? "Creating…" : "Create booking"}
-        </button>
-        {!success && result && !result.ok ? (
-          <span className="text-xs text-gray-600">
-            Fix the fields highlighted above.
-          </span>
-        ) : null}
-      </div>
+      <SubmitButton />
     </form>
   );
 }

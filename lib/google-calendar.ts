@@ -1,115 +1,206 @@
-import { google } from "googleapis";
-import type { calendar_v3 } from "googleapis";
-import { addDays } from "date-fns";
+/**
+ * Tiny Google Calendar client (service account) for all-day bookings.
+ * - Creates all-day events with EXCLUSIVE end (end = day after endYmd).
+ * - Returns both { id, htmlLink } for UI convenience.
+ * - Provides a safe deleteEvent(eventId) helper for ops reversals.
+ */
 
-/** Shape for creating an all-day event */
-export type AllDayEventInput = {
-  summary: string; // Title shown on the calendar
-  description?: string; // Details we can stuff with machine + add-ons
-  startDate: string | Date; // Inclusive, e.g. "2025-09-01"
-  endDate: string | Date; // Inclusive, e.g. "2025-09-03"
-  location?: string; // Optional customer site address
+import { google, calendar_v3 } from "googleapis";
+
+// Types
+
+export type CreateAllDayEventArgs = {
+  summary: string;
+  description?: string;
+  /** Inclusive start Y-M-D, e.g. "2025-09-02" */
+  startYmd: string;
+  /** Inclusive end Y-M-D, e.g. "2025-09-05" (exclusive end will be +1 day internally) */
+  endYmd: string;
 };
 
-/** Read and validate env, and fix private key newlines */
-function getEnv() {
-  const email = process.env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_EMAIL;
-  const key = process.env.GOOGLE_CALENDAR_PRIVATE_KEY;
-  const calendarId = process.env.GOOGLE_CALENDAR_ID;
-  const tz = process.env.GOOGLE_CALENDAR_TIMEZONE || "Europe/Lisbon";
+export type CreatedEventRef = {
+  id: string | null;
+  htmlLink: string | null;
+};
 
-  if (!email) throw new Error("Missing GOOGLE_CALENDAR_SERVICE_ACCOUNT_EMAIL");
-  if (!key) throw new Error("Missing GOOGLE_CALENDAR_PRIVATE_KEY");
-  if (!calendarId) throw new Error("Missing GOOGLE_CALENDAR_ID");
+// Internals
 
-  // Keys in env often keep \n as literal two characters; convert to real newlines
-  const privateKey = key.replace(/\\n/g, "\n");
-  return { email, privateKey, calendarId, tz };
+function getTimezone(): string {
+  return process.env.GOOGLE_CALENDAR_TIMEZONE || "Europe/Lisbon";
 }
 
-/** Create an authenticated Calendar client using a JWT service account */
-function getCalendar(): calendar_v3.Calendar {
-  const { email, privateKey } = getEnv();
+/** Auth: service account JWT with Calendar scope */
+function getAuth() {
+  const clientEmail = process.env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_EMAIL;
+  let privateKey = process.env.GOOGLE_CALENDAR_PRIVATE_KEY;
 
-  const auth = new google.auth.JWT({
-    email,
+  if (!clientEmail || !privateKey) {
+    throw new Error("Google Calendar env vars are not set");
+  }
+  // Vercel often stores multiline keys with \n escapes.
+  privateKey = privateKey.replace(/\\n/g, "\n");
+
+  return new google.auth.JWT({
+    email: clientEmail,
     key: privateKey,
     scopes: ["https://www.googleapis.com/auth/calendar"],
   });
-
-  return google.calendar({ version: "v3", auth });
 }
 
-/** Normalize to "YYYY-MM-DD" regardless of Date or string input */
-function toYMD(d: string | Date): string {
-  if (d instanceof Date) {
-    // Use the calendar date portion of the input, independent of local tz
-    const utcMidnight = new Date(
-      Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
-    );
-    return utcMidnight.toISOString().slice(0, 10);
+function getCalendar() {
+  return google.calendar({ version: "v3", auth: getAuth() });
+}
+
+/** Return YYYY-MM-DD string for the day after ymd (UTC-safe) */
+function nextDay(ymd: string): string {
+  const d = new Date(`${ymd}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  const y = d.getUTCFullYear();
+  const m = `${d.getUTCMonth() + 1}`.padStart(2, "0");
+  const day = `${d.getUTCDate()}`.padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Build RFC3339 string at UTC midnight for a given YMD */
+function ymdToUtcMidnight(ymd: string): string {
+  return `${ymd}T00:00:00.000Z`;
+}
+
+/** Parse a Calendar API event into [startInstant, endInstantExclusive] */
+function eventInstantsUTC(
+  ev: calendar_v3.Schema$Event
+): { start: Date; endExclusive: Date } | null {
+  const s = ev.start;
+  const e = ev.end;
+  if (!s || !e) return null;
+
+  // All-day: start.date / end.date (end is exclusive per Google)
+  if (s.date && e.date) {
+    return {
+      start: new Date(`${s.date}T00:00:00.000Z`),
+      endExclusive: new Date(`${e.date}T00:00:00.000Z`),
+    };
   }
 
-  // String input
-  const s = d.trim();
-
-  // Already "YYYY-MM-DD"
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-
-  // ISO-like strings: "2025-09-01T..."
-  const parsed = new Date(s);
-  if (!Number.isNaN(+parsed)) {
-    return parsed.toISOString().slice(0, 10);
+  // Timed: use dateTime (includes timezone/offset)
+  if (s.dateTime && e.dateTime) {
+    return { start: new Date(s.dateTime), endExclusive: new Date(e.dateTime) };
   }
 
-  throw new Error(`Invalid date string: ${d}`);
+  // Mixed shapes are rare; be conservative and ignore.
+  return null;
+}
+
+/** Standard time-range overlap: [aStart, aEnd) overlaps [bStart, bEnd) */
+function rangesOverlap(
+  aStart: Date,
+  aEndExclusive: Date,
+  bStart: Date,
+  bEndExclusive: Date
+) {
+  return aStart < bEndExclusive && aEndExclusive > bStart;
+}
+
+// Public API
+
+/**
+ * Create an all-day event with exclusive end.
+ * Returns { id, htmlLink }. Either can be null if the API omits it.
+ */
+export async function createAllDayEvent(
+  args: CreateAllDayEventArgs
+): Promise<CreatedEventRef> {
+  const { summary, description, startYmd, endYmd } = args;
+  const calendarId = process.env.GOOGLE_CALENDAR_ID;
+  if (!calendarId) throw new Error("GOOGLE_CALENDAR_ID not configured");
+
+  const tz = getTimezone();
+  const endExclusive = nextDay(endYmd);
+
+  const calendar = getCalendar();
+  const res = await calendar.events.insert({
+    calendarId,
+    requestBody: {
+      summary,
+      description,
+      start: { date: startYmd, timeZone: tz },
+      end: { date: endExclusive, timeZone: tz },
+      transparency: "opaque",
+    },
+  });
+
+  return {
+    id: res.data.id ?? null,
+    htmlLink: res.data.htmlLink ?? null,
+  };
+}
+
+/** Best-effort delete; returns true if Google accepted the delete (or it didn't exist). */
+export async function deleteEvent(eventId: string): Promise<boolean> {
+  const calendarId = process.env.GOOGLE_CALENDAR_ID;
+  if (!calendarId) throw new Error("GOOGLE_CALENDAR_ID not configured");
+
+  const calendar = getCalendar();
+  try {
+    await calendar.events.delete({ calendarId, eventId });
+    return true;
+  } catch (err: any) {
+    // If the event doesn't exist (410/404), treat as success for idempotency.
+    const status = err?.code || err?.response?.status;
+    if (status === 404 || status === 410) return true;
+    console.error("deleteEvent failed:", err);
+    return false;
+  }
 }
 
 /**
- * Create an all-day event that blocks an inclusive range.
- * Google uses exclusive end dates for all-day events, so we add +1 day.
+ * Check if the calendar already has any (non-cancelled, busy) event overlapping the inclusive
+ * all-day range [startYmd, endYmd]. We expand recurring events with singleEvents=true.
  */
-export async function createAllDayEvent(
-  input: AllDayEventInput
-): Promise<string> {
-  const { calendarId } = getEnv();
-  const cal = getCalendar();
+export async function hasCalendarOverlap(params: {
+  startYmd: string;
+  endYmd: string;
+}): Promise<boolean> {
+  const { startYmd, endYmd } = params;
+  const calendarId = process.env.GOOGLE_CALENDAR_ID;
+  if (!calendarId) throw new Error("GOOGLE_CALENDAR_ID not configured");
 
-  const startYmd = toYMD(input.startDate);
-  const endInclusiveYmd = toYMD(input.endDate);
-  const endExclusiveYmd = toYMD(
-    addDays(new Date(`${endInclusiveYmd}T00:00:00Z`), 1)
-  );
+  const timeMin = ymdToUtcMidnight(startYmd);
+  const timeMax = ymdToUtcMidnight(nextDay(endYmd)); // exclusive end
 
-  try {
-    const res = await cal.events.insert({
-      calendarId,
-      requestBody: {
-        summary: input.summary,
-        description: input.description,
-        location: input.location,
-        start: { date: startYmd }, // all-day: use "date" only
-        end: { date: endExclusiveYmd },
-      },
-    });
+  const calendar = getCalendar();
+  // We only need a handful; ops calendar volume is low. Increase if needed.
+  const res = await calendar.events.list({
+    calendarId,
+    singleEvents: true, // expand recurring
+    showDeleted: false,
+    timeMin,
+    timeMax,
+    orderBy: "startTime",
+    maxResults: 50,
+  });
 
-    const eventId = res.data.id;
-    if (!eventId) throw new Error("Calendar API returned no event id");
-    return eventId;
-  } catch (err: unknown) {
-    const anyErr = err as any;
-    const msg =
-      anyErr?.errors?.[0]?.message ||
-      anyErr?.response?.data?.error?.message ||
-      anyErr?.message ||
-      "Unknown Google Calendar error";
-    throw new Error(`Failed to create calendar event: ${msg}`);
+  const items = res.data.items ?? [];
+  if (!items.length) return false;
+
+  const newStart = new Date(timeMin);
+  const newEndExclusive = new Date(timeMax);
+
+  for (const ev of items) {
+    if (!ev) continue;
+    // Ignore free/translucent events; block only BUSY times.
+    if (ev.transparency === "transparent") continue;
+    if (ev.status === "cancelled") continue;
+
+    const inst = eventInstantsUTC(ev);
+    if (!inst) continue;
+
+    if (
+      rangesOverlap(inst.start, inst.endExclusive, newStart, newEndExclusive)
+    ) {
+      return true;
+    }
   }
-}
 
-/** Optional small helpers for future edits/cancel flows */
-export async function deleteEvent(eventId: string): Promise<void> {
-  const { calendarId } = getEnv();
-  const cal = getCalendar();
-  await cal.events.delete({ calendarId, eventId });
+  return false;
 }

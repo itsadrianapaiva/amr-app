@@ -1,10 +1,9 @@
-// app/ops/page.tsx
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { db } from "@/lib/db";
 import OpsCreateBookingForm from "@/components/ops/ops-create-booking-form";
-import { createManagerBooking } from "./actions";
+import { createOpsBookingAction } from "./actions";
 
 /** Get YYYY-MM-DD of "today" in the Europe/Lisbon timezone for <input type="date" min="..."> */
 function lisbonTodayYmd(): string {
@@ -35,14 +34,16 @@ export default async function OpsPage() {
   // 3) Render the ops form with inline result rendering (no redirects).
   return (
     <section className="container mx-auto max-w-3xl py-10">
-      <h1 className="mb-6 text-2xl font-semibold">CREATE BOOKING (OPS)</h1>
-      <p className="mb-8 text-sm text-gray-600">
+      <h1 className="mb-6 text-2xl font-semibold mx-10">
+        CREATE BOOKING (OPS)
+      </h1>
+      <p className="mb-8 text-sm text-gray-600 mx-10">
         Choose a machine, pick a date range, and confirm with the ops passcode.
       </p>
       <OpsCreateBookingForm
         machines={machines}
         minYmd={minYmd}
-        serverAction={createManagerBooking}
+        serverAction={createOpsBookingAction}
       />
     </section>
   );

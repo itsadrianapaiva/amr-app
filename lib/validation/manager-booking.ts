@@ -1,72 +1,52 @@
 import { z } from "zod";
-import { partsForLisbon } from "@/lib/dates/lisbon";
 
-/** YYYY-MM-DD pattern */
-export const YMD = /^\d{4}-\d{2}-\d{2}$/;
+/** YYYY-MM-DD guard for day-precision ops bookings. */
+const YMD = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD");
 
-/** Today's date string in Europe/Lisbon (YYYY-MM-DD) using your shared util */
-function todayLisbonYMD(): string {
-  const { y, m, d } = partsForLisbon(new Date());
-  const mm = String(m).padStart(2, "0");
-  const dd = String(d).padStart(2, "0");
-  return `${y}-${mm}-${dd}`;
+/** Convert YYYY-MM-DD to a UTC Date object for strict comparisons. */
+function ymdToUtcDate(ymd: string): Date {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
 }
 
+/** Optional trimmed text: returns undefined for empty strings. */
+const optionalText = (min = 2) =>
+  z
+    .union([z.string().trim().min(min), z.literal("")])
+    .optional()
+    .transform((v) => (v ? (v as string).trim() : undefined));
+
 /**
- * Manager-created booking (OPS) — shared validation for server actions & UI.
- * Defaults keep ops fast; schema enforces date policy.
+ * ManagerOpsSchema
+ * Minimal fields for internal ops bookings.
+ * Names are aligned with the /ops form and action.
  */
-export const ManagerBookingSchema = z
+export const ManagerOpsSchema = z
   .object({
-    passcode: z.string().min(1, "Missing passcode"),
-    managerName: z.string().min(1).default("OPS"),
+    opsPasscode: z.string().min(1, "Passcode is required"),
 
-    machineId: z.number().int().positive(),
-    startDate: z.string().regex(YMD, "Use YYYY-MM-DD"),
-    endDate: z.string().regex(YMD, "Use YYYY-MM-DD"),
+    machineId: z.coerce.number().int().positive("Select a machine"),
 
-    // Add-ons default to false; managers don't set them in UI
-    delivery: z.boolean().optional().default(false),
-    pickup: z.boolean().optional().default(false),
-    insurance: z.boolean().optional().default(false),
-    operator: z.boolean().optional().default(false),
+    startYmd: YMD,
+    endYmd: YMD,
 
-    // Booking schema requires these; minimal defaults keep ops lightweight
-    customerName: z.string().min(1).default("OPS Booking"),
-    customerEmail: z.string().default("ops@example.com"),
-    customerPhone: z.string().min(3).default("000000000"),
-    customerNIF: z.string().optional().nullable(),
+    managerName: z.string().trim().min(2, "Manager name is required"),
+    customerName: optionalText(2),
 
-    // Operational site address → 4 columns on write
-    siteAddress: z
-      .object({
-        line1: z.string().optional().nullable(),
-        postalCode: z.string().optional().nullable(),
-        city: z.string().optional().nullable(),
-        notes: z.string().optional().nullable(),
-      })
-      .optional(),
-
-    totalCost: z.number().nonnegative().default(0),
+    siteAddressLine1: z.string().trim().min(2, "Site address is required"),
+    siteAddressCity: optionalText(2),
+    siteAddressNotes: optionalText(1),
   })
   .superRefine((val, ctx) => {
-    // Safe string comparisons because inputs are normalized to YYYY-MM-DD
-    const today = todayLisbonYMD();
-
-    if (val.startDate < today) {
+    const start = ymdToUtcDate(val.startYmd);
+    const end = ymdToUtcDate(val.endYmd);
+    if (!(start < end)) {
       ctx.addIssue({
         code: "custom",
-        path: ["startDate"],
-        message: "Start date cannot be in the past (Europe/Lisbon).",
-      });
-    }
-    if (val.endDate < val.startDate) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["endDate"],
-        message: "End date cannot be before start date.",
+        path: ["endYmd"],
+        message: "End date must be after start date",
       });
     }
   });
 
-export type ManagerBookingInput = z.infer<typeof ManagerBookingSchema>;
+export type ManagerOpsInput = z.infer<typeof ManagerOpsSchema>;
