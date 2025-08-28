@@ -62,9 +62,6 @@ export default function OpsCreateBookingForm({
     }
   }, [state?.ok, state?.bookingId, router]);
 
-  // TEMP: allow passing the new prop without changing child types in this step.
-  const FieldsAny = OpsBookingFields as any;
-
   return (
     <form action={formAction} className="space-y-6" noValidate>
       {state?.ok === false && (
@@ -73,7 +70,7 @@ export default function OpsCreateBookingForm({
         </Banner>
       )}
 
-      <FieldsAny
+      <OpsBookingFields
         machines={machines}
         minYmd={minYmd}
         values={values}

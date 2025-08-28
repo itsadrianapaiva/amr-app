@@ -1,6 +1,9 @@
-import { BookingStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import OpsCreateBookingForm from "@/components/ops/ops-create-booking-form";
+import { getDisabledRangesByMachine } from "@/lib/availability.server";
+
+// This page depends on live DB data (bookings), so keep it dynamic.
+export const dynamic = "force-dynamic";
 
 type MachineOption = { id: number; name: string };
 
@@ -10,42 +13,22 @@ function toYmd(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-// Group confirmed bookings into disabled ranges by machine.
-async function getDisabledRangesByMachine() {
-  const bookings = await db.booking.findMany({
-    where: { status: BookingStatus.CONFIRMED },
-    select: { machineId: true, startDate: true, endDate: true },
-    orderBy: { startDate: "asc" },
-  });
-
-  const map = new Map<number, Array<{ from: string; to: string }>>();
-  for (const b of bookings) {
-    const from = toYmd(b.startDate);
-    const to = toYmd(b.endDate);
-    const arr = map.get(b.machineId) ?? [];
-    arr.push({ from, to });
-    map.set(b.machineId, arr);
-  }
-
-  // Convert to a plain object for serialization
-  return Object.fromEntries(map.entries());
-}
-
-export const dynamic = "force-dynamic"; // this page depends on live DB data
-
 export default async function OpsPage() {
-  // Machines for the select
+  // 1) Fetch machines for the select
   const machines = await db.machine.findMany({
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });
 
-  // Earliest selectable date (today by default — adjust if you use min policy)
+  // 2) Min selectable date (today)
   const today = toYmd(new Date());
-  const disabledByMachine = await getDisabledRangesByMachine();
 
-  // TEMP: cast to any so we can pass the new prop without changing component types yet.
-  const OpsFormAny = OpsCreateBookingForm as any;
+  // 3) Disabled ranges per machine (CONFIRMED bookings, merged/normalized)
+  const byMachineNum = await getDisabledRangesByMachine();
+  // Convert map keys from number → string to match the form’s prop type
+  const disabledByMachine = Object.fromEntries(
+    Object.entries(byMachineNum).map(([k, v]) => [String(k), v])
+  );
 
   return (
     <section className="container mx-auto max-w-3xl py-10">
@@ -55,12 +38,11 @@ export default async function OpsPage() {
       <p className="mb-8 text-sm text-gray-600 mx-10">
         Choose a machine, pick a date range, and confirm with the ops passcode.
       </p>
-      <OpsFormAny
+      <OpsCreateBookingForm
         machines={machines as MachineOption[]}
         minYmd={today}
         serverAction={async (_prev: any, formData: FormData) => {
           "use server";
-          // Delegate to your existing action (kept here for illustration).
           const { createOpsBookingAction } = await import("./actions");
           return createOpsBookingAction(_prev, formData);
         }}

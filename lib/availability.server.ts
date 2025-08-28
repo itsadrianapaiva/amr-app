@@ -43,3 +43,44 @@ export async function getDisabledDateRangesForMachine(
   // Compute merged ranges and return the JSON-safe copy for RSC boundaries
   return computeDisabledRanges(spans).json;
 }
+
+/**
+ * getDisabledRangesByMachine
+ * Fetch CONFIRMED bookings that haven't ended and return a map:
+ *    { [machineId]: DisabledRangeJSON[] }
+ * for rendering blocked ranges per-machine (e.g., /ops date-range UI).
+ */
+export async function getDisabledRangesByMachine(): Promise<
+  Record<number, DisabledRangeJSON[]>
+> {
+  const today = startOfDay(new Date());
+
+  // Single roundtrip for all machines; pull minimal fields.
+  const bookings = await db.booking.findMany({
+    where: {
+      status: BookingStatus.CONFIRMED,
+      endDate: { gte: today },
+    },
+    select: {
+      machineId: true,
+      startDate: true,
+      endDate: true,
+    },
+    orderBy: { startDate: "asc" },
+  });
+
+  // Group spans per machineId
+  const grouped = new Map<number, Array<{ startDate: Date; endDate: Date }>>();
+  for (const b of bookings) {
+    const arr = grouped.get(b.machineId) ?? [];
+    arr.push({ startDate: b.startDate, endDate: b.endDate });
+    grouped.set(b.machineId, arr);
+  }
+
+  // Compute merged ranges for each machine and return JSON-safe structure
+  const out: Record<number, DisabledRangeJSON[]> = {};
+  for (const [machineId, spans] of grouped.entries()) {
+    out[machineId] = computeDisabledRanges(spans).json;
+  }
+  return out;
+}
