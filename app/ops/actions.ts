@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { ManagerOpsSchema } from "@/lib/validation/manager-booking";
+import { revalidatePath } from "next/cache";
 
 export type OpsActionResult =
   | {
@@ -15,7 +16,7 @@ export type OpsActionResult =
       values?: Record<string, string>;
     };
 
-// ---------- tiny pure helpers ------------------------------------------------
+// tiny pure helpers
 
 /** Convert YYYY-MM-DD to a UTC Date (00:00Z) for consistent comparisons. */
 function ymdToUtcDate(ymd: string): Date {
@@ -35,7 +36,7 @@ function mapZodErrors(formatted: Record<string, any>) {
   return { fieldErrors, formError };
 }
 
-// ---------- server action ----------------------------------------------------
+// server action
 
 export async function createOpsBookingAction(
   _prev: unknown,
@@ -60,15 +61,26 @@ export async function createOpsBookingAction(
     // 1) Validate input (structured errors, no throws)
     const parsed = ManagerOpsSchema.safeParse(raw);
     if (!parsed.success) {
-      const formatted = parsed.error.format((issue) => `Error: ${issue.message}`);
+      const formatted = parsed.error.format(
+        (issue) => `Error: ${issue.message}`
+      );
       const { fieldErrors, formError } = mapZodErrors(formatted);
-      return { ok: false, fieldErrors, formError, values: { ...raw, opsPasscode: "" } };
+      return {
+        ok: false,
+        fieldErrors,
+        formError,
+        values: { ...raw, opsPasscode: "" },
+      };
     }
     const input = parsed.data;
 
     // 2) Passcode guard (fail fast)
     if (input.opsPasscode !== process.env.OPS_PASSCODE) {
-      return { ok: false, formError: "Invalid passcode.", values: { ...raw, opsPasscode: "" } };
+      return {
+        ok: false,
+        formError: "Invalid passcode.",
+        values: { ...raw, opsPasscode: "" },
+      };
     }
 
     // 3) Lazy-load DB only after guards pass
@@ -77,7 +89,11 @@ export async function createOpsBookingAction(
     // 4) Normalize types for DB (ids are numeric in Prisma)
     const machineIdNum = Number(input.machineId);
     if (!Number.isInteger(machineIdNum) || machineIdNum <= 0) {
-      return { ok: false, formError: "Invalid machine id.", values: { ...raw, opsPasscode: "" } };
+      return {
+        ok: false,
+        formError: "Invalid machine id.",
+        values: { ...raw, opsPasscode: "" },
+      };
     }
 
     const start = ymdToUtcDate(input.startYmd);
@@ -95,7 +111,8 @@ export async function createOpsBookingAction(
     if (overlap) {
       return {
         ok: false,
-        formError: "Selected dates overlap an existing booking for this machine.",
+        formError:
+          "Selected dates overlap an existing booking for this machine.",
         values: { ...raw, opsPasscode: "" },
       };
     }
@@ -137,7 +154,13 @@ export async function createOpsBookingAction(
       // ignore; not critical to ops flow
     }
 
-    // Success: return only serializable primitives
+    // 8) Revalidate the ops page so the next submit sees a fresh tree
+    try {
+      revalidatePath("/ops");
+    } catch {
+      // revalidate is best-effort; never fail the action
+    }
+
     return { ok: true, bookingId: String(created.id) };
   } catch (e: any) {
     console.error("OPS action failed:", e);
