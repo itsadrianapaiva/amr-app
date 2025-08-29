@@ -11,12 +11,17 @@ import { BookingStatus } from "@prisma/client";
  * This secure the endpoint without extra infra.
  */
 function isAuthorized(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return true; // unsecured if no secret configured
-  const url = new URL(req.url);
-  const token = url.searchParams.get("token");
-  return token === secret;
-}
+    // Allow calls coming from Vercel Cron (it sets this header automatically)
+    const cronHeader = req.headers.get("x-vercel-cron");
+    if (cronHeader === "1") return true;
+  
+    // Fallback: allow ?token=... if CRON_SECRET is configured
+    const secret = process.env.CRON_SECRET;
+    if (!secret) return true; // unsecured if no secret configured
+    const url = new URL(req.url);
+    const token = url.searchParams.get("token");
+    return token === secret;
+  }
 
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {
