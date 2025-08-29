@@ -30,7 +30,7 @@ export function HomeView({ machines }: HomeViewProps) {
   }, []);
 
   return (
-    <main>
+    <main className="px-4 md:px-8 lg:px-12">
       {/* Header Section */}
       <section className="container mx-auto py-16 text-center xl:py-24">
         <Pretitle text="Our Inventory" center />

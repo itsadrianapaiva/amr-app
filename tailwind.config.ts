@@ -14,8 +14,8 @@ export default {
       center: true,
       padding: {
         DEFAULT: "1rem", // Default padding
-        sm: "1.5rem", // Padding on screens `sm` and up
-        lg: "2rem", // Padding on screens `lg` and up
+        sm: "2rem", // Padding on screens `sm` and up
+        lg: "4rem", // Padding on screens `lg` and up
       },
       screens: {
         sm: "640px",
