@@ -7,6 +7,7 @@ import type { OpsActionResult } from "@/app/ops/actions";
 import OpsBookingFields, {
   type MachineOption,
 } from "@/components/ops/ops-booking-fields";
+import ErrorSummary from "../forms/error-summary";
 
 type DisabledRange = { from: string; to: string };
 type DisabledByMachine = Record<string, DisabledRange[]>;
@@ -65,9 +66,12 @@ export default function OpsCreateBookingForm({
   return (
     <form action={formAction} className="space-y-6" noValidate>
       {state?.ok === false && (
-        <Banner kind="error">
-          {state.formError || "Please fix the errors and try again."}
-        </Banner>
+        <ErrorSummary
+          show={state?.ok === false}
+          message={state?.formError || "Please fix the errors and try again."}
+          kind="error"
+          className="mx-10"
+        />
       )}
 
       <OpsBookingFields
@@ -82,20 +86,6 @@ export default function OpsCreateBookingForm({
       <SubmitButton />
     </form>
   );
-}
-
-function Banner({
-  kind,
-  children,
-}: {
-  kind: "success" | "error";
-  children: React.ReactNode;
-}) {
-  const cls =
-    kind === "success"
-      ? "rounded-md bg-green-50 border border-green-200 text-green-900 px-3 py-2"
-      : "rounded-md bg-red-50 border border-red-200 text-red-900 px-3 py-2";
-  return <div className={cls}>{children}</div>;
 }
 
 function SubmitButton() {
