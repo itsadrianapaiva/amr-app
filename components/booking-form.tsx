@@ -99,11 +99,25 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
 
   // 7) Submit handler (server action) — creates PENDING booking and opens Stripe
   async function baseOnSubmit(values: BookingFormValues) {
+    const payload = { ...values, machineId: machine.id };
+
     try {
-      const payload = { ...values, machineId: machine.id };
-      const { url } = await createDepositCheckoutAction(payload);
-      window.location.assign(url); // keep draft; success page clears it
+      // The action now returns a union: { ok:true, url } | { ok:false, formError }
+      const res: any = await createDepositCheckoutAction(payload);
+
+      if (res?.ok) {
+        // Success → redirect to Stripe Checkout
+        window.location.assign(res.url);
+        return;
+      }
+
+      // Friendly banner message (uses your existing ErrorSummary via rootError)
+      const message =
+        res?.formError ??
+        "Selected dates are currently unavailable. Please try another range.";
+      form.setError("root", { type: "server", message });
     } catch (err) {
+      // Network/unknown exception fallback
       const message =
         err instanceof Error
           ? err.message

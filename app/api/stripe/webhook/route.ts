@@ -10,68 +10,81 @@ import { BookingStatus } from "@prisma/client";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Utility: env guard 
+/** Env guard */
 function requireEnv(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`Missing environment variable: ${name}`);
   return v;
 }
 
-// Utility: extract PI id in a type-safe way 
-function paymentIntentIdFromSession(session: Stripe.Checkout.Session): string | null {
+/** Extract PI id in a type-safe way */
+function paymentIntentIdFromSession(
+  session: Stripe.Checkout.Session
+): string | null {
   const pi = session.payment_intent;
   if (!pi) return null;
   return typeof pi === "string" ? pi : pi.id;
 }
 
-// Booking promotion 
+/** Robustly extract bookingId: prefer metadata, fallback to client_reference_id */
+function bookingIdFromSession(session: Stripe.Checkout.Session): number | null {
+  const metaId = session.metadata?.bookingId;
+  if (metaId && Number.isFinite(Number(metaId))) return Number(metaId);
+  const ref = session.client_reference_id;
+  if (ref && Number.isFinite(Number(ref))) return Number(ref);
+  return null;
+}
+
+/** Idempotent promotion: PENDING -> CONFIRMED, clear hold window, attach PI */
 async function promoteBookingToConfirmed(args: {
   bookingId: number;
-  paymentIntentId: string;
+  paymentIntentId: string | null;
 }) {
-  // Idempotency: if already confirmed or PI saved, this should be a no-op-like update
-  // Use a transaction to keep state consistent.
   await db.$transaction(async (tx) => {
     const existing = await tx.booking.findUnique({
       where: { id: args.bookingId },
-      select: { id: true, status: true, stripePaymentIntentId: true, depositPaid: true },
+      select: {
+        id: true,
+        status: true,
+        stripePaymentIntentId: true,
+        depositPaid: true,
+      },
     });
+    if (!existing) return; // silently ack; avoid Stripe retries
 
-    if (!existing) {
-      // Booking disappeared or never existed — return silently (avoid Stripe retries).
+    // If already confirmed + paid, nothing to do (idempotent)
+    if (existing.status === BookingStatus.CONFIRMED && existing.depositPaid)
       return;
-    }
-
-    // If already tied to a PI or confirmed, don't error, just return.
-    if (existing.stripePaymentIntentId || existing.depositPaid) {
-      return;
-    }
 
     await tx.booking.update({
       where: { id: args.bookingId },
       data: {
-        stripePaymentIntentId: args.paymentIntentId,
-        depositPaid: true,
         status: BookingStatus.CONFIRMED,
+        depositPaid: true,
+        holdExpiresAt: null, // clear hold on success
+        // store PI if provided (helpful for support); keep null-safe
+        stripePaymentIntentId:
+          args.paymentIntentId ?? existing.stripePaymentIntentId ?? null,
       },
     });
-
-    // TODO: Revalidate affected pages/tags if you’re using ISR/tagged caching
-    // e.g., revalidateTag(`machine-${machineId}`) once you tag pages.
   });
 }
 
-// Route handler 
+/** Cancel a still-pending booking (used on session.expired) — idempotent */
+async function cancelPendingBooking(bookingId: number) {
+  await db.booking.updateMany({
+    where: { id: bookingId, status: BookingStatus.PENDING },
+    data: { status: BookingStatus.CANCELLED, holdExpiresAt: null },
+  });
+}
+
+// Route handler
 export async function POST(req: NextRequest) {
   // 1) Read raw payload for signature verification
   const payload = await req.text();
   const sig = req.headers.get("stripe-signature");
   const webhookSecret = requireEnv("STRIPE_WEBHOOK_SECRET");
-
-  if (!sig) {
-    // Missing signature — reject
-    return new Response("Missing Stripe signature", { status: 400 });
-  }
+  if (!sig) return new Response("Missing Stripe signature", { status: 400 });
 
   let event: Stripe.Event;
   try {
@@ -80,47 +93,51 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     // Invalid signature — reject so Stripe can retry
     return new Response(
-      err instanceof Error ? `Signature verification failed: ${err.message}` : "Signature verification failed",
+      err instanceof Error
+        ? `Signature verification failed: ${err.message}`
+        : "Signature verification failed",
       { status: 400 }
     );
   }
 
-  // 2) Narrow on event type
+  // 2) Handle supported events
   try {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        const ref = session.client_reference_id;
+        const bookingId = bookingIdFromSession(session);
         const piId = paymentIntentIdFromSession(session);
 
-        // Guardrails: both ref and payment intent required for promotion
-        const bookingId = ref ? Number(ref) : NaN;
-        if (!Number.isFinite(bookingId) || !piId) {
-          // Don’t throw — acknowledge to prevent infinite retries; log for diagnostics
-          console.warn("Checkout completed but missing bookingId or paymentIntentId", { ref, piId });
-          break;
+        if (!bookingId) {
+          console.warn("Webhook completed without bookingId in metadata/ref", {
+            client_reference_id: session.client_reference_id,
+            metadata: session.metadata,
+          });
+          break; // ack but do nothing; prevents retries
         }
 
         await promoteBookingToConfirmed({ bookingId, paymentIntentId: piId });
         break;
       }
 
-      // Optional: acknowledge other events quietly for now
-      case "checkout.session.expired":
-      case "payment_intent.succeeded":
-      case "payment_intent.payment_failed":
-      default: {
-        // Intentionally no-op; return 200 to avoid retries.
+      case "checkout.session.expired": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const bookingId = bookingIdFromSession(session);
+        if (!bookingId) break;
+        await cancelPendingBooking(bookingId);
         break;
       }
+
+      // Quietly acknowledge other events for now
+      default:
+        break;
     }
   } catch (err) {
-    // Catch-all to prevent Stripe from retrying endlessly on our internal errors
+    // Prevent endless retries on our own errors; log and ack
     console.error("Webhook handler error", { type: event.type, err });
-    // Return 200 so Stripe doesn't flood retries; you can monitor logs for this.
     return new Response("ok", { status: 200 });
   }
 
-  // 3) Always 2xx so Stripe doesn't spam retries for handled/unhandled events
+  // 3) Always acknowledge so Stripe doesn't spam retries for handled/unhandled events
   return new Response("ok", { status: 200 });
 }

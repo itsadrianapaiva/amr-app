@@ -25,20 +25,20 @@ model Machine {
 model Booking {
   id                    Int                     @id @default(autoincrement())
   machineId             Int
+  machine               Machine                 @relation(fields: [machineId], references: [id])
   startDate             DateTime
   endDate               DateTime
-  insuranceSelected     Boolean                 @default(true)
+  holdExpiresAt         DateTime?               @db.Timestamp(6)
+  status                BookingStatus           @default(PENDING)
   customerName          String
   customerEmail         String
   customerPhone         String
   totalCost             Decimal
   depositPaid           Boolean                 @default(false)
   stripePaymentIntentId String?                 @unique
-  status                BookingStatus           @default(PENDING)
-  createdAt             DateTime                @default(now())
-  updatedAt             DateTime                @updatedAt
   customerNIF           String?
   googleCalendarEventId String?
+  insuranceSelected     Boolean                 @default(true)
   deliverySelected      Boolean                 @default(true)
   pickupSelected        Boolean                 @default(true)
   billingAddressLine1   String?
@@ -55,7 +55,8 @@ model Booking {
   siteAddressNotes      String?
   siteAddressPostalCode String?
   during                Unsupported("tsrange")? @default(dbgenerated("tsrange(\"startDate\", \"endDate\", '[]'::text)"))
-  machine               Machine                 @relation(fields: [machineId], references: [id])
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
 }
 
 enum BookingStatus {

@@ -36,12 +36,31 @@ function mapZodErrors(formatted: Record<string, any>) {
 }
 
 // server action
-
 export async function createOpsBookingAction(
   _prev: unknown,
   formData: FormData
 ): Promise<OpsActionResult> {
   "use server";
+
+  const isOverlapError = (e: unknown): boolean => {
+    const msg = e instanceof Error ? e.message : String(e);
+    return (
+      msg.includes("booking_no_overlap_for_active") ||
+      msg.toLowerCase().includes("exclusion") ||
+      msg.toLowerCase().includes("overlap")
+    );
+  };
+
+  // Format a Date in Lisbon time as "DD Mon, HH:MM"
+  const formatLisbon = (d: Date) =>
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Lisbon",
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(d);
 
   // Keep raw strings so we can echo them back safely on errors
   const raw: Record<string, string> = {
@@ -57,7 +76,7 @@ export async function createOpsBookingAction(
   };
 
   try {
-    // 1) Validate input (structured errors, no throws)
+    // 1) Validate input
     const parsed = ManagerOpsSchema.safeParse(raw);
     if (!parsed.success) {
       const formatted = parsed.error.format(
@@ -73,7 +92,7 @@ export async function createOpsBookingAction(
     }
     const input = parsed.data;
 
-    // 2) Passcode guard (fail fast)
+    // 2) Passcode guard
     if (input.opsPasscode !== process.env.OPS_PASSCODE) {
       return {
         ok: false,
@@ -82,10 +101,10 @@ export async function createOpsBookingAction(
       };
     }
 
-    // 3) Lazy-load DB only after guards pass
+    // 3) Lazy-load DB
     const { db } = await import("@/lib/db");
 
-    // 4) Normalize types for DB (ids are numeric in Prisma)
+    // 4) Normalize ids and dates
     const machineIdNum = Number(input.machineId);
     if (!Number.isInteger(machineIdNum) || machineIdNum <= 0) {
       return {
@@ -94,69 +113,94 @@ export async function createOpsBookingAction(
         values: { ...raw, opsPasscode: "" },
       };
     }
-
     const start = ymdToUtcDate(input.startYmd);
     const end = ymdToUtcDate(input.endYmd);
 
-    // 5) Overlap check (machine-scoped, inclusive)
-    const overlap = await db.booking.findFirst({
-      where: {
-        machineId: machineIdNum,
-        status: "CONFIRMED",
-        startDate: { lte: end },
-        endDate: { gte: start },
-      },
-      select: { id: true },
-    });
-    if (overlap) {
-      return {
-        ok: false,
-        formError:
-          "Selected dates overlap an existing booking for this machine.",
-        values: { ...raw, opsPasscode: "" },
-      };
-    }
+    // 5) Atomic create with per-machine advisory lock; DB constraint enforces no-overlap
+    const created = await db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${1}::int4, ${machineIdNum}::int4)`;
 
-    // 6) DB-FIRST: create the CONFIRMED booking; Calendar is a separate action
-    const created = await db.booking.create({
-      data: {
-        machineId: machineIdNum,
-        status: "CONFIRMED",
-        startDate: start,
-        endDate: end,
+      return await tx.booking.create({
+        data: {
+          machineId: machineIdNum,
+          status: "CONFIRMED",
+          startDate: start,
+          endDate: end,
 
-        // OPS path defaults
-        customerName: input.customerName || "OPS Booking",
-        customerEmail: "ops@internal.local",
-        customerPhone: "OPS",
+          // OPS defaults
+          customerName: input.customerName || "OPS Booking",
+          customerEmail: "ops@internal.local",
+          customerPhone: "OPS",
 
-        siteAddressLine1: input.siteAddressLine1,
-        siteAddressCity: input.siteAddressCity || null,
-        siteAddressNotes: input.siteAddressNotes || null,
+          siteAddressLine1: input.siteAddressLine1,
+          siteAddressCity: input.siteAddressCity || null,
+          siteAddressNotes: input.siteAddressNotes || null,
 
-        totalCost: 0,
-        depositPaid: false,
-
-        googleCalendarEventId: null, // set by dedicated calendar action later
-        // IMPORTANT: keep null on create to avoid unique constraint collisions
-        stripePaymentIntentId: null,
-      },
-      select: { id: true },
+          totalCost: 0,
+          depositPaid: false,
+          googleCalendarEventId: null,
+          stripePaymentIntentId: null,
+        },
+        select: { id: true },
+      });
     });
 
-    // 7) Best-effort finalize a unique waived PI id (non-fatal)
+    // Optional: best-effort tag payment intent for internal tracking
     try {
+      const { db } = await import("@/lib/db");
       await db.booking.update({
         where: { id: created.id },
         data: { stripePaymentIntentId: `WAIVED_OPS_${created.id}` },
       });
-    } catch {
-      // ignore; not critical to ops flow
-    }
+    } catch {}
 
-    // Success: return only serializable primitives
     return { ok: true, bookingId: String(created.id) };
   } catch (e: any) {
+    // 6) Better messaging for overlaps: if a PENDING hold is blocking, show its expiry (if present)
+    if (isOverlapError(e)) {
+      try {
+        const { db } = await import("@/lib/db");
+
+        const pendingHold = await db.booking.findFirst({
+          where: {
+            machineId: Number(raw.machineId),
+            status: "PENDING",
+            // Inclusive overlap: [start, end] intersects existing range
+            startDate: { lte: ymdToUtcDate(raw.endYmd) },
+            endDate: { gte: ymdToUtcDate(raw.startYmd) },
+          },
+          select: { holdExpiresAt: true },
+        });
+
+        if (pendingHold?.holdExpiresAt) {
+          const when = formatLisbon(pendingHold.holdExpiresAt);
+          return {
+            ok: false,
+            formError:
+              `These dates are currently held by a customer until ${when} (Lisbon). ` +
+              `Choose different dates or try again later.`,
+            values: { ...raw, opsPasscode: "" },
+          };
+        }
+
+        // If no pending hold found (or no expiry), fall back to generic overlap
+        return {
+          ok: false,
+          formError:
+            "Selected dates overlap an existing booking for this machine.",
+          values: { ...raw, opsPasscode: "" },
+        };
+      } catch {
+        // If the lookup itself fails, still return a safe generic message
+        return {
+          ok: false,
+          formError:
+            "Selected dates overlap an existing booking for this machine.",
+          values: { ...raw, opsPasscode: "" },
+        };
+      }
+    }
+
     console.error("OPS action failed:", e);
     return {
       ok: false,
