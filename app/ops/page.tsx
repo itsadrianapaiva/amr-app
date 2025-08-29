@@ -31,7 +31,7 @@ export default async function OpsPage() {
   );
 
   return (
-    <section className="container mx-auto max-w-3xl py-10">
+    <section className="container mx-auto max-w-3xl py-16">
       <h1 className="mb-6 text-2xl font-semibold mx-10">
         CREATE BOOKING (OPS)
       </h1>

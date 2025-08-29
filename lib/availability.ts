@@ -1,6 +1,8 @@
-// Goal: The function's job is to take a list of bookings (which might be overlapping or messy) and produce a clean, minimal list of date ranges that need to be blocked in the calendar. For example, if you have one booking for Aug 21-22 and another for Aug 22-23, the output should be a single disabled range: Aug 21-23.
+// lib/availability.ts
+// Goal: The function's job is to take a list of bookings (which might be overlapping or messy)
+// and produce a clean, minimal list of date ranges that need to be blocked in the calendar.
 
-import { startOfDay, endOfDay, compareAsc, max as maxDate } from "date-fns";
+import { compareAsc, max as maxDate } from "date-fns";
 
 // A minimal shape need for bookings. Raw input.
 export type BookingSpan = { startDate: Date; endDate: Date };
@@ -16,45 +18,41 @@ export type DisabledRangeJSON = {
 
 /**
  * computeDisabledRanges
- * Input: a list of booking spans (start/end dates)
- * Output: merged, normalized day ranges where selection must be disabled
- * Also returns a JSON-friendly version for Server Components.
+ * Input: a list of booking spans (start/end dates) that are already normalized
+ *        by the caller to their intended day boundaries.
+ * Output: merged, minimal ranges where selection must be disabled,
+ *         plus a JSON-friendly copy for RSC.
  */
-
 export function computeDisabledRanges(spans: BookingSpan[]): {
   ranges: DisabledRange[];
   json: DisabledRangeJSON[];
 } {
-  //1. Trivial fast-path (guard clause)
-  //If there are no bookings, return empty ranges
+  // 1) Fast path
   if (!spans.length) return { ranges: [], json: [] };
 
-  //2. Normalize each span to full days [00:00 .. 23:59:59.999] and sort ascending
+  // 2) TRUST caller-provided instants; do NOT re-normalize to start/endOfDay here.
+  //    availability.server.ts already converts raw DB rows to Lisbon start/end-of-day in UTC.
   const normalized = spans
-    .map((s) => ({
-      from: startOfDay(s.startDate),
-      to: endOfDay(s.endDate),
-    }))
+    .map((s) => ({ from: s.startDate, to: s.endDate }))
     .sort((a, b) => compareAsc(a.from, b.from));
 
-  //3. Merge overlapping ranges to keep the UI lean
+  // 3) Merge overlaps/touching intervals inclusively
   const merged: DisabledRange[] = [];
   for (const cur of normalized) {
     const last = merged[merged.length - 1];
     if (!last) {
-      merged.push(cur);
+      merged.push({ from: cur.from, to: cur.to });
       continue;
     }
-
-    //Overlap or touch: if current starts before or at last.to, merge them
+    // Inclusive merge: if current starts on/before last.to, extend
     if (cur.from <= last.to) {
-      last.to = maxDate([last.to, cur.to]); // Extend the last range
+      last.to = maxDate([last.to, cur.to]);
     } else {
-      merged.push(cur); // No overlap, push new range
+      merged.push({ from: cur.from, to: cur.to });
     }
   }
 
-  //4. Prepare JSON-safe copy for crossing the RSC boundary
+  // 4) JSON-safe copy
   const json = merged.map((r) => ({
     from: r.from.toISOString(),
     to: r.to.toISOString(),

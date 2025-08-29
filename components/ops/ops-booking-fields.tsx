@@ -22,6 +22,8 @@ type Props = {
   disabledByMachine: DisabledByMachine;
 };
 
+const LISBON_TZ = "Europe/Lisbon";
+
 /**
  * OpsBookingFields
  * Pure presentational form sections for the /ops booking form.
@@ -95,8 +97,8 @@ export default function OpsBookingFields({
     const base: any[] = [{ before: minDate }];
     const key = selectedMachineId ? String(selectedMachineId) : "";
     const ranges = (disabledByMachine?.[key] || []).map((r) => ({
-      from: ymdToDate(r.from),
-      to: ymdToDate(r.to),
+      from: new Date(r.from), // r.from/to are ISO strings; construct Date directly
+      to: new Date(r.to),
     }));
     return base.concat(ranges);
   }, [minDate, selectedMachineId, disabledByMachine]);
@@ -133,9 +135,6 @@ export default function OpsBookingFields({
         <div className="md:col-span-2">
           <label className="block text-sm font-medium">Rental dates</label>
           <div className="mt-1">
-            {/* NOTE: date-range-input expects RDP's DateRange (with required `from`) for `value`,
-               but allows `undefined` in onChange. We keep internal state as RDPDateRange | undefined
-               and cast at the boundary to avoid preselecting a day when empty. */}
             <DateRangeInput
               value={range as unknown as RDPDateRange}
               onChange={(next) => setRange(next as RDPDateRange | undefined)}
@@ -147,12 +146,12 @@ export default function OpsBookingFields({
           <input
             type="hidden"
             name="startYmd"
-            value={range?.from ? formatYmd(range.from) : ""}
+            value={range?.from ? formatYmdLisbon(range.from) : ""}
           />
           <input
             type="hidden"
             name="endYmd"
-            value={range?.to ? formatYmd(range.to) : ""}
+            value={range?.to ? formatYmdLisbon(range.to) : ""}
           />
 
           {/* Inline server-side validation feedback */}
@@ -276,11 +275,16 @@ function ymdToDate(ymd: string): Date {
   return new Date(Date.UTC(y, (m || 1) - 1, d || 1));
 }
 
-/** Format Date → 'YYYY-MM-DD' */
-function formatYmd(d?: Date): string {
+/**
+ * Format Date → 'YYYY-MM-DD' in Lisbon wall time.
+ * Avoids UTC getters (which were shifting dates during DST).
+ */
+function formatYmdLisbon(d?: Date): string {
   if (!d) return "";
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: LISBON_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d); // YYYY-MM-DD
 }

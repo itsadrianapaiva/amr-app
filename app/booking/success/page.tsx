@@ -144,7 +144,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
         Thank you. Your deposit was processed successfully.
       </p>
 
-      <div className="rounded-md border bg-gray-50 p-4 text-sm text-gray-800 w-[60%]">
+      <div className="rounded-md border bg-gray-50 p-4 text-sm text-gray-800">
         <div className="space-y-1">
           <p>
             Booking ID:{" "}

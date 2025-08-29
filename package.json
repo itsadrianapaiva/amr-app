@@ -9,7 +9,8 @@
     "lint": "next lint",
     "db:seed": "ts-node --project prisma/tsconfig.json prisma/seed.ts",
     "postinstall": "prisma generate --no-engine",
-    "prebuild": "prisma generate --no-engine && if [ \"$VERCEL\" = \"1\" ] && [ \"$VERCEL_ENV\" != \"preview\" ]; then prisma migrate deploy; fi"
+    "prebuild": "prisma generate --no-engine && if [ \"$VERCEL\" = \"1\" ] && [ \"$VERCEL_ENV\" != \"preview\" ]; then prisma migrate deploy; fi",
+    "db:clean": "npx tsx scripts/ops-behavior-smoke.ts --blank"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",

@@ -1,4 +1,4 @@
-//Bridge between database and availability logic
+// Bridge between database and availability logic
 import { BookingStatus } from "@prisma/client";
 import { startOfDay } from "date-fns";
 
@@ -8,16 +8,86 @@ import {
   type DisabledRangeJSON,
 } from "@/lib/availability";
 
+/* ----------------------------------------------------------------------------
+   Lisbon-safe day math (local to this file to avoid changing shared helpers)
+   We convert day boundaries to *Lisbon* start/end expressed in UTC.
+---------------------------------------------------------------------------- */
+
+const LISBON_TZ = "Europe/Lisbon";
+
+/** Return YYYY-MM-DD as seen on a Lisbon calendar for a given instant. */
+function ymdInLisbon(d: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: LISBON_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const y = parts.find((p) => p.type === "year")?.value ?? "0000";
+  const m = parts.find((p) => p.type === "month")?.value ?? "01";
+  const dd = parts.find((p) => p.type === "day")?.value ?? "01";
+  return `${y}-${m}-${dd}`;
+}
+
+/** Start of a Lisbon calendar day (00:00) expressed in UTC. */
+function startOfLisbonDayUtcFromYmd(ymd: string): Date {
+  const [y, m, d] = ymd.split("-").map(Number);
+  // UTC midnight guess for that YMD
+  const guess = new Date(Date.UTC(y, m - 1, d));
+  // What is that instant in Lisbon wall time?
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: LISBON_TZ,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(guess);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? "0");
+  const hh = get("hour");
+  const mm = get("minute");
+  const ss = get("second");
+  // Subtract Lisbon clock time to land at 00:00 Lisbon for that YMD, in UTC
+  const offsetMs = ((hh * 60 + mm) * 60 + ss) * 1000;
+  return new Date(guess.getTime() - offsetMs);
+}
+
+/** End of a Lisbon calendar day (23:59:59.999) expressed in UTC. */
+function endOfLisbonDayUtcFromYmd(ymd: string): Date {
+  // Start of this Lisbon day in UTC
+  const start = startOfLisbonDayUtcFromYmd(ymd);
+  // Jump into the next Lisbon day, find its start in UTC, then minus 1 ms
+  const probe = new Date(start.getTime() + 36 * 60 * 60 * 1000); // safely into "tomorrow"
+  const nextYmd = ymdInLisbon(probe);
+  const nextStart = startOfLisbonDayUtcFromYmd(nextYmd);
+  return new Date(nextStart.getTime() - 1);
+}
+
+/** Convert a DisabledRangeJSON to Lisbon-anchored ISO strings (from/to). */
+function normalizeToLisbonDay(json: DisabledRangeJSON): DisabledRangeJSON {
+  const fromYmd = ymdInLisbon(new Date(json.from));
+  const toYmd = ymdInLisbon(new Date(json.to));
+  const fromIso = startOfLisbonDayUtcFromYmd(fromYmd).toISOString();
+  const toIso = endOfLisbonDayUtcFromYmd(toYmd).toISOString();
+  return { from: fromIso, to: toIso };
+}
+
+/* ----------------------------------------------------------------------------
+   Public API
+---------------------------------------------------------------------------- */
+
 /**
  * getDisabledDateRangesForMachine
- * Fetch all relevant bookings for one specific machine and return a clean, JSON-safe array of date ranges that should be disabled in the calendar.
+ * Fetch all relevant bookings for one specific machine and return a clean,
+ * JSON-safe array of date ranges that should be disabled in the calendar.
  */
-
 export async function getDisabledDateRangesForMachine(
   machineId: number
 ): Promise<DisabledRangeJSON[]> {
-  //DATABASE QUERY
-  //Only care about bookings that haven't fully ended before today
+  // DATABASE QUERY
+  // Only care about bookings that haven't fully ended before today
   const today = startOfDay(new Date());
 
   const bookings = await db.booking.findMany({
@@ -40,8 +110,9 @@ export async function getDisabledDateRangesForMachine(
     endDate: b.endDate,
   }));
 
-  // Compute merged ranges and return the JSON-safe copy for RSC boundaries
-  return computeDisabledRanges(spans).json;
+  // Compute merged ranges, then re-anchor JSON to Lisbon day boundaries
+  const merged = computeDisabledRanges(spans).json;
+  return merged.map(normalizeToLisbonDay);
 }
 
 /**
@@ -77,10 +148,11 @@ export async function getDisabledRangesByMachine(): Promise<
     grouped.set(b.machineId, arr);
   }
 
-  // Compute merged ranges for each machine and return JSON-safe structure
+  // Compute merged ranges for each machine, then re-anchor to Lisbon day boundaries
   const out: Record<number, DisabledRangeJSON[]> = {};
   for (const [machineId, spans] of grouped.entries()) {
-    out[machineId] = computeDisabledRanges(spans).json;
+    const merged = computeDisabledRanges(spans).json;
+    out[machineId] = merged.map(normalizeToLisbonDay);
   }
   return out;
 }
