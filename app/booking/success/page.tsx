@@ -1,3 +1,4 @@
+// app/booking/success/page.tsx
 import { redirect } from "next/navigation";
 import { BookingStatus } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -78,7 +79,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
     );
   }
 
-  // Idempotent promotion to CONFIRMED
+  // Idempotent promotion to CONFIRMED + always clear lingering hold on success page
   let didPromote = false;
   await db.$transaction(async (tx) => {
     const existing = await tx.booking.findUnique({
@@ -88,11 +89,13 @@ export default async function SuccessPage({ searchParams }: PageProps) {
         status: true,
         depositPaid: true,
         stripePaymentIntentId: true,
+        holdExpiresAt: true, // <-- NEW: we need to see if a hold remains
       },
     });
 
     if (!existing) return;
 
+    // Promote if paid and not already recorded (webhook may be slow)
     if (
       paid &&
       !existing.depositPaid &&
@@ -105,9 +108,22 @@ export default async function SuccessPage({ searchParams }: PageProps) {
           stripePaymentIntentId: piId,
           depositPaid: true,
           status: BookingStatus.CONFIRMED,
+          holdExpiresAt: null, // <-- NEW: clear hold on promotion
         },
       });
       didPromote = true;
+      return;
+    }
+
+    // If already CONFIRMED (likely via webhook) but the hold timestamp lingers, clear it.
+    if (
+      existing.status === BookingStatus.CONFIRMED &&
+      existing.holdExpiresAt !== null
+    ) {
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: { holdExpiresAt: null }, // <-- NEW: clear lingering hold
+      });
     }
   });
 
