@@ -1,73 +1,61 @@
-// Define database connection
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// Define Prisma Client generator
-generator client {
-  provider = "prisma-client-js"
-}
-
 model Machine {
-  id              Int       @id @default(autoincrement())
-  name            String    @unique
-  type            String   @default("Uncategorized")
-  description     String
-  imageUrl        String
-  dailyRate       Decimal
-  weight          String    
-  deposit         Decimal   
-  deliveryCharge  Decimal?
-  pickupCharge    Decimal?  
-  minDays         Int       @default(1)
-  bookings        Booking[]
+  id             Int       @id @default(autoincrement())
+  name           String    @unique
+  description    String
+  imageUrl       String
+  dailyRate      Decimal
+  weight         String
+  deposit        Decimal
+  deliveryCharge Decimal?
+  minDays        Int       @default(1)
+  pickupCharge   Decimal?
+  type           String    @default("Uncategorized")
+  bookings       Booking[]
 }
 
 model Booking {
-  id                    Int           @id @default(autoincrement())
+  id                    Int                     @id @default(autoincrement())
   machineId             Int
-  machine               Machine       @relation(fields: [machineId], references: [id])
-
   startDate             DateTime
   endDate               DateTime
-
-  // Selected at checkout
-  insuranceSelected     Boolean       @default(true)
-  deliverySelected      Boolean       @default(true)
-  pickupSelected        Boolean       @default(true)
-  operatorSelected   Boolean          @default(false)
-
-  // Customer details
+  insuranceSelected     Boolean                 @default(true)
   customerName          String
   customerEmail         String
   customerPhone         String
+  totalCost             Decimal
+  depositPaid           Boolean                 @default(false)
+  stripePaymentIntentId String?                 @unique
+  status                BookingStatus           @default(PENDING)
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
   customerNIF           String?
-
+  googleCalendarEventId String?
+  deliverySelected      Boolean                 @default(true)
+  pickupSelected        Boolean                 @default(true)
+  billingAddressLine1   String?
+  billingCity           String?
+  billingCompanyName    String?
+  billingCountry        String?
+  billingIsBusiness     Boolean                 @default(false)
+  billingPostalCode     String?
+  billingTaxId          String?
+  operatorSelected      Boolean                 @default(false)
+  siteAddressCity       String?
   /// Operational site address (NOT for invoicing)
   siteAddressLine1      String?
-  siteAddressPostalCode String?
-  siteAddressCity       String?
   siteAddressNotes      String?
-
-  // Business invoicing fields (optional)
-  billingIsBusiness     Boolean         @default(false)
-  billingCompanyName    String?
-  billingTaxId          String?
-  billingAddressLine1   String?
-  billingPostalCode     String?
-  billingCity           String?
-  billingCountry        String?
-
-  // Payment and ops
-  totalCost             Decimal
-  depositPaid           Boolean       @default(false)
-  stripePaymentIntentId String?       @unique
-  googleCalendarEventId String?
-
-  status                BookingStatus @default(PENDING)
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
+  siteAddressPostalCode String?
+  during                Unsupported("tsrange")? @default(dbgenerated("tsrange(\"startDate\", \"endDate\", '[]'::text)"))
+  machine               Machine                 @relation(fields: [machineId], references: [id])
 }
 
 enum BookingStatus {
