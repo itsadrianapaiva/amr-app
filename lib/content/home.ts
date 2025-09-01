@@ -40,3 +40,17 @@ export const HOME_HERO: HeroContent = {
   // Hook for the future background photo (your globals already define color tokens).
   backgroundClassName: "bg-hero bg-cover bg-center bg-no-repeat",
 };
+
+/** Inventory section copy sitting below the hero. */
+export type InventorySectionContent = {
+  pretitle: string;
+  title: string;
+  subtitle: string;
+};
+
+export const HOME_INVENTORY: InventorySectionContent = {
+  pretitle: "Our Inventory",
+  title: "Machinery for Rent",
+  subtitle:
+    "Explore robust, reliable machines. Book online in minutes with a deposit.",
+};

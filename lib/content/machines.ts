@@ -1,21 +1,97 @@
 /**
  * Copy and tiny helpers for machine cards.
- * Keep all wording here so we can tune language without touching components.
- * The component will pass already-formatted currency strings.
+ * Keep wording centralized so we can tune language without touching components.
+ * The component passes already-formatted currency strings.
  */
 
+import { toTitleCase } from "@/lib/utils";
+
 export type MachineCardCopy = {
-  /** Small badge to reinforce the USP. Leave empty to hide. */
   preBadge: string;
   labels: {
     deliveryAvailable: string;
     pickupAvailable: string;
     operatorAvailable: string;
   };
-  formatPricePerDay: (price: string) => string; // price is already currency-formatted
+  formatPricePerDay: (price: string) => string;
   formatMinDays: (days: number) => string;
-  formatDeposit: (amount: string) => string; // amount is already currency-formatted
+  formatDeposit: (amount: string) => string;
   displayType: (raw?: string | null) => string;
+};
+
+function normalizeTypeKey(raw?: string | null): string {
+  if (!raw) return "uncategorized";
+  return raw
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+/**
+ * Friendly labels for categories (add/edit freely).
+ * Keys MUST be normalized via normalizeTypeKey.
+ * Add aliases so different CSV values map to the same display label.
+ */
+export const CATEGORY_LABELS: Record<string, string> = {
+  // Skid steer / Bobcat
+  "skid steer loaders": "Skid Steer Loaders",
+  "skid steer": "Skid Steer Loaders",
+  skid: "Skid Steer Loaders",
+  bobcat: "Skid Steer Loaders",
+  "bobcat skid steer": "Skid Steer Loaders",
+  "skid steer with tracks": "Skid Steer Loaders",
+  "skid steer w tracks": "Skid Steer Loaders",
+
+  // Excavators (mini/medium/large)
+  excavators: "Excavators",
+  excavator: "Excavators",
+  "mini excavators": "Mini Excavators",
+  "mini excavator": "Mini Excavators",
+  "medium excavator": "Excavators",
+  "large excavator": "Excavators",
+
+  // Telehandlers
+  telehandler: "Telehandlers",
+  telehandlers: "Telehandlers",
+
+  // Compaction
+  compactor: "Compactors",
+  compactors: "Compactors",
+  rammer: "Compactors",
+  rammers: "Compactors",
+  "plate compactor": "Plate Compactors",
+  "plate compactors": "Plate Compactors",
+
+  // Concrete mixers
+  "concrete mixer": "Concrete Mixers",
+  "concrete mixers": "Concrete Mixers",
+  mixer: "Concrete Mixers",
+  mixers: "Concrete Mixers",
+
+  // Power washers / pressure washers
+  powerwasher: "Power Washers",
+  "power washer": "Power Washers",
+  "power washers": "Power Washers",
+  powerwashers: "Power Washers",
+  "pressure washer": "Power Washers",
+  "pressure washers": "Power Washers",
+
+  // Hammers / demolition
+  "electric hammer": "Demolition Hammers",
+  "eletric hammer": "Demolition Hammers", // common typo safeguard
+  "demolition hammer": "Demolition Hammers",
+  jackhammer: "Demolition Hammers",
+  jackhammers: "Demolition Hammers",
+
+  // Trailers / dumpers if you add them later
+  trailers: "Trailers",
+  trailer: "Trailers",
+  dumpers: "Dumpers",
+  dumper: "Dumpers",
+
+  // Fallback
+  uncategorized: "Uncategorized",
 };
 
 export const MACHINE_CARD_COPY: MachineCardCopy = {
@@ -29,8 +105,7 @@ export const MACHINE_CARD_COPY: MachineCardCopy = {
   formatMinDays: (days) => (days > 1 ? `min ${days} days` : "1 day minimum"),
   formatDeposit: (amount) => `Deposit ${amount}`,
   displayType: (raw) => {
-    // Normalize category text safely. Replace with a mapping if you want friendlier labels.
-    const t = (raw ?? "").trim();
-    return t.length ? t : "Uncategorized";
+    const key = normalizeTypeKey(raw);
+    return CATEGORY_LABELS[key] ?? (raw ? toTitleCase(raw) : "Uncategorized");
   },
 };
