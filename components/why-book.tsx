@@ -1,3 +1,4 @@
+// components/why-book.tsx
 import Link from "next/link";
 import Image from "next/image";
 import Pretitle from "@/components/ui/pretitle";
@@ -6,19 +7,20 @@ import { CheckCircle2 } from "lucide-react";
 
 /**
  * WhyBook
- * P4-inspired split layout (text left, visual right), tokenized for our theme.
- * No framer-motion; all copy comes from lib/content/why.ts.
+ * Spacing & headings normalized to your MachineDetailPage pattern:
+ * - Section: px-4/8/12 + py-16/24
+ * - Headings: explicit text sizes (no .h2)
  */
 export default function WhyBook() {
   return (
     <section id="about" className="px-4 py-16 md:py-24 md:px-8 lg:px-12">
       <div className="container mx-auto">
-        <div className="flex flex-col items-center gap-12 xl:flex-row xl:gap-10">
+        <div className="flex flex-col items-center gap-12 xl:flex-row xl:gap-12">
           {/* Left: text/content */}
           <div className="flex-1">
             <div className="max-w-[560px]">
               <Pretitle text={WHY_BOOK.pretitle} />
-              <h2 className="mt-12 text-2xl font-semibold md:text-3xl mb-4">
+              <h2 className="mb-4 text-2xl font-bold md:text-3xl">
                 {WHY_BOOK.title}
               </h2>
               <p className="mb-8 text-muted-foreground">{WHY_BOOK.paragraph}</p>
@@ -49,11 +51,11 @@ export default function WhyBook() {
             </div>
           </div>
 
-          {/* Right: image (optional). If none, show an accent placeholder block for balance. */}
+          {/* Right: image (optional). If none, show a balanced placeholder. */}
           <div className="flex-1 xl:flex xl:justify-center">
             <div className="relative">
               {/* Accent bg block behind image (desktop only) */}
-              <div className="absolute -left-4 -top-4 -z-10 hidden h-[420px] w-[420px] bg-primary/40 xl:block" />
+              <div className="absolute -left-4 -top-4 -z-10 hidden h-[420px] w-[420px] bg-primary/50 xl:block" />
               {WHY_BOOK.image ? (
                 <Image
                   src={WHY_BOOK.image.src}

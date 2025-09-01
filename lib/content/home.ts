@@ -50,7 +50,7 @@ export type InventorySectionContent = {
 
 export const HOME_INVENTORY: InventorySectionContent = {
   pretitle: "Our Inventory",
-  title: "Machinery for Rent",
+  title: "All your site needs, a click away.",
   subtitle:
     "Explore robust, reliable machines. Book online in minutes, no pre-request required.",
 };

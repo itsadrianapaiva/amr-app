@@ -8,6 +8,7 @@ import Hero from "@/components/hero";
 import { HOME_HERO, HOME_INVENTORY } from "@/lib/content/home";
 import { MACHINE_CARD_COPY } from "@/lib/content/machines";
 import WhyBook from "./why-book";
+import Faq from "./faq";
 
 interface HomeViewProps {
   machines: SerializableMachine[];
@@ -120,7 +121,11 @@ export function HomeView({ machines }: HomeViewProps) {
 
       {/* Why Book With Us (anchors to #about for the header link) */}
       <WhyBook />
-      {/* Future sections: About, FAQ, Legal, Contacts */}
+
+      {/* FAQ */}
+      <Faq />
+
+      {/* Future sections: Legal, Contacts */}
     </main>
   );
 }
