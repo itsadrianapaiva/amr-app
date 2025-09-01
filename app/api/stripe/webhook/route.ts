@@ -5,6 +5,7 @@ import Stripe from "stripe";
 import { db } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
 import { BookingStatus } from "@prisma/client";
+import { notifyBookingConfirmed } from "@/lib/notifications/notify-booking-confirmed";
 
 // Run on Node runtime (Stripe needs raw body) and never cache
 export const runtime = "nodejs";
@@ -105,18 +106,22 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        const bookingId = bookingIdFromSession(session);
-        const piId = paymentIntentIdFromSession(session);
 
-        if (!bookingId) {
+        const maybeId = bookingIdFromSession(session); // number | null
+        if (maybeId === null) {
           console.warn("Webhook completed without bookingId in metadata/ref", {
             client_reference_id: session.client_reference_id,
             metadata: session.metadata,
           });
           break; // ack but do nothing; prevents retries
         }
+        const bookingId: number = maybeId;
 
+        const piId = paymentIntentIdFromSession(session);
+
+        // Promote and then notify; both take a strict number
         await promoteBookingToConfirmed({ bookingId, paymentIntentId: piId });
+        await notifyBookingConfirmed(bookingId, "customer");
         break;
       }
 

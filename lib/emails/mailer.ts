@@ -3,7 +3,6 @@
 import "server-only";
 import { Resend } from "resend";
 import type { ReactElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 
 type MailRequest = {
   to: string | string[];
@@ -48,15 +47,16 @@ export async function sendEmail(req: MailRequest): Promise<MailResult> {
   }
 
   if (!ENABLED) {
-    // DRY-RUN mode: safe while we don’t have a domain or API key
-    const preview =
-      req.text ?? (req.react ? renderToStaticMarkup(req.react) : "(no body)");
+    // DRY-RUN mode: safe while domain or API key are not ready
     console.info("[email:dry-run]", {
       from: FROM ?? "(unset)",
       to,
       subject: req.subject,
       replyTo: req.replyTo,
-      preview: preview.slice(0, 1000), // keep logs readable
+      // We intentionally don't render React to HTML here to avoid Next warnings.
+      bodyPreview:
+        req.text ??
+        (req.react ? "[React email body present]" : "(no body provided)"),
     });
     return { ok: true };
   }

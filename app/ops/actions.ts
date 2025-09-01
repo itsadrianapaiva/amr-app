@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { ManagerOpsSchema } from "@/lib/validation/manager-booking";
+import { notifyBookingConfirmed } from "@/lib/notifications/notify-booking-confirmed";
 
 export type OpsActionResult =
   | {
@@ -153,6 +154,12 @@ export async function createOpsBookingAction(
         data: { stripePaymentIntentId: `WAIVED_OPS_${created.id}` },
       });
     } catch {}
+
+    //fire-and-forget notifications. Do not block the success path.
+    // Uses the shared notifier which is already dry-run safe.
+    notifyBookingConfirmed(created.id, "ops").catch((err) =>
+      console.error("[ops:notify:error]", err)
+    );
 
     return { ok: true, bookingId: String(created.id) };
   } catch (e: any) {
