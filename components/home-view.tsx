@@ -69,7 +69,7 @@ export function HomeView({ machines }: HomeViewProps) {
   }, [selectedCategory]);
 
   return (
-    <main className="px-4 md:px-8 lg:px-12">
+    <main className="">
       {/* HERO — small, conversion-first */}
       <Hero {...HOME_HERO} />
 

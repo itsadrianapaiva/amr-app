@@ -52,5 +52,5 @@ export const HOME_INVENTORY: InventorySectionContent = {
   pretitle: "Our Inventory",
   title: "Machinery for Rent",
   subtitle:
-    "Explore robust, reliable machines. Book online in minutes with a deposit.",
+    "Explore robust, reliable machines. Book online in minutes, no pre-request required.",
 };

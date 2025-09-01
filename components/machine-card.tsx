@@ -66,7 +66,7 @@ export function MachineCard({ machine }: MachineCardProps) {
         className={cn(
           "absolute bottom-0 w-full backdrop-blur-md transition-all duration-500",
           "bg-surface/80 text-foreground",
-          "translate-y-0 md:translate-y-24 md:group-hover:translate-y-0"
+          "translate-y-0 md:translate-y-40 md:group-hover:translate-y-0"
         )}
       >
         <div className="grid gap-1.5 px-5 py-4">

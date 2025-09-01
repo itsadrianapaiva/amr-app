@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import SiteNav from "@/components/site-nav";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,7 +22,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning data-theme="light-warm">
       {/* theme can be dark-industrial, dark-premium or light-warm */}
-      <body className={cn("min-h-screen", geistSans.variable)}>{children}</body>
+      <body className={cn("min-h-screen", geistSans.variable)}>
+        <SiteNav />
+        {children}
+      </body>
     </html>
   );
 }
