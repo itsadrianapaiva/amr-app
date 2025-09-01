@@ -21,7 +21,7 @@ export default function SiteFooter() {
         {/* Top section: centered on mobile, two columns on xl (mirrors NavMobile centered feel) */}
         <div className="flex flex-col items-center justify-center gap-12 py-8 md:flex-row xl:items-start xl:gap-10 xl:py-20">
           {/* Logo block — NavMobile uses the B&W logo on dark bg */}
-          <div className="mb-2 flex flex-1 justify-center xl:justify-start">
+          <div className="mb-2 flex flex-1 justify-center">
             <Logo
               src="/assets/logo-yellow.png"
               width={200}
@@ -86,7 +86,6 @@ export default function SiteFooter() {
           </div>
         </div>
       </div>
-      
 
       {/* Bottom bar — subtle divider like NavMobile’s high-contrast theme */}
       <div className="border-t border-primary-foreground/15">

@@ -7,6 +7,7 @@ import type { SerializableMachine } from "@/lib/types";
 import Hero from "@/components/hero";
 import { HOME_HERO, HOME_INVENTORY } from "@/lib/content/home";
 import { MACHINE_CARD_COPY } from "@/lib/content/machines";
+import WhyBook from "./why-book";
 
 interface HomeViewProps {
   machines: SerializableMachine[];
@@ -74,7 +75,7 @@ export function HomeView({ machines }: HomeViewProps) {
       <Hero {...HOME_HERO} />
 
       {/* Inventory header fed by content lib */}
-      <section className="container mx-auto py-10 text-center md:py-14 xl:py-16">
+      <section className="container mx-auto py-12 text-center md:py-16 xl:py-18">
         <Pretitle text={HOME_INVENTORY.pretitle} center />
         <h2 className="my-3 text-3xl font-bold tracking-tight md:text-4xl">
           {HOME_INVENTORY.title}
@@ -117,6 +118,8 @@ export function HomeView({ machines }: HomeViewProps) {
         </div>
       </section>
 
+      {/* Why Book With Us (anchors to #about for the header link) */}
+      <WhyBook />
       {/* Future sections: About, FAQ, Legal, Contacts */}
     </main>
   );
