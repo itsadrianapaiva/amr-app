@@ -70,9 +70,23 @@ export default function SiteFooter() {
                 </li>
               )}
             </ul>
+
+            {/* Small CTA (optional, content-driven) */}
+            {FOOTER_CONTENT.footerCta && (
+              <div className="mt-8">
+                <Link
+                  href={FOOTER_CONTENT.footerCta.href}
+                  prefetch={false}
+                  className="inline-flex rounded-lg bg-primary px-12 py-2 text-sm font-semibold text-primary-foreground hover:bg-accent/80"
+                >
+                  {FOOTER_CONTENT.footerCta.label}
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </div>
+      
 
       {/* Bottom bar — subtle divider like NavMobile’s high-contrast theme */}
       <div className="border-t border-primary-foreground/15">

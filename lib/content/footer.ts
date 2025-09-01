@@ -13,6 +13,9 @@ export type FooterContent = {
   phoneDisplay?: string | null;
   email?: string | null;
 
+  /** Small CTA shown in the footer (optional). */
+  footerCta?: { label: string; href: string } | null;
+
   /** Credits & legal text. */
   copyrightOwner?: string; // defaults to companyName if omitted
   designedBy?: { label: string; href: string } | null;
@@ -28,6 +31,9 @@ export const FOOTER_CONTENT: FooterContent = {
   phoneDisplay: "000 000 000", // "Your phone here",
   // Set when ready (e.g., "hello@amr.pt"); null hides the email row.
   email: "amr.business.pt@gmail.com", //add correct one later
+
+  // Small CTA in the footer. Mirrors primary funnel.
+  footerCta: { label: "Book now", href: "/#catalog" },
 
   // Credits (can hide by setting to nulls).
   copyrightOwner: "AMR Rentals",
