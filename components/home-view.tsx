@@ -1,7 +1,7 @@
 // File: components/home-view.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MachineCard } from "@/components/machine-card";
 import Pretitle from "@/components/ui/pretitle";
 import type { SerializableMachine } from "@/lib/types";
@@ -14,51 +14,83 @@ interface HomeViewProps {
 
 export function HomeView({ machines }: HomeViewProps) {
   const [headerActive, setHeaderActive] = useState(false);
-
-  // Selected category for filtering — "All" shows everything.
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
+  // Keep header behavior as-is
   useEffect(() => {
     const handleScroll = () => setHeaderActive(window.scrollY > 0);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Derive unique categories from data at runtime (no hardcoding).
+  // Derive unique categories (stable via useMemo)
   const categories = useMemo(() => {
     const set = new Set<string>();
     machines.forEach((m) => set.add(m.type || "Uncategorized"));
     return ["All", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
   }, [machines]);
 
-  // Filter machines by selected category (client-side only).
+  // Filter by selected category (client-side)
   const visibleMachines = useMemo(() => {
     if (selectedCategory === "All") return machines;
-    return machines.filter(
-      (m) => (m.type || "Uncategorized") === selectedCategory
-    );
+    return machines.filter((m) => (m.type || "Uncategorized") === selectedCategory);
   }, [machines, selectedCategory]);
+
+  // ---------------- URL SYNC (fixed) ----------------
+
+  // Ref gate to ensure we initialize from URL only once
+  const didInitFromURL = useRef(false);
+
+  // URL -> State (init only, after categories are known)
+  useEffect(() => {
+    if (didInitFromURL.current) return; // run once
+    const url = new URL(window.location.href);
+    const qp = url.searchParams.get("category");
+    if (qp) {
+      // case-insensitive match against known categories
+      const match = categories.find((c) => c.toLowerCase() === qp.toLowerCase());
+      if (match) setSelectedCategory(match);
+    }
+    didInitFromURL.current = true;
+  }, [categories]); // depends only on categories; never on selectedCategory
+
+  // State -> URL (only write when the param actually changes)
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const current = url.searchParams.get("category"); // string | null
+    const desired = selectedCategory === "All" ? null : selectedCategory;
+
+    // No-op if already in sync
+    if (current === desired) return;
+
+    if (desired === null) {
+      url.searchParams.delete("category");
+    } else {
+      url.searchParams.set("category", desired);
+    }
+    const newUrl = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState({}, "", newUrl);
+  }, [selectedCategory]);
 
   return (
     <main className="px-4 md:px-8 lg:px-12">
-      {/* HERO — small, conversion-first, consumes centralized copy */}
+      {/* HERO — small, conversion-first, centralized copy */}
       <Hero {...HOME_HERO} />
 
-      {/* Inventory header (secondary to Hero). Keep SEO structure sane (one H1 overall). */}
+      {/* Inventory header (secondary to Hero) */}
       <section className="container mx-auto py-10 text-center md:py-14 xl:py-16">
         <Pretitle text="Our Inventory" center />
         <h2 className="my-3 text-3xl font-bold tracking-tight md:text-4xl">
           Machinery for Rent
         </h2>
         <p className="mx-auto max-w-xl text-muted-foreground">
-          Explore robust, reliable machines — book online in minutes with
-          deposit checkout.
+          Explore robust, reliable machines — book online in minutes with deposit checkout.
         </p>
       </section>
 
       {/* Category filter + grid wrapper — anchor target for primary CTA */}
       <section id="catalog" className="container mx-auto">
-        {/* Category pills: wrap and center (no horizontal overflow) */}
+        {/* Wrap & center pills (no horizontal overflow) */}
         <div className="mb-6 w-full">
           <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-2 sm:gap-3 py-1">
             {categories.map((cat) => {
