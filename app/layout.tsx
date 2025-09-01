@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
-import { cn } from "@/lib/utils";
 import SiteNav from "@/components/site-nav";
+import SiteFooter from "@/components/site-footer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -10,8 +10,8 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Algarve Machinery Rental",
-  description: "Heavy machinery and tools for rent in the Algarve area.",
+  title: "AMR — Machinery Rentals in the Algarve",
+  description: "Instant online booking for pro-grade machinery.",
 };
 
 export default function RootLayout({
@@ -20,11 +20,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning data-theme="light-warm">
-      {/* theme can be dark-industrial, dark-premium or light-warm */}
-      <body className={cn("min-h-screen", geistSans.variable)}>
+    <html lang="en" suppressHydrationWarning>
+      <body>
+        {/* Invisible anchor so '/#home' targets the very top */}
+        <div id="home" className="sr-only" aria-hidden="true" />
+
+        {/* Sticky header on all pages */}
         <SiteNav />
+
+        {/* Page content (HomeView renders <main/>) */}
         {children}
+
+        {/* Global footer on all pages */}
+        <SiteFooter />
       </body>
     </html>
   );
