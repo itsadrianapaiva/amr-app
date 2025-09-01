@@ -1,4 +1,3 @@
-// File: components/home-view.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -7,7 +6,6 @@ import Pretitle from "@/components/ui/pretitle";
 import type { SerializableMachine } from "@/lib/types";
 import Hero from "@/components/hero";
 import { HOME_HERO, HOME_INVENTORY } from "@/lib/content/home";
-// NEW: use friendly category labels from content lib
 import { MACHINE_CARD_COPY } from "@/lib/content/machines";
 
 interface HomeViewProps {
@@ -41,7 +39,7 @@ export function HomeView({ machines }: HomeViewProps) {
     );
   }, [machines, selectedCategory]);
 
-  // ---------------- URL SYNC (stable) ----------------
+  // URL SYNC (stable)
   const didInitFromURL = useRef(false);
 
   // URL -> State (init once, after categories exist)

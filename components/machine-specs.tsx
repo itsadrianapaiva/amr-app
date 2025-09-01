@@ -1,6 +1,7 @@
 import { Weight, Euro, Truck, ShieldCheck, CalendarDays } from "lucide-react";
 import { formatCurrency, moneyDisplay } from "@/lib/utils";
 import type { Machine } from "@prisma/client";
+import { MACHINE_SPECS_COPY } from "@/lib/content/machine-detail";
 
 interface MachineSpecsProps {
   machine: Pick<
@@ -15,39 +16,49 @@ interface MachineSpecsProps {
 }
 
 export function MachineSpecs({ machine }: MachineSpecsProps) {
+  // Pre-format core values using the shared helpers + content formatters
+  const dailyRateText = formatCurrency(Number(machine.dailyRate));
+  const minRentalText = MACHINE_SPECS_COPY.formatMinimumRental(machine.minDays);
+  const weightText = MACHINE_SPECS_COPY.formatWeight(machine.weight);
+
+  // Use moneyDisplay so 0 => "Included", null => "Not available", >0 => "€X"
+  const depositDisplay = moneyDisplay(machine.deposit);
+  const deliveryDisplay = moneyDisplay(machine.deliveryCharge);
+  const pickupDisplay = moneyDisplay(machine.pickupCharge);
+
   const specs = [
     {
       icon: <Euro className="h-7 w-7 text-primary" />,
-      label: "Daily Rate",
-      // dailyRate is required — still format defensively
-      value: formatCurrency(Number(machine.dailyRate)),
+      label: MACHINE_SPECS_COPY.labels.dailyRate,
+      value: dailyRateText,
     },
     {
       icon: <CalendarDays className="h-7 w-7 text-primary" />,
-      label: "Minimum Rental",
-      value: `${machine.minDays} ${machine.minDays > 1 ? "days" : "day"}`,
+      label: MACHINE_SPECS_COPY.labels.minimumRental,
+      value: minRentalText,
     },
     {
       icon: <Weight className="h-7 w-7 text-primary" />,
-      label: "Weight",
-      value: String(machine.weight),
+      label: MACHINE_SPECS_COPY.labels.weight,
+      value: weightText,
     },
     {
       icon: <ShieldCheck className="h-7 w-7 text-primary" />,
-      label: "Deposit",
-      value: formatCurrency(Number(machine.deposit)),
+      label: MACHINE_SPECS_COPY.labels.deposit,
+      // "Included" | "Not available" | "€X"
+      value: depositDisplay,
     },
     {
       icon: <Truck className="h-7 w-7 text-primary" />,
-      label: "Delivery Charge",
-      value: moneyDisplay(machine.deliveryCharge), // "Included" | currency | "Not available"
+      label: MACHINE_SPECS_COPY.labels.deliveryCharge,
+      value: deliveryDisplay,
     },
     {
       icon: <Truck className="h-7 w-7 text-primary" />,
-      label: "Pickup Charge",
-      value: moneyDisplay(machine.pickupCharge), // "Included" | currency | "Not available"
+      label: MACHINE_SPECS_COPY.labels.pickupCharge,
+      value: pickupDisplay,
     },
-  ] as const; //treat this array as readonly to ensure type safety
+  ] as const;
 
   return (
     <div className="grid grid-cols-2 gap-4 border-y border-border/40 py-6">

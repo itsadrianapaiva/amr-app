@@ -1,4 +1,3 @@
-// File: components/machine-card.tsx
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
@@ -46,7 +45,7 @@ export function MachineCard({ machine }: MachineCardProps) {
         <span
           className={cn(
             "absolute left-3 top-3 z-20 rounded-full px-2.5 py-1 text-xs font-medium shadow",
-            "bg-primary text-primary-foreground"
+            "bg-secondary text-primary-foreground"
           )}
         >
           {MACHINE_CARD_COPY.preBadge}

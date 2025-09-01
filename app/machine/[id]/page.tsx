@@ -8,6 +8,8 @@ import Pretitle from "@/components/ui/pretitle";
 import { BookingForm } from "@/components/booking-form";
 import type { SerializableMachine } from "@/lib/types";
 import { toTitleCase } from "@/lib/utils";
+import { MACHINE_DETAIL_COPY } from "@/lib/content/machine-detail";
+import { MACHINE_CARD_COPY } from "@/lib/content/machines";
 
 export default async function MachineDetailPage({
   params,
@@ -49,13 +51,13 @@ export default async function MachineDetailPage({
 
   // Display strings
   const displayName = toTitleCase(machine.name);
-  const displayType = machine.type ? toTitleCase(machine.type) : "";
+  const displayType = MACHINE_CARD_COPY.displayType(machine.type);
 
   return (
     <section className="px-4 py-16 md:py-24 md:px-8 lg:px-12">
       <div className="container mx-auto">
         <div className="grid grid-cols-1 gap-8 lg:gap-12">
-          <Pretitle center text="Machine Details" />
+          <Pretitle center text={MACHINE_DETAIL_COPY.pretitle} />
 
           {/* Column 1: Image */}
           <div className="relative h-[400px] w-full overflow-hidden rounded-lg md:h-[500px]">
@@ -70,7 +72,7 @@ export default async function MachineDetailPage({
 
           {/* Column 2: Details & Booking Form */}
           <div className="flex flex-col">
-            <h1 className="mb-4 text-3xl font-bold md:text-4xl">
+            <h1 className="mb-4 text-2xl font-bold md:text-3xl uppercase">
               {displayName}
             </h1>
             {displayType && (
