@@ -1,24 +1,31 @@
-// components/site-footer.tsx
 import Link from "next/link";
 import Logo from "@/components/logo";
 import { FOOTER_CONTENT } from "@/lib/content/footer";
 import { MapPin, Phone, Mail } from "lucide-react";
 
 /**
- * SiteFooter
- * Restyled to match NavMobile:
- * - Dark surface: bg-secondary-foreground
- * - Light text: text-primary-foreground
- * - primary details + bordered CTA style carried over for interactive elements
+ * SiteFooter — 4-column layout on xl:
+ * [Logo] [Contact] [Categories] [Pages]
+ * NOTE: Categories are injected via props to avoid DB calls here.
  */
-export default function SiteFooter() {
+type SiteFooterProps = {
+  /** Friendly category labels to show; if empty/undefined, the "Categories" column is hidden. */
+  categories?: string[];
+};
+
+export default function SiteFooter({ categories }: SiteFooterProps) {
   const year = new Date().getFullYear();
   const owner = FOOTER_CONTENT.copyrightOwner ?? FOOTER_CONTENT.companyName;
 
-  // Inline for now to avoid changing content files during MVP.
-  const legalLinks: { href: string; label: string; external?: boolean }[] = [
+  const pageLinks: { href: string; label: string; external?: boolean }[] = [
+    { href: "/#home", label: "Home" },
+    { href: "/#catalog", label: "Catalog" },
+    { href: "/#contact", label: "Contact" },
+    { href: "/#faq", label: "FAQ" },
     { href: "/legal/privacy", label: "Privacy" },
     { href: "/legal/terms", label: "Terms" },
+    { href: "/legal/cookies", label: "Cookies" },
+    { href: "/legal/general-conditions", label: "General Rental Conditions" },
     {
       href: "https://www.livroreclamacoes.pt/inicio/",
       label: "Livro de Reclamações",
@@ -27,12 +34,12 @@ export default function SiteFooter() {
   ];
 
   return (
-    <footer className="mt-10 bg-secondary-foreground text-primary-foreground xl:mt-32">
+    <footer className="mt-10 bg-muted-foreground/10 text-primary-foreground xl:mt-32">
       <div className="container mx-auto">
-        {/* Top section: centered on mobile, two columns on xl (mirrors NavMobile centered feel) */}
-        <div className="flex flex-col items-center justify-center gap-12 py-8 md:flex-row xl:items-start xl:gap-10 xl:py-20">
-          {/* Logo block — NavMobile uses the B&W logo on dark bg */}
-          <div className="mb-2 flex flex-1 justify-center">
+        {/* Top grid: stacks on mobile, four columns on xl */}
+        <div className="grid gap-12 py-8 px-20 md:grid-cols-2 xl:grid-cols-4 xl:gap-10 xl:py-20">
+          {/* Logo */}
+          <div className="flex items-start justify-center xl:justify-start">
             <Logo
               src="/assets/logo-yellow.png"
               width={200}
@@ -41,12 +48,11 @@ export default function SiteFooter() {
             />
           </div>
 
-          {/* Contact block */}
-          <div className="flex-1">
+          {/* Contact */}
+          <div>
             <h4 className="mb-6 text-md font-semibold uppercase tracking-[1.2px]">
               Contact
             </h4>
-
             <ul className="flex flex-col gap-5 text-sm">
               {/* Address */}
               <li className="flex items-start gap-3">
@@ -62,7 +68,9 @@ export default function SiteFooter() {
               {FOOTER_CONTENT.phoneDisplay && (
                 <li className="flex items-center gap-3">
                   <Phone className="h-5 w-5 text-primary" />
-                  <span className="opacity-90">{FOOTER_CONTENT.phoneDisplay}</span>
+                  <span className="opacity-90">
+                    {FOOTER_CONTENT.phoneDisplay}
+                  </span>
                 </li>
               )}
 
@@ -80,7 +88,7 @@ export default function SiteFooter() {
               )}
             </ul>
 
-            {/* Small CTA (optional, content-driven) */}
+            {/* Small CTA (optional) */}
             {FOOTER_CONTENT.footerCta && (
               <div className="mt-8">
                 <Link
@@ -93,22 +101,40 @@ export default function SiteFooter() {
               </div>
             )}
           </div>
-        </div>
-      </div>
 
-      {/* Bottom bar — add inline Legal nav while preserving layout */}
-      <div className="border-t border-primary-foreground/15">
-        <div className="container mx-auto flex flex-col items-center justify-between gap-2 py-4 text-xs uppercase tracking-[0.8px] md:flex-row">
-          <p className="opacity-80">
-            &copy; {year} {owner}. All rights reserved.
-          </p>
+          {/* Categories — shown only if provided */}
+          {categories && categories.length > 0 ? (
+            <div>
+              <h4 className="mb-6 text-md font-semibold uppercase tracking-[1.2px]">
+                Categories
+              </h4>
+              <ul className="space-y-3 text-sm opacity-90">
+                {categories.map((label) => (
+                  <li key={label}>
+                    <Link
+                      href={`/?category=${encodeURIComponent(label)}#catalog`}
+                      prefetch={false}
+                      className="underline hover:no-underline"
+                    >
+                      {label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            // Keep grid alignment on xl (renders an empty slot)
+            <div aria-hidden className="hidden xl:block" />
+          )}
 
-          {/* Inline legal nav */}
-          <nav className="flex flex-wrap items-center gap-3 opacity-80">
-            {legalLinks.map((l, i) => {
-              const isLast = i === legalLinks.length - 1;
-              return (
-                <span key={l.href} className="flex items-center gap-3">
+          {/* Pages */}
+          <div>
+            <h4 className="mb-6 text-md font-semibold uppercase tracking-[1.2px]">
+              Pages
+            </h4>
+            <ul className="space-y-3 text-sm opacity-90">
+              {pageLinks.map((l) => (
+                <li key={l.href}>
                   {l.external ? (
                     <a
                       href={l.href}
@@ -119,15 +145,27 @@ export default function SiteFooter() {
                       {l.label}
                     </a>
                   ) : (
-                    <Link href={l.href} className="underline hover:no-underline">
+                    <Link
+                      href={l.href}
+                      prefetch={false}
+                      className="underline hover:no-underline"
+                    >
                       {l.label}
                     </Link>
                   )}
-                  {!isLast && <span aria-hidden="true">•</span>}
-                </span>
-              );
-            })}
-          </nav>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom bar — unchanged */}
+      <div className="border-t border-primary-foreground/15">
+        <div className="container mx-auto flex flex-col items-center justify-between gap-2 py-4 text-xs uppercase tracking-[0.8px] md:flex-row">
+          <p className="opacity-80">
+            &copy; {year} {owner}. All rights reserved.
+          </p>
 
           {FOOTER_CONTENT.designedBy ? (
             <p className="opacity-80">

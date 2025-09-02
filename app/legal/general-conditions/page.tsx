@@ -1,5 +1,7 @@
+// app/legal/general-conditions/page.tsx
 import { RENTAL_CONDITIONS } from "@/lib/content/rental-conditions";
 import { LEGAL_LINKS } from "@/lib/content/legal";
+import PrintButton from "@/components/print-button";
 
 // SEO metadata
 export const metadata = {
@@ -25,7 +27,9 @@ export default async function GeneralConditionsPage() {
     <main className="container mx-auto py-18 md:py-24 xl:py-30">
       {/* Header */}
       <header className="mb-10 md:mb-14">
-        <p className="text-sm uppercase tracking-wide text-muted-foreground">Legal</p>
+        <p className="text-sm uppercase tracking-wide text-muted-foreground">
+          Legal
+        </p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
           {doc.title}
         </h1>
@@ -36,11 +40,9 @@ export default async function GeneralConditionsPage() {
           <p className="mt-6 max-w-2xl text-muted-foreground">{doc.intro}</p>
         )}
 
-        {/* Placeholder for a Print button — we add the client component next step */}
-        <div className="mt-6">
-          <span className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground">
-            Tip: use your browser’s “Print” to save as PDF. A one-click button is coming next.
-          </span>
+        {/* Print / Save PDF */}
+        <div className="mt-6 flex">
+          <PrintButton className="ml-auto" />
         </div>
       </header>
 
@@ -81,11 +83,10 @@ export default async function GeneralConditionsPage() {
         <article className="prose max-w-none dark:prose-invert">
           {doc.sections.map((section) => (
             <section key={section.id} id={section.id} className="scroll-mt-24">
-              <h2 className="mb-3 text-2xl font-semibold tracking-tight">
+              <h2 className="my-4 text-2xl font-semibold tracking-tight">
                 {section.title}
               </h2>
 
-              {/* Paragraphs; if you later add bullets in content, we can switch to list rendering */}
               {section.body.map((para, i) => (
                 <p key={i} className="text-muted-foreground">
                   {para}
@@ -97,7 +98,9 @@ export default async function GeneralConditionsPage() {
           {/* Useful Links (e.g., complaints book, future PDF download) */}
           {doc.links && doc.links.length > 0 && (
             <section className="mt-10">
-              <h3 className="mb-3 text-xl font-semibold tracking-tight">Useful Links</h3>
+              <h3 className="mb-3 text-xl font-semibold tracking-tight">
+                Useful Links
+              </h3>
               <ul className="list-disc space-y-2 pl-6">
                 {doc.links.map((l) => (
                   <li key={l.href}>

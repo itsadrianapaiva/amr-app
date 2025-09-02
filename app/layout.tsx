@@ -4,6 +4,7 @@ import "./globals.css";
 import SiteNav from "@/components/site-nav";
 import SiteFooter from "@/components/site-footer";
 import WhatsAppFab from "@/components/whatsapp-fab";
+import { getFooterCategories } from "@/lib/data/footer-categories";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,13 +16,14 @@ export const metadata: Metadata = {
   description: "Instant online booking for pro-grade machinery.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const footerCategories = await getFooterCategories();
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
       <body>
         {/* Invisible anchor so '/#home' targets the very top */}
         <div id="home" className="sr-only" aria-hidden="true" />
@@ -33,7 +35,7 @@ export default function RootLayout({
         {children}
 
         {/* Global footer on all pages */}
-        <SiteFooter />
+        <SiteFooter categories={footerCategories} />
 
         {/* Floating WhatsApp button */}
         <WhatsAppFab
