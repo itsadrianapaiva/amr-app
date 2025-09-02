@@ -37,19 +37,19 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
     <footer className="mt-10 bg-muted-foreground/10 text-primary-foreground xl:mt-32">
       <div className="container mx-auto">
         {/* Top grid: stacks on mobile, four columns on xl */}
-        <div className="grid gap-12 py-8 px-20 md:grid-cols-2 xl:grid-cols-4 xl:gap-10 xl:py-20">
+        <div className="grid gap-12 py-8 px-20 lg:px-0 md:grid-cols-2 xl:grid-cols-4 xl:gap-10 xl:py-20">
           {/* Logo */}
           <div className="flex items-start justify-center xl:justify-start">
             <Logo
               src="/assets/logo-yellow.png"
-              width={200}
+              width={400}
               height={56}
               alt={FOOTER_CONTENT.companyName}
             />
           </div>
 
           {/* Contact */}
-          <div>
+          <div className="">
             <h4 className="mb-6 text-md font-semibold uppercase tracking-[1.2px]">
               Contact
             </h4>
