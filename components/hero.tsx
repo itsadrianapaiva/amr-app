@@ -1,6 +1,6 @@
-// File: components/hero.tsx
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -18,9 +18,11 @@ type HeroProps = {
   whatsappNumberE164?: string | null;
   whatsappLabel?: string;
 
+  /** Keep existing classes for spacing/layout; bg image now comes from <Image>. */
+  backgroundClassName?: string;
 
-  /** Hook to drop a hero photo later */
-  backgroundClassName?: string; // e.g. "bg-hero bg-cover bg-center bg-no-repeat"
+  /** Select which hero asset to render under /public/images/hero/*.jpg */
+  imageName?: "hero" | "hero-02" | "hero-03";
 };
 
 export default function Hero({
@@ -31,7 +33,8 @@ export default function Hero({
   primaryLabel = "Browse machines",
   whatsappNumberE164,
   whatsappLabel = "Need help? Chat on WhatsApp",
-  backgroundClassName = "bg-hero bg-cover bg-center bg-no-repeat",
+  backgroundClassName = "", // e.g. spacing/padding classes only
+  imageName = "hero",
 }: HeroProps) {
   // Minimal fade-in without external deps; subtle by design
   const [mounted, setMounted] = useState(false);
@@ -47,10 +50,28 @@ export default function Hero({
     return `https://wa.me/${digits}`;
   }, [whatsappNumberE164]);
 
+  // Compute image src from the selected variant
+  const heroSrc = `/images/hero/${imageName}.jpg`;
+
   return (
-    <section className={["relative h-[60vh]", backgroundClassName].join(" ")}>
+    <section
+      className={[
+        "relative h-[60vh] overflow-hidden",
+        backgroundClassName,
+      ].join(" ")}
+    >
+      {/* Background image — LCP friendly */}
+      <Image
+        src={heroSrc}
+        alt="Tracked excavator working on a job site"
+        fill
+        priority
+        sizes="100vw"
+        className="absolute inset-0 object-cover"
+      />
+
       {/* Dark gradient ensures contrast over any future photo */}
-      <div className="absolute inset-0 z-10 bg-gradient-to-l from-black/10 via-black/70 to-black/90" />
+      <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/10 via-black/70 to-black/90" />
 
       <div className="container mx-auto flex h-full items-center px-4 md:px-8">
         <div className="z-20 mx-auto max-w-[608px] text-center text-white xl:mx-0 xl:text-left text-balance">

@@ -1,3 +1,4 @@
+// File: components/machine-card.tsx
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
@@ -5,6 +6,7 @@ import { ArrowRight } from "lucide-react";
 import type { SerializableMachine } from "@/lib/types";
 import { cn, formatCurrency, moneyDisplay, toTitleCase } from "@/lib/utils";
 import { MACHINE_CARD_COPY } from "@/lib/content/machines";
+import { getMachineImage, imageContent } from "@/lib/content/images";
 
 interface MachineCardProps {
   machine: SerializableMachine;
@@ -38,6 +40,34 @@ export function MachineCard({ machine }: MachineCardProps) {
   if (showPickup) specs.push(MACHINE_CARD_COPY.labels.pickupAvailable);
   const specsLine = specs.join(" • ");
 
+  // Resolve image robustly (type → name → local fallback map)
+  let img = getMachineImage(String(machine.type ?? ""));
+  if (img.src === imageContent.fallback.machine) {
+    img = getMachineImage(String(machine.name ?? ""));
+  }
+
+  // If DB has a URL, use it only when it’s NOT an SVG/placeholder host.
+  const dbUrl = typeof machine.imageUrl === "string" ? machine.imageUrl.trim() : "";
+
+  let allowDbUrl = false;
+  if (dbUrl) {
+    // Disallow SVGs (Next/Image blocks remote SVGs unless dangerous flags)
+    const isSvg =
+      dbUrl.toLowerCase().endsWith(".svg") || dbUrl.startsWith("data:image/svg");
+    // Disallow known placeholder host to avoid warnings & mismatched aspect
+    let isPlaceholderHost = false;
+    try {
+      const host = new URL(dbUrl).hostname;
+      isPlaceholderHost = /(?:^|\.)placehold\.co$/i.test(host);
+    } catch {
+      // invalid URL → treat as not allowed
+    }
+    allowDbUrl = !isSvg && !isPlaceholderHost;
+  }
+
+  const srcToUse = allowDbUrl ? (dbUrl as string) : img.src;
+  const altToUse = allowDbUrl ? `Image of ${displayName}` : img.alt;
+
   return (
     <div className="group relative h-[492px] w-full overflow-hidden">
       {/* Optional pre-badge reinforcing USP */}
@@ -54,11 +84,11 @@ export function MachineCard({ machine }: MachineCardProps) {
 
       {/* Background Image */}
       <Image
-        src={machine.imageUrl || "/fallback-image.jpg"}
+        src={srcToUse}
+        alt={altToUse}
         fill
+        sizes="(min-width:1024px) 33vw, (min-width:640px) 50vw, 100vw"
         className="object-cover transition-transform duration-500 group-hover:scale-105"
-        alt={`Image of ${displayName}`}
-        unoptimized
       />
 
       {/* Overlay */}

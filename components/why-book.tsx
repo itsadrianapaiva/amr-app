@@ -1,8 +1,8 @@
-// components/why-book.tsx
 import Link from "next/link";
 import Image from "next/image";
 import Pretitle from "@/components/ui/pretitle";
 import { WHY_BOOK } from "@/lib/content/why";
+import { imageContent } from "@/lib/content/images";
 import { CheckCircle2 } from "lucide-react";
 
 /**
@@ -12,6 +12,9 @@ import { CheckCircle2 } from "lucide-react";
  * - Headings: explicit text sizes (no .h2)
  */
 export default function WhyBook() {
+  // Pick which variant to show: "default" or "alt"
+  const img = imageContent.why.default;
+
   return (
     <section id="about" className="px-8 py-16 md:py-24 md:px-8 lg:px-12">
       <div className="container mx-auto">
@@ -51,23 +54,19 @@ export default function WhyBook() {
             </div>
           </div>
 
-          {/* Right: image (optional). If none, show a balanced placeholder. */}
+          {/* Right: image */}
           <div className="flex-1 xl:flex xl:justify-center">
             <div className="relative">
               {/* Accent bg block behind image (desktop only) */}
-              <div className="absolute -left-4 -top-4 -z-10 hidden h-[420px] w-[420px] bg-primary/50 xl:block" />
-              {WHY_BOOK.image ? (
-                <Image
-                  src={WHY_BOOK.image.src}
-                  alt={WHY_BOOK.image.alt}
-                  width={WHY_BOOK.image.width ?? 444}
-                  height={WHY_BOOK.image.height ?? 492}
-                  loading="lazy"
-                  className="block"
-                />
-              ) : (
-                <div className="h-[360px] w-[360px] bg-muted xl:h-[420px] xl:w-[420px]" />
-              )}
+              <div className="absolute -left-4 -top-4 -z-10 hidden h-[600px] w-[420px] bg-primary/50 xl:block" />
+              <Image
+                src={img.src}
+                alt={img.alt}
+                width={444}
+                height={492}
+                loading="lazy"
+                className="block"
+              />
             </div>
           </div>
         </div>

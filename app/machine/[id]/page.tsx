@@ -1,3 +1,4 @@
+// File: app/machine/[id]/page.tsx
 import { getMachineById } from "@/lib/data";
 import { getDisabledDateRangesForMachine } from "@/lib/availability.server";
 import { serializeMachine } from "@/lib/serializers";
@@ -10,13 +11,14 @@ import type { SerializableMachine } from "@/lib/types";
 import { toTitleCase } from "@/lib/utils";
 import { MACHINE_DETAIL_COPY } from "@/lib/content/machine-detail";
 import { MACHINE_CARD_COPY } from "@/lib/content/machines";
+import { resolveMachineImage } from "@/lib/content/images";
 
 export default async function MachineDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params; // Await the params promise here
+  const { id } = await params;
   const machineId = parseInt(id, 10);
   if (isNaN(machineId)) {
     notFound();
@@ -53,6 +55,13 @@ export default async function MachineDetailPage({
   const displayName = toTitleCase(machine.name);
   const displayType = MACHINE_CARD_COPY.displayType(machine.type);
 
+  // Centralized image resolution: type → name → safe DB URL → fallback
+  const img = resolveMachineImage({
+    type: String(machine.type ?? ""),
+    name: String(machine.name ?? ""),
+    dbUrl: typeof machine.imageUrl === "string" ? machine.imageUrl : null,
+  });
+
   return (
     <section className="px-4 py-16 md:py-24 md:px-8 lg:px-12">
       <div className="container mx-auto">
@@ -62,11 +71,11 @@ export default async function MachineDetailPage({
           {/* Column 1: Image */}
           <div className="relative h-[400px] w-full overflow-hidden rounded-lg md:h-[500px]">
             <Image
-              src={machine.imageUrl}
+              src={img.src}
+              alt={img.alt}
               fill
+              sizes="(min-width:1024px) 960px, 100vw"
               className="object-cover"
-              alt={`Image of ${displayName}`}
-              unoptimized
             />
           </div>
 
