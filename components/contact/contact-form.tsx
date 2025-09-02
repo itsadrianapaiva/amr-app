@@ -41,9 +41,11 @@ export default function ContactForm({
   waHref,
 }: Props) {
   return (
-    <div>
-      <h3 className="text-lg font-semibold leading-none mb-2">{title}</h3>
-      <p className="mb-6 text-muted-foreground">{description}</p>
+    <div className="flex-2 mt-4">
+      <h3 className="my-6 text-2xl font-bold tracking-tight md:text-3xl mb-2">
+        {title}
+      </h3>
+      <p className="mb-9 text-muted-foreground">{description}</p>
 
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         {/* Name + Email */}

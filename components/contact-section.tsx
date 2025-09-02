@@ -52,8 +52,8 @@ export default function ContactSection() {
   return (
     <section id={CONTACTS.id} className="px-4 py-16 md:py-24 md:px-8 lg:px-12">
       <div className="container mx-auto">
-        <div className="w-full border-t-4 border-primary bg-card p-6 shadow-sm md:p-10">
-          <div className="grid gap-10 md:grid-cols-[380px,1fr] md:gap-14">
+        <div className="w-full border-t-4 border-primary p-4 shadow-custom xl:h-[730px] xl:p-8 xl:px-[90px] xl:py-[36px]">
+          <div className="flex h-full flex-col gap-[40px] xl:flex-row xl:gap-[90px]">
             <SupportPanel
               pretitle={CONTACTS.pretitle}
               title={CONTACTS.title}

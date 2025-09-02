@@ -13,7 +13,7 @@ import { CheckCircle2 } from "lucide-react";
  */
 export default function WhyBook() {
   return (
-    <section id="about" className="px-4 py-16 md:py-24 md:px-8 lg:px-12">
+    <section id="about" className="px-8 py-16 md:py-24 md:px-8 lg:px-12">
       <div className="container mx-auto">
         <div className="flex flex-col items-center gap-12 xl:flex-row xl:gap-12">
           {/* Left: text/content */}

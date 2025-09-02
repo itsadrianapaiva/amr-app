@@ -16,9 +16,9 @@ type Props = {
   subtitle: string;
   support: ContactContent["support"];
   location: ContactContent["location"];
-  waHref: string; // computed outside for testability
-  addressLine: string; // formatted single-line address
-  mapsHref: string | null; // prebuilt maps link or null to hide
+  waHref: string;            // computed outside for testability
+  addressLine: string;       // formatted single-line address
+  mapsHref: string | null;   // prebuilt maps link or null to hide
 };
 
 export default function SupportPanel({
@@ -32,11 +32,9 @@ export default function SupportPanel({
   mapsHref,
 }: Props) {
   return (
-    <aside className="md:border-r md:border-border/60 md:pr-10">
+    <aside className="h-[640px] w-full xl:max-w-[380px] xl:border-r xl:border-border/40 xl:pr-[70px]">
       <Pretitle text={pretitle} />
-      <h2 className="my-6 text-3xl font-bold tracking-tight md:text-4xl mb-2">
-        {title}
-      </h2>
+      <h2 className="my-8 text-3xl font-bold tracking-tight md:text-4xl mb-2">{title}</h2>
       <p className="mb-8 text-muted-foreground">{subtitle}</p>
 
       <div className="mb-10 flex flex-col gap-6">
@@ -46,9 +44,7 @@ export default function SupportPanel({
             <MessageSquare className="h-5 w-5 text-accent" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold leading-none">
-              WhatsApp support
-            </h3>
+            <h3 className="text-lg font-semibold leading-none">WhatsApp support</h3>
             <p className="mt-1 text-sm text-muted-foreground">
               Fastest response during business hours.
             </p>
