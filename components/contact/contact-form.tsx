@@ -41,7 +41,7 @@ export default function ContactForm({
   waHref,
 }: Props) {
   return (
-    <div className="flex-2 mt-4">
+    <div className="flex-2 lg:mt-4">
       <h3 className="my-6 text-2xl font-bold tracking-tight md:text-3xl mb-2">
         {title}
       </h3>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { CONTACTS } from "@/lib/content/contacts";
 import {
@@ -9,6 +9,7 @@ import {
   getMapsLink,
   toFormPayload,
   validateContactPayload,
+  type ContactFormPayload,
 } from "@/lib/contacts/utils";
 
 import SupportPanel from "@/components/contact/support-panel";
@@ -18,6 +19,25 @@ import {
   sendContactMessage,
   type ContactActionResult,
 } from "@/app/actions/send-contact-message";
+
+//  analytics helpers (client-safe, no-throw)
+function trackContactFormSubmitted(
+  payload: Pick<ContactFormPayload, "name" | "email">
+) {
+  try {
+    // Google Tag (GTM/GA4) convention: push to dataLayer if present
+    (window as any)?.dataLayer?.push?.({
+      event: "contact_form_submitted",
+      method: "email",
+      name: payload.name,
+      email: payload.email,
+    });
+  } catch {}
+  try {
+    // Meta Pixel (if present)
+    (window as any)?.fbq?.("track", "Contact");
+  } catch {}
+}
 
 export default function ContactSection() {
   const [submitting, setSubmitting] = useState(false);
@@ -31,6 +51,13 @@ export default function ContactSection() {
   );
   const addressLine = useMemo(() => formatAddress(CONTACTS.location), []);
   const mapsHref = useMemo(() => getMapsLink(CONTACTS.location), []);
+
+  // Auto-clear success after 4s to keep UI tidy
+  useEffect(() => {
+    if (!sent) return;
+    const t = setTimeout(() => setSent(false), 4000);
+    return () => clearTimeout(t);
+  }, [sent]);
 
   // Handle submit by delegating to shared validation + Server Action
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -60,9 +87,10 @@ export default function ContactSection() {
         return;
       }
 
-      // 4) Success UX
+      // 4) Success UX + analytics
       setSent(true);
       formEl.reset();
+      trackContactFormSubmitted({ name: payload.name, email: payload.email });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -75,7 +103,7 @@ export default function ContactSection() {
       <div className="container mx-auto">
         <div className="w-full border-t-4 border-primary p-4 shadow-custom xl:h-[730px] xl:p-8 xl:px-[90px] xl:py-[36px]">
           <div className="flex h-full flex-col gap-[40px] xl:flex-row xl:gap-[90px]">
-          <SupportPanel
+            <SupportPanel
               pretitle={CONTACTS.pretitle}
               title={CONTACTS.title}
               subtitle={CONTACTS.subtitle}

@@ -1,8 +1,5 @@
 "use server";
 
-// Node runtime because we touch env + mail transport.
-export const runtime = "nodejs";
-
 import { CONTACTS } from "@/lib/content/contacts";
 import {
   toFormPayload,
