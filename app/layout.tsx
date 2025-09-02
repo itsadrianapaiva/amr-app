@@ -39,8 +39,6 @@ export default function RootLayout({
         <WhatsAppFab
           iconSrc="/assets/whatsapp.png"
           ariaLabel="Contact us on WhatsApp"
-          // positionClassName="bottom-14 right-6" // optional override
-          // sizeClassName="h-12 w-12 sm:h-16 sm:w-16" // optional override
         />
       </body>
     </html>

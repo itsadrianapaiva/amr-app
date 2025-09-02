@@ -10,15 +10,21 @@ import {
   toFormPayload,
   validateContactPayload,
 } from "@/lib/contacts/utils";
+
 import SupportPanel from "@/components/contact/support-panel";
 import ContactForm from "@/components/contact/contact-form";
+
+import {
+  sendContactMessage,
+  type ContactActionResult,
+} from "@/app/actions/send-contact-message";
 
 export default function ContactSection() {
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Pure, memoized derivations
+  // Derive links and strings from content via pure helpers (testable, memoized)
   const waHref = useMemo(
     () => buildWhatsAppHref(CONTACTS.support.whatsapp),
     []
@@ -26,22 +32,37 @@ export default function ContactSection() {
   const addressLine = useMemo(() => formatAddress(CONTACTS.location), []);
   const mapsHref = useMemo(() => getMapsLink(CONTACTS.location), []);
 
+  // Handle submit by delegating to shared validation + Server Action
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
 
     try {
-      const payload = toFormPayload(new FormData(e.currentTarget));
+      // 1) Extract once and reuse for validation + server call
+      const formEl = e.currentTarget;
+      const fd = new FormData(formEl);
+
+      // 2) Client-side validation for fast UX (server re-validates too)
+      const payload = toFormPayload(fd);
       const errors = validateContactPayload(payload);
       if (errors.length > 0) {
         throw new Error(errors.join(" "));
       }
 
-      // MVP: local-only success; replace with server action later.
-      await new Promise((r) => setTimeout(r, 500));
+      // 3) Call the Server Action (typed, serializable result)
+      const res: ContactActionResult = await sendContactMessage(fd);
+
+      if (!res.ok) {
+        setError(
+          res.formError || "We couldn't send your message. Please try again."
+        );
+        return;
+      }
+
+      // 4) Success UX
       setSent(true);
-      (e.target as HTMLFormElement).reset();
+      formEl.reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -54,7 +75,7 @@ export default function ContactSection() {
       <div className="container mx-auto">
         <div className="w-full border-t-4 border-primary p-4 shadow-custom xl:h-[730px] xl:p-8 xl:px-[90px] xl:py-[36px]">
           <div className="flex h-full flex-col gap-[40px] xl:flex-row xl:gap-[90px]">
-            <SupportPanel
+          <SupportPanel
               pretitle={CONTACTS.pretitle}
               title={CONTACTS.title}
               subtitle={CONTACTS.subtitle}
@@ -64,6 +85,7 @@ export default function ContactSection() {
               addressLine={addressLine}
               mapsHref={mapsHref}
             />
+
             <ContactForm
               submitting={submitting}
               sent={sent}
