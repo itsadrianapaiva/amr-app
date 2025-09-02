@@ -9,6 +9,7 @@ import { HOME_HERO, HOME_INVENTORY } from "@/lib/content/home";
 import { MACHINE_CARD_COPY } from "@/lib/content/machines";
 import WhyBook from "./why-book";
 import Faq from "./faq";
+import ContactSection from "./contact-section";
 
 interface HomeViewProps {
   machines: SerializableMachine[];
@@ -125,6 +126,8 @@ export function HomeView({ machines }: HomeViewProps) {
       {/* FAQ */}
       <Faq />
 
+      {/* Contact */}
+      <ContactSection />
       {/* Future sections: Legal, Contacts */}
     </main>
   );

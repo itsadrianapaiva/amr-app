@@ -6,7 +6,7 @@ interface PretitleProps {
 const Pretitle = ({ text, center }: PretitleProps) => {
   return (
     <div
-      className={`mb-4 flex items-center gap-3 ${
+      className={`mt-12 mb-4 flex items-center gap-3 ${
         center ? "justify-center" : ""
       }`}
     >
