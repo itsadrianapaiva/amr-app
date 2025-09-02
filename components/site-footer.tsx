@@ -15,6 +15,17 @@ export default function SiteFooter() {
   const year = new Date().getFullYear();
   const owner = FOOTER_CONTENT.copyrightOwner ?? FOOTER_CONTENT.companyName;
 
+  // Inline for now to avoid changing content files during MVP.
+  const legalLinks: { href: string; label: string; external?: boolean }[] = [
+    { href: "/legal/privacy", label: "Privacy" },
+    { href: "/legal/terms", label: "Terms" },
+    {
+      href: "https://www.livroreclamacoes.pt/inicio/",
+      label: "Livro de Reclamações",
+      external: true,
+    },
+  ];
+
   return (
     <footer className="mt-10 bg-secondary-foreground text-primary-foreground xl:mt-32">
       <div className="container mx-auto">
@@ -51,9 +62,7 @@ export default function SiteFooter() {
               {FOOTER_CONTENT.phoneDisplay && (
                 <li className="flex items-center gap-3">
                   <Phone className="h-5 w-5 text-primary" />
-                  <span className="opacity-90">
-                    {FOOTER_CONTENT.phoneDisplay}
-                  </span>
+                  <span className="opacity-90">{FOOTER_CONTENT.phoneDisplay}</span>
                 </li>
               )}
 
@@ -87,12 +96,38 @@ export default function SiteFooter() {
         </div>
       </div>
 
-      {/* Bottom bar — subtle divider like NavMobile’s high-contrast theme */}
+      {/* Bottom bar — add inline Legal nav while preserving layout */}
       <div className="border-t border-primary-foreground/15">
         <div className="container mx-auto flex flex-col items-center justify-between gap-2 py-4 text-xs uppercase tracking-[0.8px] md:flex-row">
           <p className="opacity-80">
             &copy; {year} {owner}. All rights reserved.
           </p>
+
+          {/* Inline legal nav */}
+          <nav className="flex flex-wrap items-center gap-3 opacity-80">
+            {legalLinks.map((l, i) => {
+              const isLast = i === legalLinks.length - 1;
+              return (
+                <span key={l.href} className="flex items-center gap-3">
+                  {l.external ? (
+                    <a
+                      href={l.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline hover:no-underline"
+                    >
+                      {l.label}
+                    </a>
+                  ) : (
+                    <Link href={l.href} className="underline hover:no-underline">
+                      {l.label}
+                    </Link>
+                  )}
+                  {!isLast && <span aria-hidden="true">•</span>}
+                </span>
+              );
+            })}
+          </nav>
 
           {FOOTER_CONTENT.designedBy ? (
             <p className="opacity-80">

@@ -1,13 +1,11 @@
-import { LEGAL_TERMS, LEGAL_LINKS } from "@/lib/content/legal";
+import { LEGAL_COOKIES, LEGAL_LINKS } from "@/lib/content/legal";
 
 export const metadata = {
-  title: "Terms & Conditions | AMR",
-  description:
-    "The terms that govern using the AMR website and renting machinery.",
+  title: "Cookies Policy | AMR",
+  description: "What cookies we use and how to control them.",
   robots: { index: true, follow: true },
 };
 
-// Small helper to keep formatting local and dependency-free
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", {
     year: "numeric",
@@ -16,8 +14,8 @@ function formatDate(iso: string) {
   });
 }
 
-export default async function TermsPage() {
-  const doc = LEGAL_TERMS;
+export default async function CookiesPage() {
+  const doc = LEGAL_COOKIES;
 
   return (
     <main className="container mx-auto py-18 md:py-24 xl:py-30">
@@ -56,7 +54,7 @@ export default async function TermsPage() {
               ))}
             </ul>
 
-            {/* Complaints link (Livro de Reclamações) */}
+            {/* Complaints book link kept for parity with other legal pages */}
             <div className="mt-4 border-t pt-4">
               <a
                 href={LEGAL_LINKS.complaintsBook.href}
@@ -85,7 +83,7 @@ export default async function TermsPage() {
             </section>
           ))}
 
-          {/* External links (e.g., complaints book) */}
+          {/* External links, if any */}
           {doc.links && doc.links.length > 0 && (
             <section className="mt-10">
               <h3 className="mb-3 text-xl font-semibold tracking-tight">

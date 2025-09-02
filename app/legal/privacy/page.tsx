@@ -74,7 +74,7 @@ export default async function PrivacyPage() {
         <article className="prose max-w-none dark:prose-invert">
           {doc.sections.map((section) => (
             <section key={section.id} id={section.id} className="scroll-mt-24">
-              <h2 className="mb-3 text-2xl font-semibold tracking-tight">
+              <h2 className="my-4 text-2xl font-semibold tracking-tight">
                 {section.title}
               </h2>
               {section.body.map((para, i) => (
