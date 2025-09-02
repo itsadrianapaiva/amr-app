@@ -1,4 +1,3 @@
-// app/booking/success/page.tsx
 import { redirect } from "next/navigation";
 import { BookingStatus } from "@prisma/client";
 import { db } from "@/lib/db";

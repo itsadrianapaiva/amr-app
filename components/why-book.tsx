@@ -20,7 +20,7 @@ export default function WhyBook() {
           <div className="flex-1">
             <div className="max-w-[560px]">
               <Pretitle text={WHY_BOOK.pretitle} />
-              <h2 className="mb-4 text-2xl font-bold md:text-3xl">
+              <h2 className="my-6 text-3xl font-bold tracking-tight md:text-4xl">
                 {WHY_BOOK.title}
               </h2>
               <p className="mb-8 text-muted-foreground">{WHY_BOOK.paragraph}</p>

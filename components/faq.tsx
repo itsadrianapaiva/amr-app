@@ -20,7 +20,7 @@ export default function Faq() {
         {/* Intro */}
         <div className="mx-auto max-w-[560px] text-center">
           <Pretitle text={FAQ_CONTENT.pretitle} center />
-          <h2 className="mb-3 text-2xl font-bold md:text-3xl">
+          <h2 className="my-6 text-3xl font-bold tracking-tight md:text-4xl">
             {FAQ_CONTENT.title}
           </h2>
           <p className="mx-auto mb-8 max-w-[520px] text-muted-foreground">
@@ -36,7 +36,7 @@ export default function Faq() {
         >
           {FAQ_CONTENT.items.map((item, idx) => (
             <AccordionItem key={item.q} value={`item-${idx}`}>
-              <AccordionTrigger className="px-4 py-4 text-left text-sm font-medium">
+              <AccordionTrigger className="px-4 py-6 text-left text-sm font-medium">
                 {item.q}
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-4 text-sm text-muted-foreground">

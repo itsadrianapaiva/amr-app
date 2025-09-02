@@ -37,7 +37,7 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
           {NAV_CONTENT.links.map((link) => (
             <li
               key={link.href}
-              className="text-sm font-medium uppercase tracking-[1.2px] text-primary-foreground"
+              className="text-md font-medium uppercase tracking-[1.2px] text-primary-foreground"
             >
               <Link
                 href={link.href}
@@ -56,7 +56,7 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
             href={NAV_CONTENT.primaryCta.href}
             prefetch={false}
             onClick={onClose}
-            className="inline-flex rounded-lg bg-accent px-8 py-2 text-sm font-semibold text-primary-foreground border border-primary-foreground hover:bg-accent/80"
+            className="inline-flex rounded-lg bg-accent px-10 py-2 text-md font-semibold text-primary-foreground border border-primary-foreground hover:bg-accent/80"
           >
             {NAV_CONTENT.primaryCta.label}
           </Link>

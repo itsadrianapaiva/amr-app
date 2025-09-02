@@ -76,9 +76,9 @@ export function HomeView({ machines }: HomeViewProps) {
       <Hero {...HOME_HERO} />
 
       {/* Inventory header fed by content lib */}
-      <section className="container mx-auto py-12 text-center md:py-16 xl:py-18">
+      <section className="container mx-auto py-18 text-center md:py-24 xl:py-30">
         <Pretitle text={HOME_INVENTORY.pretitle} center />
-        <h2 className="my-3 text-3xl font-bold tracking-tight md:text-4xl">
+        <h2 className="my-6 text-3xl font-bold tracking-tight md:text-4xl">
           {HOME_INVENTORY.title}
         </h2>
         <p className="mx-auto max-w-xl text-muted-foreground">
