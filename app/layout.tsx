@@ -3,6 +3,7 @@ import { Geist } from "next/font/google";
 import "./globals.css";
 import SiteNav from "@/components/site-nav";
 import SiteFooter from "@/components/site-footer";
+import WhatsAppFab from "@/components/whatsapp-fab";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,6 +34,14 @@ export default function RootLayout({
 
         {/* Global footer on all pages */}
         <SiteFooter />
+
+        {/* Floating WhatsApp button */}
+        <WhatsAppFab
+          iconSrc="/assets/whatsapp.png"
+          ariaLabel="Contact us on WhatsApp"
+          // positionClassName="bottom-14 right-6" // optional override
+          // sizeClassName="h-12 w-12 sm:h-16 sm:w-16" // optional override
+        />
       </body>
     </html>
   );
