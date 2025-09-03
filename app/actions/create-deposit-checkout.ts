@@ -24,10 +24,66 @@ import {
   LeadTimeError,
 } from "@/lib/repos/booking-repo";
 
+import { geocodeAddress } from "@/lib/geo/mapbox";
+import {
+  isInsideServiceArea,
+  SERVICE_AREA_NAME,
+  SERVICE_AREA_CENTROID,
+} from "@/lib/geo/service-area";
+
 // Return shape now supports ErrorSummary-friendly failures.
 type CheckoutResult =
   | { ok: true; url: string }
   | { ok: false; formError: string };
+
+/**
+ * Small, focused helper that checks the book fence when delivery/pickup is selected.
+ * Returns a user-friendly error message (string) or null if everything is fine.
+ */
+async function checkServiceArea(params: {
+  deliverySelected: boolean;
+  pickupSelected: boolean;
+  siteAddress?: string | null;
+}): Promise<string | null> {
+  const { deliverySelected, pickupSelected, siteAddress } = params;
+
+  // If neither delivery nor pickup is selected, we don't need a site address check.
+  if (!deliverySelected && !pickupSelected) return null;
+
+  // Defensive: schema should enforce this, but we keep a concise message here too.
+  if (!siteAddress || !siteAddress.trim()) {
+    return "Please enter the site address so we can validate the service area.";
+  }
+
+  // Geocode the free-form address using Mapbox (country/language restricted to PT).
+  let hit: Awaited<ReturnType<typeof geocodeAddress>> = null;
+  try {
+    hit = await geocodeAddress(siteAddress, {
+      country: "pt",
+      language: "pt",
+      proximity: SERVICE_AREA_CENTROID, // nudges ambiguous results toward our zone
+      limit: 1,
+    });
+  } catch (err) {
+    console.error("Mapbox geocoding error:", err);
+    return "Address lookup is temporarily unavailable. Please try again or contact us.";
+  }
+
+  if (!hit) {
+    return "We couldn't locate this address in Portugal. Please check the spelling.";
+  }
+
+  // Book fence: Algarve up to Faro (eastward capped), plus Alentejo coastal strip.
+  if (!isInsideServiceArea(hit.lat, hit.lng)) {
+    return (
+      `This location is outside our current service area (${SERVICE_AREA_NAME}). ` +
+      `We cover Algarve up to Faro (not Tavira/VRSA) and the Alentejo coastal strip ` +
+      `(Sines → Zambujeira do Mar). Please contact us via WhatsApp or email for options.`
+    );
+  }
+
+  return null;
+}
 
 export async function createDepositCheckoutAction(
   input: unknown
@@ -55,6 +111,29 @@ export async function createDepositCheckoutAction(
     const from = parsed.dateRange.from!;
     const to = parsed.dateRange.to!;
     const days = rentalDaysInclusive(from, to);
+
+    // 2.5) Geofence: only when delivery or pickup is selected.
+    // Normalize structured address → free-text for geocoding.
+    const siteAddrStr =
+      typeof parsed.siteAddress === "string"
+        ? parsed.siteAddress
+        : [
+            parsed.siteAddress?.line1,
+            parsed.siteAddress?.postalCode,
+            parsed.siteAddress?.city,
+            "Portugal", // bias + clarity for Mapbox
+          ]
+            .filter(Boolean)
+            .join(", ");
+
+    const fenceMsg = await checkServiceArea({
+      deliverySelected: parsed.deliverySelected,
+      pickupSelected: parsed.pickupSelected,
+      siteAddress: siteAddrStr,
+    });
+    if (fenceMsg) {
+      return { ok: false, formError: fenceMsg };
+    }
 
     // 3) Compute totals server-side (authoritative)
     const totals = computeTotals({
