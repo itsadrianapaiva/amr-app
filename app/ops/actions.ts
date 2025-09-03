@@ -3,6 +3,12 @@ export const dynamic = "force-dynamic";
 
 import { ManagerOpsSchema } from "@/lib/validation/manager-booking";
 import { notifyBookingConfirmed } from "@/lib/notifications/notify-booking-confirmed";
+import { validateLeadTimeLisbon } from "@/lib/logistics/lead-time";
+
+// Heavy-transport config (MVP: machine IDs 5,6,7; 2 days; 15:00 cutoff)
+const HEAVY_MACHINE_IDS = new Set<number>([5, 6, 7]);
+const LEAD_DAYS = 2;
+const CUTOFF_HOUR = 15;
 
 export type OpsActionResult =
   | {
@@ -117,6 +123,28 @@ export async function createOpsBookingAction(
     const start = ymdToUtcDate(input.startYmd);
     const end = ymdToUtcDate(input.endYmd);
 
+    // 4.1) Lead-time override audit (no blocking). If heavy & too soon, append an override note.
+    let overrideNote: string | null = null;
+    if (HEAVY_MACHINE_IDS.has(machineIdNum)) {
+      const { ok, earliestAllowedDay } = validateLeadTimeLisbon({
+        startDate: start,
+        leadDays: LEAD_DAYS,
+        cutoffHour: CUTOFF_HOUR,
+      });
+      if (!ok) {
+        const friendly = earliestAllowedDay.toLocaleDateString("en-GB", {
+          timeZone: "Europe/Lisbon",
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        });
+        const stamp = new Date().toLocaleString("en-GB", {
+          timeZone: "Europe/Lisbon",
+        });
+        overrideNote = `[OPS OVERRIDE] Heavy-transport lead time bypassed on ${stamp}. Earliest allowed was ${friendly}.`;
+      }
+    }
+
     // 5) Atomic create with per-machine advisory lock; DB constraint enforces no-overlap
     const created = await db.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(${1}::int4, ${machineIdNum}::int4)`;
@@ -135,7 +163,11 @@ export async function createOpsBookingAction(
 
           siteAddressLine1: input.siteAddressLine1,
           siteAddressCity: input.siteAddressCity || null,
-          siteAddressNotes: input.siteAddressNotes || null,
+          siteAddressNotes: overrideNote
+            ? [input.siteAddressNotes || "", overrideNote]
+                .filter(Boolean)
+                .join(" | ")
+            : input.siteAddressNotes || null,
 
           totalCost: 0,
           depositPaid: false,

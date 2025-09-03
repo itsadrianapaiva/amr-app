@@ -21,6 +21,7 @@ import {
   createOrReusePendingBooking,
   OverlapError,
   type PendingBookingDTO,
+  LeadTimeError,
 } from "@/lib/repos/booking-repo";
 
 // Return shape now supports ErrorSummary-friendly failures.
@@ -133,7 +134,23 @@ export async function createDepositCheckoutAction(
 
     return { ok: true, url: session.url };
   } catch (e: any) {
-    // Friendly mapping for “dates taken” (DB exclusion constraint under the hood)
+    // Friendly mapping for heavy-transport lead-time rule with cutoff
+    if (e instanceof LeadTimeError) {
+      const friendly = e.earliestAllowedDay.toLocaleDateString("en-GB", {
+        timeZone: "Europe/Lisbon",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+      return {
+        ok: false,
+        formError:
+          `This machine requires scheduling a heavy truck. ` +
+          `Earliest start is ${friendly}. Please choose a later date.`,
+      };
+    }
+
+    // Existing mapping for “dates taken” (DB exclusion constraint)
     if (e instanceof OverlapError) {
       return {
         ok: false,
