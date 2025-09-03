@@ -3,14 +3,15 @@
 import { useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { addDays, differenceInCalendarDays, startOfDay } from "date-fns";
+import { addDays, differenceInCalendarDays } from "date-fns";
 
 import type { DisabledRangeJSON } from "@/lib/availability";
 import type { BookingFormValues } from "@/lib/validation/booking";
+import { startOfLisbonDayUTC } from "@/lib/dates/lisbon";
 
 /**
  * Centralizes common booking-form wiring:
- * - Computes minStart (tomorrow 00:00)
+ * - Computes minStart (tomorrow 00:00 Lisbon) or accepts an override
  * - Initializes RHF with your schema
  * - Derives rentalDays and disabledDays (server + policy)
  *
@@ -22,11 +23,15 @@ export function useBookingFormLogic(args: {
   disabledRangesJSON?: DisabledRangeJSON[];
   /** Optional initial values to avoid post-mount resets in containers */
   defaultValues?: Partial<BookingFormValues>;
+  /** Optional: override earliest selectable start (use from useDatePolicy for heavy machines) */
+  minStart?: Date;
 }) {
-  const { schema, disabledRangesJSON, defaultValues } = args;
-
-  // Earliest allowed start: tomorrow at 00:00 local time
-  const minStart = startOfDay(addDays(new Date(), 1));
+  const {
+    schema,
+    disabledRangesJSON,
+    defaultValues,
+    minStart: minStartOverride,
+  } = args;
 
   // Base defaults for a pristine form; callers can override via defaultValues
   const baseDefaults: BookingFormValues = {
@@ -54,6 +59,15 @@ export function useBookingFormLogic(args: {
     ...baseDefaults,
     ...(defaultValues as BookingFormValues | undefined),
   };
+
+  // Earliest allowed start:
+  // - If caller provided an override (from useDatePolicy), use it.
+  // - Else default to "tomorrow 00:00 Lisbon" (expressed as a UTC Date).
+  const minStart = useMemo(() => {
+    if (minStartOverride) return minStartOverride;
+    const todayLisbon = startOfLisbonDayUTC(new Date());
+    return addDays(todayLisbon, 1);
+  }, [minStartOverride]);
 
   // Initialize RHF once, using the provided schema and merged defaults
   const form = useForm<BookingFormValues>({
