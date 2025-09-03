@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { addDays } from "date-fns";
 
 import type { SerializableMachine } from "@/lib/types";
 import type { BookingFormValues } from "@/lib/validation/booking";
@@ -20,6 +21,7 @@ import { useOptOutGate } from "@/lib/hooks/use-optout-gate";
 import { useMachinePricing } from "@/lib/hooks/use-machine-pricing";
 import { useDatePolicy } from "@/lib/hooks/use-date-policy";
 import { useAddonToggles } from "@/lib/hooks/use-addon-toggles";
+import { startOfLisbonDayUTC } from "@/lib/dates/lisbon";
 
 type BookingFormProps = {
   machine: Pick<
@@ -45,13 +47,17 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
       minDays: machine.minDays,
     });
 
-  // 2) Date policy (earliest start = tomorrow 00:00) + concrete Zod schema
-  const { schema } = useDatePolicy({ minDays });
+  // 2) Date policy — Lisbon-aware minStart (heavy machines 5/6/7 get 2 days + 15:00 cutoff)
+  const { minStart, schema } = useDatePolicy({
+    minDays,
+    machineId: machine.id,
+  });
 
-  // 3) RHF setup via centralized logic
+  // 3) RHF setup via centralized logic (pass minStart so calendar blocks early dates)
   const { form, rentalDays, disabledDays } = useBookingFormLogic({
     schema,
     disabledRangesJSON,
+    minStart, // key:enforce the heavy-machine earliest start in the UI
     defaultValues: {
       dateRange: { from: undefined, to: undefined },
       name: "",
@@ -97,7 +103,26 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
       minDays,
     });
 
-  // 7) Submit handler (server action) — creates PENDING booking and opens Stripe
+  // 7) Dynamic helper text: show heavy-transport earliest date when stricter than “tomorrow”
+  const helperText = React.useMemo(() => {
+    const tomorrowLisbon = addDays(startOfLisbonDayUTC(new Date()), 1);
+    const isHeavy = new Set([5, 6, 7]).has(machine.id);
+    const heavyRuleApplies =
+      isHeavy && minStart.getTime() > tomorrowLisbon.getTime();
+
+    if (heavyRuleApplies) {
+      const friendly = minStart.toLocaleDateString("en-GB", {
+        timeZone: "Europe/Lisbon",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+      return `Earliest start is ${friendly} for heavy-transport machines (truck scheduling).`;
+    }
+    return "Earliest start is tomorrow. Same-day rentals are not available.";
+  }, [machine.id, minStart]);
+
+  // 8) Submit handler (server action) — creates PENDING booking and opens Stripe
   async function baseOnSubmit(values: BookingFormValues) {
     const payload = { ...values, machineId: machine.id };
 
@@ -126,7 +151,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
     }
   }
 
-  // 8) Opt-out gating (keeps UX logic out of presenter)
+  // 9) Opt-out gating (keeps UX logic out of presenter)
   const { dialogOpen, setDialogOpen, missing, onSubmitAttempt, onConfirm } =
     useOptOutGate({
       insuranceOn: !!insuranceSelected,
@@ -136,7 +161,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
       onProceed: baseOnSubmit,
     });
 
-  // 9) Derived flags for presenter
+  // 10) Derived flags for presenter
   const isSubmitDisabled =
     form.formState.isSubmitting || rentalDays === 0 || isDateInvalid;
 
@@ -158,7 +183,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
             <BookingFormFields
               control={form.control}
               disabledDays={disabledDays}
-              helperText="Earliest start is tomorrow. Same-day rentals are not available."
+              helperText={helperText}
               isDateInvalid={isDateInvalid}
               dateErrorMessage={dateErrorMessage ?? undefined}
               onRangeChange={() => void form.trigger("dateRange")}
