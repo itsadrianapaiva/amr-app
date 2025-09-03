@@ -1,10 +1,13 @@
 import { z } from "zod";
 import { differenceInCalendarDays } from "date-fns";
+import { startOfLisbonDayUTC, LISBON_TZ } from "@/lib/dates/lisbon";
 
 // Section: helpers
-/** Inclusive rental days (e.g., 10→12 = 3 days). */
+/** Inclusive rental days (e.g., 10→12 = 3 days) in LISBON calendar space. */
 function rentalDays(from: Date, to: Date) {
-  return differenceInCalendarDays(to, from) + 1;
+  const f = startOfLisbonDayUTC(from); // normalize to 00:00 Lisbon (expressed in UTC)
+  const t = startOfLisbonDayUTC(to); // normalize to 00:00 Lisbon (expressed in UTC)
+  return differenceInCalendarDays(t, f) + 1;
 }
 
 // Section: date range schema
@@ -35,12 +38,6 @@ const siteAddressSchema = z.object({
 });
 
 // Section: base form schema
-/**
- * Note on business fields:
- * - They are base-optional. Required checks are enforced only when billingIsBusiness=true.
- * Note on customerNIF:
- * - Optional personal NIF for receipts. If provided, must be 9 digits.
- */
 export const baseBookingFormSchema = z
   .object({
     // Dates
@@ -166,15 +163,29 @@ export const baseBookingFormSchema = z
 
 // Section: composed schema with runtime business rules
 export function buildBookingSchema(minStart: Date, minDays: number) {
-  return baseBookingFormSchema.superRefine((data, ctx) => {
-    const { from, to } = data.dateRange;
+  // Normalize minStart into Lisbon calendar-day start (defensive; callers already pass a Lisbon 00:00 UTC)
+  const minStartLisbon = startOfLisbonDayUTC(minStart);
 
-    // Start date must be >= minStart
-    if (from && from < minStart) {
+  return baseBookingFormSchema.superRefine((data, ctx) => {
+    const rawFrom = data.dateRange.from;
+    const rawTo = data.dateRange.to;
+
+    // Normalize user-selected dates to Lisbon calendar-day start
+    const from = rawFrom ? startOfLisbonDayUTC(rawFrom) : undefined;
+    const to = rawTo ? startOfLisbonDayUTC(rawTo) : undefined;
+
+    // Start date must be >= minStart (both in Lisbon day space)
+    if (from && from < minStartLisbon) {
+      const friendly = minStartLisbon.toLocaleDateString("en-GB", {
+        timeZone: LISBON_TZ,
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
       ctx.addIssue({
         code: "custom",
         path: ["dateRange", "from"],
-        message: "Start date cannot be today or in the past",
+        message: `Earliest start is ${friendly}.`,
       });
     }
 

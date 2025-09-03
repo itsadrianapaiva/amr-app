@@ -117,7 +117,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
         month: "2-digit",
         year: "numeric",
       });
-      return `Earliest start is ${friendly} for heavy-transport machines (truck scheduling).`;
+      return `Earliest start is ${friendly} for heavy-transport machines.`;
     }
     return "Earliest start is tomorrow. Same-day rentals are not available.";
   }, [machine.id, minStart]);
