@@ -23,6 +23,9 @@ import { useDatePolicy } from "@/lib/hooks/use-date-policy";
 import { useAddonToggles } from "@/lib/hooks/use-addon-toggles";
 import { startOfLisbonDayUTC } from "@/lib/dates/lisbon";
 
+const SUPPORT_EMAIL =
+  process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@example.com";
+
 type BookingFormProps = {
   machine: Pick<
     SerializableMachine,
@@ -165,6 +168,68 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
   const isSubmitDisabled =
     form.formState.isSubmitting || rentalDays === 0 || isDateInvalid;
 
+  // 10.1) Detect "out of area" and build a mailto link (compact, dependency-free).
+  const rootErrorMessage = form.formState.errors.root?.message ?? null;
+
+  const isOutOfArea = React.useMemo(() => {
+    if (typeof rootErrorMessage !== "string") return false;
+    // Match the server-side text: "outside our current service area"
+    return rootErrorMessage
+      .toLowerCase()
+      .includes("outside our current service area");
+  }, [rootErrorMessage]);
+
+  // Build a readable address string from the current form values for the email body
+  const addressObj = form.getValues().siteAddress as
+    | string
+    | { line1?: string; postalCode?: string; city?: string; notes?: string }
+    | undefined;
+
+  const addressStr =
+    typeof addressObj === "string"
+      ? addressObj
+      : [
+          addressObj?.line1,
+          addressObj?.postalCode,
+          addressObj?.city,
+          "Portugal",
+        ]
+          .filter(Boolean)
+          .join(", ");
+
+  // Also include selected dates for context (best-effort, empty if unset)
+  const picked = form.getValues().dateRange as
+    | { from?: Date | null; to?: Date | null }
+    | undefined;
+
+  function fmt(d?: Date | null) {
+    return d
+      ? d.toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          timeZone: "Europe/Lisbon",
+        })
+      : "";
+  }
+
+  const subject = "Rental request outside service area";
+  const bodyLines = [
+    "Hello AMR,",
+    "",
+    "We’d like to rent outside your current service area.",
+    `Address: ${addressStr}`,
+    `Dates: ${fmt(picked?.from)} → ${fmt(picked?.to)}`,
+    `Machine ID: ${machine.id}`,
+    "",
+    "Could you advise on availability or a partner referral?",
+  ];
+  const mailtoHref = `mailto:${encodeURIComponent(
+    SUPPORT_EMAIL
+  )}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(
+    bodyLines.join("\n")
+  )}`;
+
   return (
     <Card>
       <CardHeader>
@@ -205,6 +270,27 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
               isSubmitDisabled={isSubmitDisabled}
               rootError={form.formState.errors.root?.message ?? null}
             />
+            {isOutOfArea && (
+              <div
+                role="alert"
+                className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm"
+              >
+                <p className="font-medium">Outside our service area</p>
+                <p className="mt-1">
+                  We currently serve Algarve up to Faro and the Alentejo coastal
+                  strip (Sines → Zambujeira do Mar). For exceptions or
+                  referrals, contact us:
+                </p>
+                <div className="mt-3">
+                  <a
+                    href={mailtoHref}
+                    className="inline-flex items-center rounded-md border px-3 py-2 text-sm font-medium hover:bg-white"
+                  >
+                    Email Support ({SUPPORT_EMAIL})
+                  </a>
+                </div>
+              </div>
+            )}
           </form>
         </Form>
       </CardContent>

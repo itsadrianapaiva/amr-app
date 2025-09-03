@@ -31,6 +31,8 @@ import {
   SERVICE_AREA_CENTROID,
 } from "@/lib/geo/service-area";
 
+const ENABLE_GEOFENCE = process.env.ENABLE_GEOFENCE === "true";
+
 // Return shape now supports ErrorSummary-friendly failures.
 type CheckoutResult =
   | { ok: true; url: string }
@@ -45,6 +47,8 @@ async function checkServiceArea(params: {
   pickupSelected: boolean;
   siteAddress?: string | null;
 }): Promise<string | null> {
+   // Feature flag: skip geofence entirely until Mapbox token is set and flag is enabled.
+   if (!ENABLE_GEOFENCE) return null;
   const { deliverySelected, pickupSelected, siteAddress } = params;
 
   // If neither delivery nor pickup is selected, we don't need a site address check.
