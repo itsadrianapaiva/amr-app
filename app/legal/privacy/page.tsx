@@ -21,7 +21,7 @@ export default async function PrivacyPage() {
   const doc = LEGAL_PRIVACY;
 
   return (
-    <main className="container mx-auto py-18 md:py-24 xl:py-30">
+    <main className="container mx-auto px-4 py-18 md:py-24 xl:py-30">
       {/* Header */}
       <header className="mb-10 md:mb-14">
         <p className="text-sm uppercase tracking-wide text-muted-foreground">
