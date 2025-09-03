@@ -3,6 +3,29 @@
 
 import { BookingStatus } from "@prisma/client";
 import { db } from "@/lib/db";
+import { validateLeadTimeLisbon } from "@/lib/logistics/lead-time";
+
+//  small repo-level types/errors
+/** Optional behavior toggles for repo guards. */
+export type BookingRepoOptions = {
+  /** Allow managers to bypass lead-time (used in /ops). Defaults to false. */
+  bypassLeadTime?: boolean;
+  /** Per-business rule knobs with safe defaults. */
+  leadDays?: number; // default 2 for heavy machines
+  cutoffHour?: number; // default 15 (3pm Lisbon)
+};
+
+/** Typed error for "too soon" starts on heavy-transport machines. */
+export class LeadTimeError extends Error {
+  public readonly earliestAllowedDay: Date;
+  public readonly minDays: number;
+  constructor(message: string, earliestAllowedDay: Date, minDays: number) {
+    super(message);
+    this.name = "LeadTimeError";
+    this.earliestAllowedDay = earliestAllowedDay;
+    this.minDays = minDays;
+  }
+}
 
 /** Normalize empty/whitespace-only strings to null for cleaner DB rows. */
 function toNull(s?: string | null): string | null {
@@ -67,6 +90,10 @@ export class OverlapError extends Error {
   }
 }
 
+//  heavy machine config (MVP: hard-coded IDs 5,6,7)
+// later we can migrate this to DB flags.
+const HEAVY_MACHINE_IDS = new Set<number>([5, 6, 7]); // medium excavator, large excavator, telehandler
+
 /**
  * Create a PENDING booking row.
  * Single responsibility: map a DTO to the Prisma shape and write it.
@@ -126,12 +153,16 @@ export async function createPendingBooking(dto: PendingBookingDTO) {
 /**
  * createOrReusePendingBooking
  * Atomically:
- * 1) Takes a per-machine advisory transaction lock.
- * 2) Reuses an existing PENDING hold when it is the *same customer email* and *exact same dates*.
- * 3) Otherwise attempts to create a new PENDING row.
- * 4) If the DB exclusion constraint blocks us (someone else holds it), throw OverlapError.
+ * 1) (Pre-check) Enforce lead-time for heavy machines unless bypassed (Lisbon cutoff-aware).
+ * 2) Takes a per-machine advisory transaction lock.
+ * 3) Reuses an existing PENDING hold when it is the *same customer email* and *exact same dates*.
+ * 4) Otherwise attempts to create a new PENDING row.
+ * 5) If the DB exclusion constraint blocks us (someone else holds it), throw OverlapError.
  */
-export async function createOrReusePendingBooking(dto: PendingBookingDTO) {
+export async function createOrReusePendingBooking(
+  dto: PendingBookingDTO,
+  options: BookingRepoOptions = {}
+) {
   const {
     machineId,
     startDate,
@@ -146,14 +177,42 @@ export async function createOrReusePendingBooking(dto: PendingBookingDTO) {
     totals,
   } = dto;
 
+  //  (1) Lead-time guard for heavy machines 
+  const isHeavy = HEAVY_MACHINE_IDS.has(machineId);
+  const bypass = options.bypassLeadTime === true;
+  const leadDays = options.leadDays ?? 2; // business rule: 2-day lead time
+  const cutoffHour = options.cutoffHour ?? 15; // business rule: 15:00 Lisbon cutoff
+
+  if (isHeavy && !bypass) {
+    const { ok, earliestAllowedDay, minDays } = validateLeadTimeLisbon({
+      startDate,
+      leadDays,
+      cutoffHour,
+    });
+    if (!ok) {
+      // Simple Lisbon-friendly date for UX; actions can tailor the copy.
+      const friendly = earliestAllowedDay.toLocaleDateString("en-GB", {
+        timeZone: "Europe/Lisbon",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+      throw new LeadTimeError(
+        `This machine requires scheduling a heavy truck. Earliest start is ${friendly}.`,
+        earliestAllowedDay,
+        minDays
+      );
+    }
+  }
+
   // 30-minute rolling hold window
   const newExpiry = new Date(Date.now() + 30 * 60 * 1000);
 
   return db.$transaction(async (tx) => {
-    // 1) Serialize concurrent attempts for the same machine.
+    // 2) Serialize concurrent attempts for the same machine.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(${1}::int4, ${machineId}::int4)`;
 
-    // 2) Reuse: same machine + same exact dates + same email + still PENDING.
+    // 3) Reuse: same machine + same exact dates + same email + still PENDING.
     //    If found, extend the expiry to keep the checkout window alive.
     const existing = await tx.booking.findFirst({
       where: {
@@ -219,7 +278,7 @@ export async function createOrReusePendingBooking(dto: PendingBookingDTO) {
         select: { id: true },
       });
     } catch (e) {
-      // 4) Map DB exclusion constraint to a typed error for nicer UX.
+      // 5) Map DB exclusion constraint to a typed error for nicer UX.
       const msg = e instanceof Error ? e.message : String(e);
       const looksLikeOverlap =
         msg.includes("booking_no_overlap_for_active") ||
