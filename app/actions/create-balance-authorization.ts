@@ -1,114 +1,84 @@
 "use server";
 
-/**
- * Server action: create a Stripe Checkout Session that AUTHORIZES (does not capture)
- * the remaining balance for an existing booking, using manual capture.
- *
- * This keeps deposit flow isolated (no changes to create-deposit-checkout.ts).
- */
-
-import { differenceInCalendarDays } from "date-fns";
 import { db } from "@/lib/db";
-import { buildBalanceAuthorizationSessionParams } from "@/lib/stripe/checkout";
+import { BookingStatus } from "@prisma/client";
+import { buildBalanceAuthorizationCheckoutSessionParams } from "@/lib/stripe/checkout";
 import { createCheckoutSessionWithGuards } from "@/lib/stripe/create-session";
 
-type Result = { ok: true; url: string } | { ok: false; formError: string };
-
-/** Defensive number conversion for Prisma Decimal-like values. */
-function asNumber(v: unknown): number {
-  if (typeof v === "number") return v;
-  if (typeof v === "string") return Number(v);
-  // Prisma Decimal can stringify; fallback:
-  try {
-    return Number((v as any)?.toString?.() ?? v);
-  } catch {
-    return NaN;
-  }
-}
+export type CreateBalanceAuthResult =
+  | { ok: true; url: string }
+  | { ok: false; error: string };
 
 /**
- * createBalanceAuthorizationAction
- * Input: bookingId (number)
- * Behavior:
- *  - Loads booking + machine to compute days and remaining (total - deposit).
- *  - Builds a manual-capture Checkout Session (authorize now, capture later).
- *  - Returns a hosted URL (or a friendly error).
+ * createBalanceAuthorization
+ * Create a Stripe Checkout Session that AUTHORIZES (manual capture) the remaining balance.
  */
-export async function createBalanceAuthorizationAction(
+export async function createBalanceAuthorization(
   bookingId: number
-): Promise<Result> {
-  if (!Number.isFinite(bookingId)) {
-    return { ok: false, formError: "Invalid booking ID." };
+): Promise<CreateBalanceAuthResult> {
+  try {
+    if (!Number.isFinite(bookingId)) {
+      return { ok: false, error: "Invalid booking id." };
+    }
+
+    // 1) Load booking + machine to compute remaining balance
+    const booking = await db.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        status: true,
+        depositPaid: true,
+        totalCost: true,
+        customerEmail: true,
+        startDate: true,
+        endDate: true,
+        machine: { select: { id: true, name: true, deposit: true } },
+      },
+    });
+
+    if (!booking) return { ok: false, error: "Booking not found." };
+    if (booking.status !== BookingStatus.CONFIRMED) {
+      return { ok: false, error: "Booking is not CONFIRMED." };
+    }
+    if (!booking.depositPaid) {
+      return { ok: false, error: "Deposit not paid yet." };
+    }
+
+    // 2) Compute remaining = total - deposit (Decimal -> number)
+    const totalEuros = Number(booking.totalCost);
+    const depositEuros = Number(booking.machine.deposit);
+    const remaining = Math.max(0, totalEuros - depositEuros);
+    if (remaining <= 0) {
+      return { ok: false, error: "No remaining balance to authorize." };
+    }
+
+    // 3) Build manual-capture session and create with guards
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.APP_URL ||
+      "http://localhost:3000";
+
+    const params = buildBalanceAuthorizationCheckoutSessionParams({
+      bookingId: booking.id,
+      machine: { id: booking.machine.id, name: booking.machine.name },
+      from: booking.startDate,
+      to: booking.endDate,
+      authorizeEuros: remaining,
+      customerEmail: booking.customerEmail,
+      appUrl,
+    });
+
+    const session = await createCheckoutSessionWithGuards(params, {
+      idempotencyKey: `booking-${booking.id}-balance-auth`,
+      log: (e, d) => console.debug(`[stripe] ${e}`, d),
+    });
+
+    if (!session.url) {
+      return { ok: false, error: "Stripe did not return a session URL." };
+    }
+    return { ok: true, url: session.url };
+  } catch (err) {
+    console.error("[actions] createBalanceAuthorization failed:", err);
+    return { ok: false, error: "Unexpected server error." };
   }
-
-  // 1) Load minimal fields needed to build the session
-  const booking = await db.booking.findUnique({
-    where: { id: bookingId },
-    select: {
-      id: true,
-      startDate: true,
-      endDate: true,
-      totalCost: true,
-      customerEmail: true,
-      machine: { select: { id: true, name: true, deposit: true } },
-    },
-  });
-
-  if (!booking) {
-    return { ok: false, formError: "Booking not found." };
-  }
-
-  const from = booking.startDate;
-  const to = booking.endDate;
-  const days = differenceInCalendarDays(to, from) + 1;
-
-  const total = asNumber(booking.totalCost);
-  const deposit = asNumber(booking.machine.deposit);
-  const remaining = total - deposit;
-
-  if (!Number.isFinite(total) || !Number.isFinite(deposit)) {
-    return {
-      ok: false,
-      formError: "Invalid booking totals. Please contact support.",
-    };
-  }
-
-  if (remaining <= 0) {
-    return {
-      ok: false,
-      formError: "No remaining balance to authorize for this booking.",
-    };
-  }
-
-  // 2) Build a manual-capture Checkout Session (authorize only)
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.APP_URL ||
-    "http://localhost:3000";
-
-  const sessionParams = buildBalanceAuthorizationSessionParams({
-    bookingId: booking.id,
-    machine: { id: booking.machine.id, name: booking.machine.name },
-    from,
-    to,
-    days,
-    authorizeEuros: remaining,
-    customerEmail: booking.customerEmail,
-    appUrl,
-  });
-
-  // 3) Create session with guard rails and a stable idempotency key
-  const session = await createCheckoutSessionWithGuards(sessionParams, {
-    idempotencyKey: `booking-${booking.id}-balance-auth`,
-    log: (event, data) => console.debug(`[stripe] ${event}`, data),
-  });
-
-  if (!session.url) {
-    return {
-      ok: false,
-      formError: "Stripe did not return a checkout URL. Please try again.",
-    };
-  }
-
-  return { ok: true, url: session.url };
 }
