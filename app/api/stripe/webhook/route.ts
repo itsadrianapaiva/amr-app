@@ -11,7 +11,7 @@ import { notifyBookingConfirmed } from "@/lib/notifications/notify-booking-confi
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// --- tiny logger so we can filter in Vercel logs
+// --- tiny logger so we can filter logs
 function log(...args: any[]) {
   console.log("[stripe:webhook]", ...args);
 }
@@ -23,6 +23,15 @@ function requireEnv(name: string): string {
   return v;
 }
 
+/** Extract first integer found in a string like "booking-123" or "123" */
+function parseIdLike(val: unknown): number | null {
+  if (val == null) return null;
+  const m = String(val).match(/\d+/);
+  if (!m) return null;
+  const n = Number(m[0]);
+  return Number.isFinite(n) ? n : null;
+}
+
 /** Extract PI id in a type-safe way */
 function paymentIntentIdFromSession(
   session: Stripe.Checkout.Session
@@ -32,13 +41,11 @@ function paymentIntentIdFromSession(
   return typeof pi === "string" ? pi : pi.id;
 }
 
-/** Robustly extract bookingId: prefer metadata, fallback to client_reference_id */
+/** Prefer metadata.bookingId, fallback to client_reference_id */
 function bookingIdFromSession(session: Stripe.Checkout.Session): number | null {
-  const metaId = session.metadata?.bookingId;
-  if (metaId && Number.isFinite(Number(metaId))) return Number(metaId);
-  const ref = session.client_reference_id;
-  if (ref && Number.isFinite(Number(ref))) return Number(ref);
-  return null;
+  const fromMeta = parseIdLike(session.metadata?.bookingId);
+  if (fromMeta != null) return fromMeta;
+  return parseIdLike(session.client_reference_id);
 }
 
 /** Idempotent promotion: PENDING -> CONFIRMED, clear hold window, attach PI */
@@ -61,7 +68,7 @@ async function promoteBookingToConfirmed(args: {
       return; // ack anyway
     }
 
-    // If already confirmed + paid, nothing to do (idempotent)
+    // If already confirmed and paid, nothing to do
     if (existing.status === BookingStatus.CONFIRMED && existing.depositPaid) {
       log("promote: already confirmed", { bookingId: existing.id });
       return;
@@ -72,7 +79,7 @@ async function promoteBookingToConfirmed(args: {
       data: {
         status: BookingStatus.CONFIRMED,
         depositPaid: true,
-        holdExpiresAt: null, // clear hold on success
+        holdExpiresAt: null,
         stripePaymentIntentId:
           args.paymentIntentId ?? existing.stripePaymentIntentId ?? null,
       },
@@ -85,7 +92,7 @@ async function promoteBookingToConfirmed(args: {
   });
 }
 
-/** Cancel a still-pending booking (used on session.expired) — idempotent */
+/** Cancel a still-pending booking on session.expired — idempotent */
 async function cancelPendingBooking(bookingId: number) {
   const res = await db.booking.updateMany({
     where: { id: bookingId, status: BookingStatus.PENDING },
@@ -111,11 +118,12 @@ export async function POST(req: NextRequest) {
     event = stripe.webhooks.constructEvent(payload, sig, webhookSecret);
   } catch (err) {
     log("signature verify failed", err instanceof Error ? err.message : err);
-    // Reject so Stripe retries (useful during setup)
+    // Reject so Stripe retries
     return new Response("Signature verification failed", { status: 400 });
   }
 
-  log("received", { type: event.type, id: event.id });
+  // Helpful breadcrumb: event type and live vs test
+  log("received", { type: event.type, id: event.id, livemode: event.livemode });
 
   // 2) Handle supported events
   try {
@@ -139,6 +147,67 @@ export async function POST(req: NextRequest) {
           piId: piId ?? null,
         });
 
+        await promoteBookingToConfirmed({ bookingId, paymentIntentId: piId });
+
+        // LOUD TRACING AROUND NOTIFICATIONS
+        log("notify:start", {
+          bookingId,
+          SEND_EMAILS: process.env.SEND_EMAILS,
+        });
+        try {
+          await notifyBookingConfirmed(bookingId, "customer");
+          log("notify:done", { bookingId });
+        } catch (err) {
+          log("notify:error", err instanceof Error ? err.message : err);
+        }
+
+        break;
+      }
+
+      // Some methods emit PI events you may want to honor as a backup path.
+      case "payment_intent.succeeded": {
+        const pi = event.data.object as Stripe.PaymentIntent;
+        const bookingId = parseIdLike(pi.metadata?.bookingId);
+        if (!bookingId) {
+          log("pi.succeeded: no bookingId in PI metadata", {
+            metadata: pi.metadata,
+          });
+          break;
+        }
+        log("pi.succeeded: promoting", { bookingId, piId: pi.id });
+        await promoteBookingToConfirmed({ bookingId, paymentIntentId: pi.id });
+        // `Same tracing here
+        log("notify:start", {
+          bookingId,
+          SEND_EMAILS: process.env.SEND_EMAILS,
+        });
+        try {
+          await notifyBookingConfirmed(bookingId, "customer");
+          log("notify:done", { bookingId });
+        } catch (err) {
+          log("notify:error", err instanceof Error ? err.message : err);
+        }
+
+        break;
+      }
+
+      case "checkout.session.async_payment_succeeded": {
+        // Backup for async methods that confirm after the session
+        const session = event.data.object as Stripe.Checkout.Session;
+        const bookingId = bookingIdFromSession(session);
+        if (!bookingId) {
+          log("async_succeeded: no bookingId", {
+            client_reference_id: session.client_reference_id,
+            metadata: session.metadata,
+          });
+          break;
+        }
+        const piId = paymentIntentIdFromSession(session);
+        log("async_succeeded: promoting", {
+          bookingId,
+          sessionId: session.id,
+          piId,
+        });
         await promoteBookingToConfirmed({ bookingId, paymentIntentId: piId });
         await notifyBookingConfirmed(bookingId, "customer");
         break;
@@ -169,6 +238,6 @@ export async function POST(req: NextRequest) {
     return new Response("ok", { status: 200 });
   }
 
-  // 3) Always acknowledge so Stripe doesn't spam retries for handled/unhandled events
+  // 3) Always acknowledge so Stripe does not retry for handled or ignored events
   return new Response("ok", { status: 200 });
 }

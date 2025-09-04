@@ -1,7 +1,9 @@
+// lib/emails/mailer.ts
 // Production-ready Resend adapter with safe dry-run and Reply-To defaults.
 
 import "server-only";
 import { Resend } from "resend";
+import { renderAsync } from "@react-email/render"; // render React → HTML
 import type { ReactElement } from "react";
 
 type MailRequest = {
@@ -34,14 +36,24 @@ export function emailsEnabled() {
   return ENABLED;
 }
 
+/** A minimal shape accepted by `resend.emails.send` when sending pre-rendered HTML. */
+type HtmlSendOptions = {
+  from: string;
+  to: string | string[];
+  subject: string;
+  html?: string;
+  text?: string;
+  replyTo?: string;
+  headers?: Record<string, string>;
+};
+
 /**
  * sendEmail
  * - If envs are missing or SEND_EMAILS is "false", performs a dry-run:
  *   renders the body (React or text) and logs to the console instead of sending.
- * - When configured, sends via Resend with React or text body.
+ * - When configured, renders React to HTML with @react-email/render and sends via Resend.
  * - Never throws: returns { ok:false, error } on failure so user paths don’t break.
  */
-
 export async function sendEmail(req: MailRequest): Promise<MailResult> {
   const to = Array.isArray(req.to) ? req.to : [req.to];
   if (!req.subject || to.length === 0) {
@@ -50,34 +62,61 @@ export async function sendEmail(req: MailRequest): Promise<MailResult> {
 
   const replyTo = req.replyTo ?? REPLY_TO_DEFAULT;
 
+  // Resolve HTML if we have a React template. Keep text as optional fallback.
+  let html: string | undefined;
+  if (req.react) {
+    try {
+      html = await renderAsync(req.react);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[email:error] render failed", msg);
+      return { ok: false, error: "Email render failed" };
+    }
+  }
+
   if (!ENABLED) {
     // DRY-RUN mode: safe while domain or API key are not ready
     console.info("[email:dry-run]", {
       from: FROM ?? "(unset)",
       to,
       subject: req.subject,
-      replyTo: req.replyTo,
-      // We intentionally don't render React to HTML here to avoid Next warnings.
+      replyTo,
       bodyPreview:
         req.text ??
-        (req.react ? "[React email body present]" : "(no body provided)"),
+        (html
+          ? `[HTML ${Buffer.byteLength(html, "utf8")} bytes]`
+          : req.react
+          ? "[React email body present]"
+          : "(no body provided)"),
     });
     return { ok: true };
   }
 
   try {
     const client = getClient();
-    const res = await client.emails.send({
-      from: FROM!, // rely on env; already validated in ENABLED
+
+    // Require at least one of html or text for the live send
+    if (!html && !req.text) {
+      return { ok: false, error: "No email content provided (html or text required)." };
+    }
+
+    // Narrow, HTML-centric send options to steer TS to the right overload.
+    const options: HtmlSendOptions = {
+      from: FROM!, // validated via ENABLED
       to,
       subject: req.subject,
-      react: req.react, // Resend supports React directly
+      html,
       text: req.text,
       replyTo,
       headers: req.headers,
-    });
+    };
+
+    // NOTE: Older `resend` typings may still prefer the "react" overload.
+    // Casting the options to the minimal shape avoids TS2345 while keeping runtime safe.
+    const res = await client.emails.send(options as any);
 
     if (res.error) return { ok: false, error: res.error.message };
+    console.log("[email] sent", { to, subject: req.subject, id: res.data?.id });
     return { ok: true, id: res.data?.id };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
