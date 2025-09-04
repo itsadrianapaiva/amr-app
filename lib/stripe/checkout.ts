@@ -46,6 +46,7 @@ export function buildDepositCheckoutSessionParams(
     machineId: String(machine.id),
     startDate,
     endDate,
+    flow: "deposit",
   };
 
   return {
@@ -83,6 +84,94 @@ export function buildDepositCheckoutSessionParams(
     ],
 
     success_url: `${appUrl}/booking/success?session_id={CHECKOUT_SESSION_ID}&booking_id=${bookingId}`,
+    cancel_url: `${appUrl}/machine/${machine.id}?checkout=cancelled`,
+  };
+}
+
+/*  Payments v2: Manual Capture (Balance)  */
+
+export type BuildBalanceAuthSessionArgs = {
+  bookingId: number;
+  machine: { id: number; name: string };
+  from: Date;
+  to: Date;
+  days: number;
+  /** Amount to authorize now and capture at return/closeout (euros). */
+  authorizeEuros: number;
+  customerEmail: string;
+  appUrl: string;
+};
+
+/**
+ * buildBalanceAuthorizationSessionParams
+ * Creates a Checkout Session that AUTHORIZES (does not capture) the remaining balance.
+ * We set `payment_intent_data.capture_method = 'manual'` so the PI is authorized now
+ * and can be captured later from the Ops flow.
+ *
+ * Notes:
+ * - We do not compute the amount here; pass the final `authorizeEuros`.
+ * - Metadata includes `flow: 'balance_authorize'` to simplify webhook routing.
+ */
+export function buildBalanceAuthorizationSessionParams(
+  args: BuildBalanceAuthSessionArgs
+): Stripe.Checkout.SessionCreateParams {
+  const {
+    bookingId,
+    machine,
+    from,
+    to,
+    days,
+    authorizeEuros,
+    customerEmail,
+    appUrl,
+  } = args;
+
+  const startDate = formatISO(from, { representation: "date" });
+  const endDate = formatISO(to, { representation: "date" });
+
+  const baseMetadata = {
+    bookingId: String(bookingId),
+    machineId: String(machine.id),
+    startDate,
+    endDate,
+    flow: "balance_authorize",
+  };
+
+  return {
+    mode: "payment",
+    customer_creation: "always",
+    billing_address_collection: "auto",
+    phone_number_collection: { enabled: false },
+    tax_id_collection: { enabled: false },
+
+    customer_email: customerEmail,
+
+    metadata: baseMetadata,
+    payment_intent_data: {
+      metadata: baseMetadata,
+      capture_method: "manual", // <-- authorize now, capture later
+      receipt_email: customerEmail,
+    },
+
+    client_reference_id: String(bookingId),
+
+    line_items: [
+      {
+        price_data: {
+          ...toMoney(authorizeEuros),
+          product_data: {
+            name: `Remaining balance authorization - ${machine.name}`,
+            description: `Dates: ${startDate} to ${endDate} (${days} day${
+              days > 1 ? "s" : ""
+            })`,
+          },
+        },
+        quantity: 1,
+      },
+    ],
+
+    // We return to success to store PI id from the session if webhook lags.
+    success_url: `${appUrl}/booking/success?session_id={CHECKOUT_SESSION_ID}&booking_id=${bookingId}&flow=balance_authorize`,
     cancel_url: `${appUrl}/machine/${machine.id}?checkout=cancelled`,
   };
 }
