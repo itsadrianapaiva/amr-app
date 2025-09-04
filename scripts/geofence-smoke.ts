@@ -1,6 +1,8 @@
 // Quick local verifier for our geofence policy using Mapbox and our service-area check.
 // Run with `npx tsx scripts/geofence-smoke.ts`
 
+import { config } from 'dotenv'
+config({ path: '.env.local' }) // load local env for scripts
 import { geocodeAddress } from "@/lib/geo/mapbox"
 import { isInsideServiceArea, SERVICE_AREA_NAME } from "@/lib/geo/service-area"
 

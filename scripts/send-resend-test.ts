@@ -1,4 +1,3 @@
-// scripts/send-resend-test.ts
 // Minimal smoke test: proves your Resend domain + key work end-to-end.
 // Loads .env.local so it works outside Next.js runtime.
 
