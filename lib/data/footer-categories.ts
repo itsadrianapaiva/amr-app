@@ -1,10 +1,11 @@
 import "server-only";
 import { cache } from "react";
 import { MACHINE_CARD_COPY } from "@/lib/content/machines";
+import { Prisma } from "@prisma/client";
 import type { PrismaClient } from "@prisma/client";
 
 // Lean row type for our query
-type MachineTypeRow = { type: string };
+type MachineCategoryRow = { category: string };
 
 /**
  * Resolve a PrismaClient instance:
@@ -44,14 +45,18 @@ async function resolvePrisma(): Promise<PrismaClient> {
 export const getFooterCategories = cache(async (): Promise<string[]> => {
   const prisma = await resolvePrisma();
 
-  const types = (await prisma.machine.findMany({
-    select: { type: true },
-    distinct: ["type"],
-  })) as MachineTypeRow[];
+  const categories = (await prisma.machine.findMany({
+    select: { category: true },
+    distinct: [Prisma.MachineScalarFieldEnum.category], // <-- Prisma 6 enum
+    orderBy: { category: "asc" },
+  })) as MachineCategoryRow[];
 
   const labelsSet = new Set<string>(
-    types
-      .map((row: MachineTypeRow) => MACHINE_CARD_COPY.displayType(row.type))
+    categories
+      // Reuse existing display mapper; it can accept category keys as before.
+      .map((row: MachineCategoryRow) =>
+        MACHINE_CARD_COPY.displayType(row.category)
+      )
       .filter(Boolean)
   );
 

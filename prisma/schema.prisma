@@ -11,52 +11,69 @@ model Machine {
   id             Int       @id @default(autoincrement())
   name           String    @unique
   description    String
+  
+  /// Deprecated for rendering; we now use curated local assets.
+  /// Keep for compatibility until we fully remove usages.
   imageUrl       String
+
+  /// Reference-only link to the exact model (CSV "Image" column).
+  /// Not rendered in the UI; for Ops/context.
+  referenceUrl   String?
   dailyRate      Decimal
   weight         String
   deposit        Decimal
   deliveryCharge Decimal?
   minDays        Int       @default(1)
   pickupCharge   Decimal?
-  type           String    @default("Uncategorized")
+
+  /// Renamed in Prisma to 'category' but still mapped to the existing DB column 'type'.
+  category       String    @default("Uncategorized") @map("type")
+
+ /// Optional machine model (e.g., "Bobcat E35", "CAT 259D3")
+  model          String?
   bookings       Booking[]
 }
 
 model Booking {
-  id                    Int                     @id @default(autoincrement())
-  machineId             Int
-  machine               Machine                 @relation(fields: [machineId], references: [id])
-  startDate             DateTime
-  endDate               DateTime
-  holdExpiresAt         DateTime?               @db.Timestamp(6)
-  status                BookingStatus           @default(PENDING)
-  customerName          String
-  customerEmail         String
-  customerPhone         String
-  totalCost             Decimal
-  depositPaid           Boolean                 @default(false)
-  stripePaymentIntentId String?                 @unique
-  customerNIF           String?
-  googleCalendarEventId String?
-  insuranceSelected     Boolean                 @default(true)
-  deliverySelected      Boolean                 @default(true)
-  pickupSelected        Boolean                 @default(true)
-  billingAddressLine1   String?
-  billingCity           String?
-  billingCompanyName    String?
-  billingCountry        String?
-  billingIsBusiness     Boolean                 @default(false)
-  billingPostalCode     String?
-  billingTaxId          String?
-  operatorSelected      Boolean                 @default(false)
-  siteAddressCity       String?
+  id                         Int                     @id @default(autoincrement())
+  machineId                  Int
+  machine                    Machine                 @relation(fields: [machineId], references: [id])
+  startDate                  DateTime
+  endDate                    DateTime
+  holdExpiresAt              DateTime?               @db.Timestamp(6)
+  status                     BookingStatus           @default(PENDING)
+  customerName               String
+  customerEmail              String
+  customerPhone              String
+  totalCost                  Decimal
+  depositPaid                Boolean                 @default(false)
+  stripePaymentIntentId      String?                 @unique
+
+  authorizedPaymentIntentId  String?                 @unique
+  authorizedAmount           Decimal?
+
+  customerNIF                String?
+
+  insuranceSelected          Boolean                 @default(true)
+  deliverySelected           Boolean                 @default(true)
+  pickupSelected             Boolean                 @default(true)
+  billingAddressLine1        String?
+  billingCity                String?
+  billingCompanyName         String?
+  billingCountry             String?
+  billingIsBusiness          Boolean                 @default(false)
+  billingPostalCode          String?
+  billingTaxId               String?
+  operatorSelected           Boolean                 @default(false)
+  siteAddressCity            String?
   /// Operational site address (NOT for invoicing)
-  siteAddressLine1      String?
-  siteAddressNotes      String?
-  siteAddressPostalCode String?
-  during                Unsupported("tsrange")? @default(dbgenerated("tsrange(\"startDate\", \"endDate\", '[]'::text)"))
-  createdAt             DateTime                @default(now())
-  updatedAt             DateTime                @updatedAt
+  siteAddressLine1           String?
+  siteAddressNotes           String?
+  siteAddressPostalCode      String?
+
+  during                     Unsupported("tsrange")? @default(dbgenerated("tsrange(\"startDate\", \"endDate\", '[]'::text)"))
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime                @updatedAt
 }
 
 enum BookingStatus {
@@ -64,3 +81,17 @@ enum BookingStatus {
   CONFIRMED
   CANCELLED
 }
+
+// # ---- Commands (run after saving) ----
+// # Create a safety branch
+// #   git checkout -b chore/prisma-machine-category-and-model
+// # Regenerate & inspect the SQL before applying
+// #   npx prisma generate
+// #   npx prisma migrate dev --create-only --name add_machine_category_model_and_drop_gcal
+// # Review the SQL in prisma/migrations/*/migration.sql, ensure it DOES NOT drop the 'type' column.
+// # If it looks good, apply it:
+// #   npx prisma migrate dev
+// # Or in CI/preview: npx prisma migrate deploy
+// # Then search usages of machine.type in the codebase:
+// #   git grep -n "machine\\.type"
+// # Carefully replace with machine.category where appropriate (avoid unrelated `.type` usages).

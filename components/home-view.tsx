@@ -7,12 +7,21 @@ import type { SerializableMachine } from "@/lib/types";
 import Hero from "@/components/hero";
 import { HOME_HERO, HOME_INVENTORY } from "@/lib/content/home";
 import { MACHINE_CARD_COPY } from "@/lib/content/machines";
+import { toTitleCase } from "@/lib/utils"; // ⬅️ fallback label helper
 import WhyBook from "./why-book";
 import Faq from "./faq";
 import ContactSection from "./contact-section";
 
 interface HomeViewProps {
   machines: SerializableMachine[];
+}
+
+// Normalize label: prefer friendly mapper; fallback to raw category/type in Title Case.
+function labelFor(m: SerializableMachine): string {
+  const raw = String((m as any).category ?? (m as any).type ?? "").trim();
+  const friendly = MACHINE_CARD_COPY.displayType(raw);
+  if (friendly && friendly.length) return friendly;
+  return raw ? toTitleCase(raw) : ""; // empty → ignored by category builder
 }
 
 export function HomeView({ machines }: HomeViewProps) {
@@ -25,21 +34,20 @@ export function HomeView({ machines }: HomeViewProps) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Build unique categories from the *friendly* display label (collapses CSV synonyms)
+  // Build unique categories using resilient labelFor()
   const categories = useMemo(() => {
     const labels = new Set<string>();
     for (const m of machines) {
-      labels.add(MACHINE_CARD_COPY.displayType(m.type));
+      const label = labelFor(m);
+      if (label) labels.add(label);
     }
     return ["All", ...Array.from(labels).sort((a, b) => a.localeCompare(b))];
   }, [machines]);
 
-  // Filter using the *friendly* label so pills and grid stay consistent
+  // Filter with the same label function to stay consistent with pills
   const visibleMachines = useMemo(() => {
     if (selectedCategory === "All") return machines;
-    return machines.filter(
-      (m) => MACHINE_CARD_COPY.displayType(m.type) === selectedCategory
-    );
+    return machines.filter((m) => labelFor(m) === selectedCategory);
   }, [machines, selectedCategory]);
 
   // URL SYNC (stable)

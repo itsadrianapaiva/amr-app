@@ -1,4 +1,3 @@
-// File: app/machine/[id]/page.tsx
 import { getMachineById } from "@/lib/data";
 import { getDisabledDateRangesForMachine } from "@/lib/availability.server";
 import { serializeMachine } from "@/lib/serializers";
@@ -53,13 +52,17 @@ export default async function MachineDetailPage({
 
   // Display strings
   const displayName = toTitleCase(machine.name);
-  const displayType = MACHINE_CARD_COPY.displayType(machine.type);
 
-  // Centralized image resolution: type → name → safe DB URL → fallback
+  // Prefer new 'category', fall back to legacy 'type' during migration
+  const categoryOrType =
+    (machine as any).category ?? (machine as any).type ?? "";
+  const displayType = MACHINE_CARD_COPY.displayType(String(categoryOrType));
+
+  // Centralized image resolution: type → name → (ignore DB URL on detail page) → fallback
   const img = resolveMachineImage({
-    type: String(machine.type ?? ""),
+    type: String(categoryOrType),
     name: String(machine.name ?? ""),
-    dbUrl: typeof machine.imageUrl === "string" ? machine.imageUrl : null,
+    dbUrl: null, // never render external CSV links here to avoid Next/Image host issues
   });
 
   return (

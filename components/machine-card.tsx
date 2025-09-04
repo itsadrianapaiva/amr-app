@@ -1,4 +1,3 @@
-// File: components/machine-card.tsx
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
@@ -6,7 +5,7 @@ import { ArrowRight } from "lucide-react";
 import type { SerializableMachine } from "@/lib/types";
 import { cn, formatCurrency, moneyDisplay, toTitleCase } from "@/lib/utils";
 import { MACHINE_CARD_COPY } from "@/lib/content/machines";
-import { getMachineImage, imageContent } from "@/lib/content/images";
+import { resolveMachineImage } from "@/lib/content/images";
 
 interface MachineCardProps {
   machine: SerializableMachine;
@@ -15,7 +14,11 @@ interface MachineCardProps {
 export function MachineCard({ machine }: MachineCardProps) {
   // Derived display values
   const displayName = toTitleCase(machine.name);
-  const displayType = MACHINE_CARD_COPY.displayType(machine.type);
+
+  // Support both fields during the migration (category preferred, fallback to type)
+  const categoryOrType =
+    (machine as any).category ?? (machine as any).type ?? "";
+  const displayType = MACHINE_CARD_COPY.displayType(String(categoryOrType));
 
   const dailyRateFormatted = formatCurrency(machine.dailyRate);
   const pricePerDay = MACHINE_CARD_COPY.formatPricePerDay(dailyRateFormatted);
@@ -40,33 +43,15 @@ export function MachineCard({ machine }: MachineCardProps) {
   if (showPickup) specs.push(MACHINE_CARD_COPY.labels.pickupAvailable);
   const specsLine = specs.join(" • ");
 
-  // Resolve image robustly (type → name → local fallback map)
-  let img = getMachineImage(String(machine.type ?? ""));
-  if (img.src === imageContent.fallback.machine) {
-    img = getMachineImage(String(machine.name ?? ""));
-  }
+  // Always resolve via our internal map; ignore DB/CSV links to avoid Next/Image host errors
+  const img = resolveMachineImage({
+    type: String(categoryOrType),
+    name: String(machine.name ?? ""),
+    dbUrl: null, // explicitly ignore external URLs on cards
+  });
 
-  // If DB has a URL, use it only when it’s NOT an SVG/placeholder host.
-  const dbUrl = typeof machine.imageUrl === "string" ? machine.imageUrl.trim() : "";
-
-  let allowDbUrl = false;
-  if (dbUrl) {
-    // Disallow SVGs (Next/Image blocks remote SVGs unless dangerous flags)
-    const isSvg =
-      dbUrl.toLowerCase().endsWith(".svg") || dbUrl.startsWith("data:image/svg");
-    // Disallow known placeholder host to avoid warnings & mismatched aspect
-    let isPlaceholderHost = false;
-    try {
-      const host = new URL(dbUrl).hostname;
-      isPlaceholderHost = /(?:^|\.)placehold\.co$/i.test(host);
-    } catch {
-      // invalid URL → treat as not allowed
-    }
-    allowDbUrl = !isSvg && !isPlaceholderHost;
-  }
-
-  const srcToUse = allowDbUrl ? (dbUrl as string) : img.src;
-  const altToUse = allowDbUrl ? `Image of ${displayName}` : img.alt;
+  const srcToUse = img.src;
+  const altToUse = img.alt;
 
   return (
     <div className="group relative h-[492px] w-full overflow-hidden">
