@@ -30,7 +30,7 @@ export const FOOTER_CONTENT: FooterContent = {
   // No phone yet — placeholder for layout; set to null to hide completely.
   phoneDisplay: "000 000 000", // "Your phone here",
   // Set when ready (e.g., "hello@amr.pt"); null hides the email row.
-  email: "amr.business.pt@gmail.com", //add correct one later
+  email: "support@amr-rentals.com", //add correct one later
 
   // Small CTA in the footer. Mirrors primary funnel.
   footerCta: { label: "Book now", href: "/#catalog" },

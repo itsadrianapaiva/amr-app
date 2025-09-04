@@ -1,3 +1,4 @@
+// app/api/stripe/webhook/route.ts
 // Webhook to promote bookings after Stripe Checkout completes.
 
 import { NextRequest } from "next/server";
@@ -10,6 +11,11 @@ import { notifyBookingConfirmed } from "@/lib/notifications/notify-booking-confi
 // Run on Node runtime (Stripe needs raw body) and never cache
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+// --- tiny logger so we can filter in Vercel logs
+function log(...args: any[]) {
+  console.log("[stripe:webhook]", ...args);
+}
 
 /** Env guard */
 function requireEnv(name: string): string {
@@ -51,11 +57,16 @@ async function promoteBookingToConfirmed(args: {
         depositPaid: true,
       },
     });
-    if (!existing) return; // silently ack; avoid Stripe retries
+    if (!existing) {
+      log("promote: booking not found", { bookingId: args.bookingId });
+      return; // ack anyway
+    }
 
     // If already confirmed + paid, nothing to do (idempotent)
-    if (existing.status === BookingStatus.CONFIRMED && existing.depositPaid)
+    if (existing.status === BookingStatus.CONFIRMED && existing.depositPaid) {
+      log("promote: already confirmed", { bookingId: existing.id });
       return;
+    }
 
     await tx.booking.update({
       where: { id: args.bookingId },
@@ -63,20 +74,25 @@ async function promoteBookingToConfirmed(args: {
         status: BookingStatus.CONFIRMED,
         depositPaid: true,
         holdExpiresAt: null, // clear hold on success
-        // store PI if provided (helpful for support); keep null-safe
         stripePaymentIntentId:
           args.paymentIntentId ?? existing.stripePaymentIntentId ?? null,
       },
+    });
+
+    log("promote: booking updated", {
+      bookingId: args.bookingId,
+      attachedPI: args.paymentIntentId ?? null,
     });
   });
 }
 
 /** Cancel a still-pending booking (used on session.expired) — idempotent */
 async function cancelPendingBooking(bookingId: number) {
-  await db.booking.updateMany({
+  const res = await db.booking.updateMany({
     where: { id: bookingId, status: BookingStatus.PENDING },
     data: { status: BookingStatus.CANCELLED, holdExpiresAt: null },
   });
+  log("expired: cancelled pending", { bookingId, changed: res.count });
 }
 
 // Route handler
@@ -85,21 +101,22 @@ export async function POST(req: NextRequest) {
   const payload = await req.text();
   const sig = req.headers.get("stripe-signature");
   const webhookSecret = requireEnv("STRIPE_WEBHOOK_SECRET");
-  if (!sig) return new Response("Missing Stripe signature", { status: 400 });
+  if (!sig) {
+    log("missing stripe-signature");
+    return new Response("Missing Stripe signature", { status: 400 });
+  }
 
   let event: Stripe.Event;
   try {
     const stripe = getStripe();
     event = stripe.webhooks.constructEvent(payload, sig, webhookSecret);
   } catch (err) {
-    // Invalid signature — reject so Stripe can retry
-    return new Response(
-      err instanceof Error
-        ? `Signature verification failed: ${err.message}`
-        : "Signature verification failed",
-      { status: 400 }
-    );
+    log("signature verify failed", err instanceof Error ? err.message : err);
+    // Reject so Stripe retries (useful during setup)
+    return new Response("Signature verification failed", { status: 400 });
   }
+
+  log("received", { type: event.type, id: event.id });
 
   // 2) Handle supported events
   try {
@@ -107,19 +124,22 @@ export async function POST(req: NextRequest) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        const maybeId = bookingIdFromSession(session); // number | null
-        if (maybeId === null) {
-          console.warn("Webhook completed without bookingId in metadata/ref", {
+        const bookingId = bookingIdFromSession(session);
+        if (bookingId == null) {
+          log("completed: no bookingId", {
             client_reference_id: session.client_reference_id,
             metadata: session.metadata,
           });
-          break; // ack but do nothing; prevents retries
+          break;
         }
-        const bookingId: number = maybeId;
 
         const piId = paymentIntentIdFromSession(session);
+        log("completed: promoting", {
+          bookingId,
+          sessionId: session.id,
+          piId: piId ?? null,
+        });
 
-        // Promote and then notify; both take a strict number
         await promoteBookingToConfirmed({ bookingId, paymentIntentId: piId });
         await notifyBookingConfirmed(bookingId, "customer");
         break;
@@ -128,18 +148,25 @@ export async function POST(req: NextRequest) {
       case "checkout.session.expired": {
         const session = event.data.object as Stripe.Checkout.Session;
         const bookingId = bookingIdFromSession(session);
-        if (!bookingId) break;
+        if (bookingId == null) {
+          log("expired: no bookingId", {
+            client_reference_id: session.client_reference_id,
+            metadata: session.metadata,
+          });
+          break;
+        }
         await cancelPendingBooking(bookingId);
         break;
       }
 
-      // Quietly acknowledge other events for now
       default:
+        // Keep a breadcrumb for other events during setup
+        log("ignored", { type: event.type });
         break;
     }
   } catch (err) {
     // Prevent endless retries on our own errors; log and ack
-    console.error("Webhook handler error", { type: event.type, err });
+    log("handler error", err instanceof Error ? err.message : err);
     return new Response("ok", { status: 200 });
   }
 

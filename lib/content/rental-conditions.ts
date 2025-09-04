@@ -212,9 +212,9 @@ export const RENTAL_CONDITIONS: RentalConditionsDoc = {
       id: "contacts",
       title: "Contacts",
       body: [
-        "Company: FILL_ME_COMPANY_NAME",
-        "Address: FILL_ME_COMPANY_ADDRESS",
-        "Email: FILL_ME_SUPPORT_EMAIL",
+        "Company: Algarve Machinery Rental",
+        "Address: Barranco da Vaca, Aljezur, Portugal",
+        "Email: support@amr-rentals.com",
         "Phone: FILL_ME_PHONE",
       ],
     },

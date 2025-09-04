@@ -49,7 +49,7 @@ export const CONTACTS: ContactContent = {
     "Fast support via WhatsApp or email. Prefer a message? Use the short form and we’ll reply soon.",
   support: {
     // TODO: replace placeholders with real values.
-    email: "amr.business.pt@gmail.com",
+    email: "support@amr-rentals.com",
     whatsapp: {
       e164: "+351900000000",
       display: "(+351) 900 000 000",

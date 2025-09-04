@@ -47,9 +47,9 @@ export type LegalLink = {
         id: "controller",
         title: "Data Controller",
         body: [
-          "Company: FILL_ME_COMPANY_NAME (e.g., AMR Máquinas, Lda.)",
-          "Address: FILL_ME_COMPANY_ADDRESS",
-          "Email: FILL_ME_PRIVACY_EMAIL (e.g., privacy@amr.pt)",
+          "Company: Algarve Machinery Rental",
+          "Address: Barranco da Vaca, Aljezur, Portugal",
+          "Email: support@amr-rentals.com",
         ],
       },
       {
@@ -101,7 +101,7 @@ export type LegalLink = {
         title: "Your Rights",
         body: [
           "You may request access, rectification, erasure, restriction, objection, or portability where applicable.",
-          "To exercise rights, contact us at FILL_ME_PRIVACY_EMAIL. You can also complain to the supervisory authority (CNPD in Portugal).",
+          "To exercise rights, contact us at support@amr-rentals.com. You can also complain to the supervisory authority (CNPD in Portugal).",
         ],
       },
       {
