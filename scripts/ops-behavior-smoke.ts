@@ -76,7 +76,6 @@ async function seedAndProbe(): Promise<void> {
         totalCost: 0,
         depositPaid: false,
         stripePaymentIntentId: null,
-        googleCalendarEventId: null,
       },
       select: { id: true },
     });

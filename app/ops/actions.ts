@@ -171,7 +171,6 @@ export async function createOpsBookingAction(
 
           totalCost: 0,
           depositPaid: false,
-          googleCalendarEventId: null,
           stripePaymentIntentId: null,
         },
         select: { id: true },
