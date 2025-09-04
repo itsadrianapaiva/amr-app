@@ -5,89 +5,27 @@
  * and create a Stripe Checkout Session for the **deposit** only.
  */
 import { getMachineById } from "@/lib/data";
-import { buildBookingSchema } from "@/lib/validation/booking";
+import { parseBookingInput } from "@/lib/booking/parse-input";
 import { computeTotals } from "@/lib/pricing";
 import { INSURANCE_CHARGE, OPERATOR_CHARGE } from "@/lib/config";
-import { getStripe } from "@/lib/stripe";
 import { buildDepositCheckoutSessionParams } from "@/lib/stripe/checkout";
+import { createCheckoutSessionWithGuards } from "@/lib/stripe/create-session";
+import { checkServiceArea } from "@/lib/geo/check-service-area";
+import { tomorrowStartLisbonUTC } from "@/lib/dates/lisbon";
 
+// Persistence adapter and DTO
 import {
-  tomorrowStartLisbonUTC,
-  asLisbonDateOnly,
-  rentalDaysInclusive,
-} from "@/lib/dates/lisbon";
-
-import {
-  createOrReusePendingBooking,
-  OverlapError,
+  persistPendingBooking,
   type PendingBookingDTO,
-  LeadTimeError,
-} from "@/lib/repos/booking-repo";
+} from "@/lib/booking/persist-pending";
 
-import { geocodeAddress } from "@/lib/geo/mapbox";
-import {
-  isInsideServiceArea,
-  SERVICE_AREA_NAME,
-  SERVICE_AREA_CENTROID,
-} from "@/lib/geo/service-area";
-
-const ENABLE_GEOFENCE = process.env.ENABLE_GEOFENCE === "true";
+// Typed domain errors for UX mapping
+import { OverlapError, LeadTimeError } from "@/lib/repos/booking-repo";
 
 // Return shape now supports ErrorSummary-friendly failures.
 type CheckoutResult =
   | { ok: true; url: string }
   | { ok: false; formError: string };
-
-/**
- * Small, focused helper that checks the book fence when delivery/pickup is selected.
- * Returns a user-friendly error message (string) or null if everything is fine.
- */
-async function checkServiceArea(params: {
-  deliverySelected: boolean;
-  pickupSelected: boolean;
-  siteAddress?: string | null;
-}): Promise<string | null> {
-   // Feature flag: skip geofence entirely until Mapbox token is set and flag is enabled.
-   if (!ENABLE_GEOFENCE) return null;
-  const { deliverySelected, pickupSelected, siteAddress } = params;
-
-  // If neither delivery nor pickup is selected, we don't need a site address check.
-  if (!deliverySelected && !pickupSelected) return null;
-
-  // Defensive: schema should enforce this, but we keep a concise message here too.
-  if (!siteAddress || !siteAddress.trim()) {
-    return "Please enter the site address so we can validate the service area.";
-  }
-
-  // Geocode the free-form address using Mapbox (country/language restricted to PT).
-  let hit: Awaited<ReturnType<typeof geocodeAddress>> = null;
-  try {
-    hit = await geocodeAddress(siteAddress, {
-      country: "pt",
-      language: "pt",
-      proximity: SERVICE_AREA_CENTROID, // nudges ambiguous results toward our zone
-      limit: 1,
-    });
-  } catch (err) {
-    console.error("Mapbox geocoding error:", err);
-    return "Address lookup is temporarily unavailable. Please try again or contact us.";
-  }
-
-  if (!hit) {
-    return "We couldn't locate this address in Portugal. Please check the spelling.";
-  }
-
-  // Book fence: Algarve up to Faro (eastward capped), plus Alentejo coastal strip.
-  if (!isInsideServiceArea(hit.lat, hit.lng)) {
-    return (
-      `This location is outside our current service area (${SERVICE_AREA_NAME}). ` +
-      `We cover Algarve up to Faro (not Tavira/VRSA) and the Alentejo coastal strip ` +
-      `(Sines → Zambujeira do Mar). Please contact us via WhatsApp or email for options.`
-    );
-  }
-
-  return null;
-}
 
 export async function createDepositCheckoutAction(
   input: unknown
@@ -101,38 +39,17 @@ export async function createDepositCheckoutAction(
     const machine = await getMachineById(machineId);
     if (!machine) return { ok: false, formError: "Machine not found." };
 
-    // 2) Build schema with runtime rules and parse input (dates normalized to Lisbon day)
+    // 2) Parse + normalize with Lisbon rules (pure helper).
     const minStart = tomorrowStartLisbonUTC();
-    const schema = buildBookingSchema(minStart, machine.minDays);
-    const parsed = schema.parse({
-      ...(input as Record<string, unknown>),
-      dateRange: {
-        from: asLisbonDateOnly((input as any)?.dateRange?.from),
-        to: asLisbonDateOnly((input as any)?.dateRange?.to),
-      },
+    const { from, to, days, payload, siteAddrStr } = parseBookingInput(input, {
+      minStart,
+      minDays: machine.minDays,
     });
 
-    const from = parsed.dateRange.from!;
-    const to = parsed.dateRange.to!;
-    const days = rentalDaysInclusive(from, to);
-
     // 2.5) Geofence: only when delivery or pickup is selected.
-    // Normalize structured address → free-text for geocoding.
-    const siteAddrStr =
-      typeof parsed.siteAddress === "string"
-        ? parsed.siteAddress
-        : [
-            parsed.siteAddress?.line1,
-            parsed.siteAddress?.postalCode,
-            parsed.siteAddress?.city,
-            "Portugal", // bias + clarity for Mapbox
-          ]
-            .filter(Boolean)
-            .join(", ");
-
     const fenceMsg = await checkServiceArea({
-      deliverySelected: parsed.deliverySelected,
-      pickupSelected: parsed.pickupSelected,
+      deliverySelected: payload.deliverySelected,
+      pickupSelected: payload.pickupSelected,
       siteAddress: siteAddrStr,
     });
     if (fenceMsg) {
@@ -143,13 +60,13 @@ export async function createDepositCheckoutAction(
     const totals = computeTotals({
       rentalDays: days,
       dailyRate: Number(machine.dailyRate),
-      deliverySelected: parsed.deliverySelected,
-      pickupSelected: parsed.pickupSelected,
-      insuranceSelected: parsed.insuranceSelected,
+      deliverySelected: payload.deliverySelected,
+      pickupSelected: payload.pickupSelected,
+      insuranceSelected: payload.insuranceSelected,
       deliveryCharge: Number(machine.deliveryCharge ?? 0),
       pickupCharge: Number(machine.pickupCharge ?? 0),
       insuranceCharge: INSURANCE_CHARGE,
-      operatorSelected: Boolean(parsed.operatorSelected),
+      operatorSelected: Boolean(payload.operatorSelected),
       operatorCharge: OPERATOR_CHARGE,
     });
 
@@ -159,38 +76,37 @@ export async function createDepositCheckoutAction(
       startDate: from,
       endDate: to,
 
-      insuranceSelected: parsed.insuranceSelected,
-      deliverySelected: parsed.deliverySelected,
-      pickupSelected: parsed.pickupSelected,
-      operatorSelected: Boolean(parsed.operatorSelected),
+      insuranceSelected: payload.insuranceSelected,
+      deliverySelected: payload.deliverySelected,
+      pickupSelected: payload.pickupSelected,
+      operatorSelected: Boolean(payload.operatorSelected),
 
       customer: {
-        name: parsed.name,
-        email: parsed.email,
-        phone: parsed.phone,
-        nif: parsed.customerNIF ?? null,
+        name: payload.name,
+        email: payload.email,
+        phone: payload.phone,
+        nif: payload.customerNIF ?? null,
       },
 
-      siteAddress: parsed.siteAddress,
+      siteAddress: payload.siteAddress,
 
       billing: {
-        isBusiness: Boolean(parsed.billingIsBusiness),
-        companyName: parsed.billingCompanyName ?? null,
-        taxId: parsed.billingTaxId ?? null,
-        addressLine1: parsed.billingAddressLine1 ?? null,
-        postalCode: parsed.billingPostalCode ?? null,
-        city: parsed.billingCity ?? null,
-        country: parsed.billingCountry ?? null,
+        isBusiness: Boolean(payload.billingIsBusiness),
+        companyName: payload.billingCompanyName ?? null,
+        taxId: payload.billingTaxId ?? null,
+        addressLine1: payload.billingAddressLine1 ?? null,
+        postalCode: payload.billingPostalCode ?? null,
+        city: payload.billingCity ?? null,
+        country: payload.billingCountry ?? null,
       },
 
       totals: { total: totals.total },
     };
 
     // This handles: (a) your own abandoned hold → reuse; (b) real conflict → throws OverlapError.
-    const booking = await createOrReusePendingBooking(dto);
+    const booking = await persistPendingBooking(dto);
 
-    // 5) Create Stripe Checkout Session for the *deposit only*.
-    const stripe = getStripe();
+    // 5) Create Stripe Checkout Session for the deposit only (guarded wrapper)
     const appUrl =
       process.env.NEXT_PUBLIC_APP_URL ||
       process.env.APP_URL ||
@@ -203,11 +119,15 @@ export async function createDepositCheckoutAction(
       to,
       days,
       depositEuros: Number(machine.deposit),
-      customerEmail: parsed.email,
+      customerEmail: payload.email,
       appUrl,
     });
 
-    const session = await stripe.checkout.sessions.create(sessionParams);
+    const session = await createCheckoutSessionWithGuards(sessionParams, {
+      idempotencyKey: `booking-${booking.id}-deposit`,
+      log: (event, data) => console.debug(`[stripe] ${event}`, data),
+    });
+
     if (!session.url) {
       return {
         ok: false,
@@ -217,7 +137,6 @@ export async function createDepositCheckoutAction(
 
     return { ok: true, url: session.url };
   } catch (e: any) {
-    // Friendly mapping for heavy-transport lead-time rule with cutoff
     if (e instanceof LeadTimeError) {
       const friendly = e.earliestAllowedDay.toLocaleDateString("en-GB", {
         timeZone: "Europe/Lisbon",
@@ -233,7 +152,6 @@ export async function createDepositCheckoutAction(
       };
     }
 
-    // Existing mapping for “dates taken” (DB exclusion constraint)
     if (e instanceof OverlapError) {
       return {
         ok: false,
@@ -242,7 +160,6 @@ export async function createDepositCheckoutAction(
       };
     }
 
-    // Zod will throw on parse errors above—surface a concise message if present
     if (e?.name === "ZodError" && e?.issues?.length) {
       return { ok: false, formError: e.issues[0]?.message ?? "Invalid input." };
     }

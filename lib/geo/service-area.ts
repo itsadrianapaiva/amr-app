@@ -4,7 +4,7 @@
 
 import { isPointInGeoJSON, type GeoPoint, type GeoJSONArea } from "./point-in-polygon"
 
-export const SERVICE_AREA_NAME = "Algarve (≤ Faro) + Alentejo Litoral — placeholder"
+export const SERVICE_AREA_NAME = "Algarve up to Faro + Alentejo Litoral"
 
 // Algarve east boundary set to -7.90 so we INCLUDE Faro (~ -7.93) but EXCLUDE Olhão (~ -7.84),
 // Tavira (~ -7.65) and Vila Real de Santo António (~ -7.42).

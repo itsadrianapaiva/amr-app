@@ -1,3 +1,4 @@
+//add whatsapp to geofence error banner.
 "use client";
 
 import * as React from "react";
@@ -273,7 +274,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
             {isOutOfArea && (
               <div
                 role="alert"
-                className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm"
+                className="mt-4 rounded-lg border border-red-700 bg-red-50 p-4 text-sm"
               >
                 <p className="font-medium">Outside our service area</p>
                 <p className="mt-1">
@@ -284,7 +285,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
                 <div className="mt-3">
                   <a
                     href={mailtoHref}
-                    className="inline-flex items-center rounded-md border px-3 py-2 text-sm font-medium hover:bg-white"
+                    className="inline-flex items-center rounded-md border border-primary-foreground px-3 py-2 text-sm font-medium hover:bg-white"
                   >
                     Email Support ({SUPPORT_EMAIL})
                   </a>

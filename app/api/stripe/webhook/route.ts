@@ -1,4 +1,3 @@
-// app/api/stripe/webhook/route.ts
 // Webhook to promote bookings after Stripe Checkout completes.
 
 import { NextRequest } from "next/server";
