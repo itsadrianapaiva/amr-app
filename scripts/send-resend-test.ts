@@ -1,5 +1,6 @@
 // Minimal smoke test: proves your Resend domain + key work end-to-end.
 // Loads .env.local so it works outside Next.js runtime.
+// Run with `npx tsx scripts/send-resend-test.ts`.
 
 import { config } from 'dotenv'
 config({ path: '.env.local' }) // load local env for scripts
