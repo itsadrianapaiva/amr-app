@@ -1,4 +1,4 @@
-// needs update after getting a registered domain
+// Production-ready Resend adapter with safe dry-run and Reply-To defaults.
 
 import "server-only";
 import { Resend } from "resend";
@@ -15,10 +15,12 @@ type MailRequest = {
 
 type MailResult = { ok: true; id?: string } | { ok: false; error: string };
 
-// Read configuration once at module load
-const FROM = process.env.EMAIL_FROM; // e.g. "AMR <noreply@amr.pt>"
-const API_KEY = process.env.RESEND_API_KEY; // Your Resend API key
-const ENABLED = !!API_KEY && !!FROM && process.env.SEND_EMAILS !== "false";
+// --- Configuration (read once at module load)
+const FROM = process.env.EMAIL_FROM; // e.g., "noreply@amr-rentals.com" or "AMR <noreply@…>"
+const REPLY_TO_DEFAULT = process.env.EMAIL_REPLY_TO; // e.g., "support@amr-rentals.com"
+const API_KEY = process.env.RESEND_API_KEY; // Resend key (Sending access is sufficient)
+const SEND_FLAG = process.env.SEND_EMAILS === "true"; // Only send when explicitly "true"
+const ENABLED = !!API_KEY && !!FROM && SEND_FLAG;
 
 // Singleton Resend client to avoid re-creating per call
 let resend: Resend | null = null;
@@ -46,6 +48,8 @@ export async function sendEmail(req: MailRequest): Promise<MailResult> {
     return { ok: false, error: 'Missing "to" or "subject".' };
   }
 
+  const replyTo = req.replyTo ?? REPLY_TO_DEFAULT;
+
   if (!ENABLED) {
     // DRY-RUN mode: safe while domain or API key are not ready
     console.info("[email:dry-run]", {
@@ -62,15 +66,17 @@ export async function sendEmail(req: MailRequest): Promise<MailResult> {
   }
 
   try {
-    const res = await getClient().emails.send({
-      from: FROM!,
+    const client = getClient();
+    const res = await client.emails.send({
+      from: FROM!, // rely on env; already validated in ENABLED
       to,
       subject: req.subject,
-      react: req.react,
+      react: req.react, // Resend supports React directly
       text: req.text,
-      replyTo: req.replyTo,
+      replyTo,
       headers: req.headers,
     });
+
     if (res.error) return { ok: false, error: res.error.message };
     return { ok: true, id: res.data?.id };
   } catch (err: unknown) {

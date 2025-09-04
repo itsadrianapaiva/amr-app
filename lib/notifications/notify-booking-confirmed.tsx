@@ -11,11 +11,27 @@ export type NotifySource = "customer" | "ops";
 
 /** Env-backed config with safe defaults for dev/dry-run. */
 const COMPANY_NAME = process.env.COMPANY_NAME || "Algarve Machinery Rental";
-const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || "amr.business.pt@gmail.com";
+
+/**
+ * We align support/reply handling with the mailer adapter:
+ * - EMAIL_REPLY_TO is the canonical Reply-To used by sendEmail() by default.
+ * - SUPPORT_EMAIL is kept as a fallback for templates only.
+ */
+const REPLY_TO_DEFAULT =
+  process.env.EMAIL_REPLY_TO ||
+  process.env.SUPPORT_EMAIL ||
+  "support@amr-rentals.com";
+
+/**
+ * Admin recipients (comma-separated). These are real inboxes that receive
+ * internal booking notifications.
+ */
 const ADMIN_TO = (process.env.EMAIL_ADMIN_TO || "amr.business.pt@gmail.com")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
+
+/** Public URL for Ops deep links in internal mail. */
 const APP_URL = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "";
 
 /** Format Date → "YYYY-MM-DD" (UTC) for templates */
@@ -49,7 +65,8 @@ export async function notifyBookingConfirmed(
       siteAddressCity: true,
       depositPaid: true,
       totalCost: true,
-      machine: { select: { name: true } },
+      // ⬇️ Include deposit so we can show the correct amount in the email
+      machine: { select: { name: true, deposit: true } },
     },
   });
   if (!b) return;
@@ -57,19 +74,20 @@ export async function notifyBookingConfirmed(
   // 2) Prepare shared props
   const startYmd = toYmdUTC(b.startDate);
   const endYmd = toYmdUTC(b.endDate);
-
-  // Prefer the machine name; fall back to "Machine #<id>" just in case
   const machineTitle = b.machine?.name ?? `Machine #${b.machineId}`;
 
   // 3) Customer email (optional)
   let customerPromise: Promise<unknown> = Promise.resolve();
   if (b.customerEmail) {
-    const depositAmount = b.depositPaid ? Number(b.totalCost) : null;
+    // ✅ Show the machine deposit (not total rental cost) when deposit has been paid.
+    const depositAmount = b.depositPaid
+      ? Number(b.machine?.deposit ?? 0)
+      : null;
 
     const react: ReactElement = (
       <BookingConfirmedEmail
         companyName={COMPANY_NAME}
-        supportEmail={SUPPORT_EMAIL}
+        supportEmail={REPLY_TO_DEFAULT}
         bookingId={b.id}
         customerName={b.customerName}
         machineTitle={machineTitle}
@@ -81,10 +99,10 @@ export async function notifyBookingConfirmed(
       />
     );
 
+    // Use default Reply-To from the mailer (EMAIL_REPLY_TO)
     customerPromise = sendEmail({
       to: b.customerEmail,
       subject: `${COMPANY_NAME}: Booking confirmed #${b.id}`,
-      replyTo: SUPPORT_EMAIL,
       react,
     });
   }
@@ -94,7 +112,7 @@ export async function notifyBookingConfirmed(
   const internalReact: ReactElement = (
     <BookingInternalEmail
       companyName={COMPANY_NAME}
-      adminEmail={SUPPORT_EMAIL}
+      adminEmail={REPLY_TO_DEFAULT}
       bookingId={b.id}
       source={source}
       machineTitle={machineTitle}
@@ -112,7 +130,6 @@ export async function notifyBookingConfirmed(
   const internalPromise = sendEmail({
     to: ADMIN_TO,
     subject: `${COMPANY_NAME}: new booking #${b.id} (${source})`,
-    replyTo: SUPPORT_EMAIL,
     react: internalReact,
   });
 
