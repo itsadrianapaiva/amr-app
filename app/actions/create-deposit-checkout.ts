@@ -2,14 +2,10 @@
 
 /**
  * Server action: validate booking payload, compute totals, create/reuse a PENDING booking,
- * and start the **AUTH-FIRST** flow:
- *   1) Create a Stripe Checkout Session to **AUTHORIZE** the remaining balance (manual capture, card-only).
- *   2) On auth success, our handoff page /booking/authorize-success creates the **deposit** Checkout.
- *
- * Notes:
- * - We keep the function name for compatibility with existing callers.
- * - If remaining balance is zero or negative, we fall back to deposit-only.
+ * and create a Stripe Checkout Session for the **deposit** only (deposit-first flow).
+ * The deposit Checkout now saves the card for future **off-session** use.
  */
+
 import { getMachineById } from "@/lib/data";
 import { parseBookingInput } from "@/lib/booking/parse-input";
 import { computeTotals } from "@/lib/pricing";
@@ -115,75 +111,36 @@ export async function createDepositCheckoutAction(
     // This handles: (a) your own abandoned hold → reuse; (b) real conflict → throws OverlapError.
     const booking = await persistPendingBooking(dto);
 
-    // 5) AUTH-FIRST: compute remaining = total - deposit, and build a manual-capture Checkout.
-    const totalEuros = Number(totals.total);
-    const depositEuros = Number(machine.deposit);
-    const remainingEuros = Math.max(0, totalEuros - depositEuros);
-
+    // 5) Build **deposit** Checkout (card saved for off-session by builder)
     const appUrl =
       process.env.NEXT_PUBLIC_APP_URL ||
       process.env.APP_URL ||
       "http://localhost:3000";
 
-    if (remainingEuros > 0) {
-      // Build **authorization** Session (card-only, capture_method: 'manual').
-      const authParams = buildBalanceAuthorizationCheckoutSessionParams({
-        bookingId: booking.id,
-        machine: { id: machine.id, name: machine.name },
-        from,
-        to,
-        days,
-        authorizeEuros: remainingEuros,
-        customerEmail: payload.email,
-        appUrl,
-      });
-
-      const authSession = await createCheckoutSessionWithGuards(authParams, {
-        // Stable idempotency key: avoids duplicate Sessions on refresh.
-        idempotencyKey: `booking-${booking.id}-balance-auth-customer`,
-        log: (event, data) => console.debug(`[stripe] ${event}`, data),
-      });
-
-      if (!authSession.url) {
-        return {
-          ok: false,
-          formError:
-            "Stripe did not return an authorization URL. Please try again.",
-        };
-      }
-
-      // Redirect caller to the **auth** Session; its success_url hands off to deposit.
-      return { ok: true, url: authSession.url };
-    }
-
-    // Edge case: no remaining balance (deposit covers total). Fall back to deposit-only.
-    const depositParams = buildDepositCheckoutSessionParams({
+    const sessionParams = buildDepositCheckoutSessionParams({
       bookingId: booking.id,
       machine: { id: machine.id, name: machine.name },
       from,
       to,
       days,
-      depositEuros,
+      depositEuros: Number(machine.deposit),
       customerEmail: payload.email,
       appUrl,
     });
 
-    const depositSession = await createCheckoutSessionWithGuards(
-      depositParams,
-      {
-        idempotencyKey: `booking-${booking.id}-deposit`,
-        log: (event, data) => console.debug(`[stripe] ${event}`, data),
-      }
-    );
+    const session = await createCheckoutSessionWithGuards(sessionParams, {
+      idempotencyKey: `booking-${booking.id}-deposit`,
+      log: (event, data) => console.debug(`[stripe] ${event}`, data),
+    });
 
-    if (!depositSession.url) {
+    if (!session.url) {
       return {
         ok: false,
-        formError:
-          "Stripe did not return a checkout URL. Please try again.",
+        formError: "Stripe did not return a checkout URL. Please try again.",
       };
     }
-    return { ok: true, url: depositSession.url };
+
+    return { ok: true, url: session.url };
   } catch (e: any) {
     if (e instanceof LeadTimeError) {
       const friendly = e.earliestAllowedDay.toLocaleDateString("en-GB", {
@@ -212,7 +169,7 @@ export async function createDepositCheckoutAction(
       return { ok: false, formError: e.issues[0]?.message ?? "Invalid input." };
     }
 
-    console.error("createDepositCheckoutAction (auth-first) failed:", e);
+    console.error("createDepositCheckoutAction failed:", e);
     return {
       ok: false,
       formError: "Unexpected server error. Please try again.",

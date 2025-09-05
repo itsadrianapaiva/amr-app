@@ -33,9 +33,8 @@ export type BuildDepositSessionArgs = {
 
 /**
  * buildDepositCheckoutSessionParams
- * - Charges **deposit only**.
- * - Mirrors booking metadata to both Session and PaymentIntent.
- * - Adds clear product name/description for Stripe UI.
+Saves the card on deposit only.
+If the issuer later demands SCA for the hold, the off-session attempt will fail gracefully and we’ll fallback to our existing authorization Checkout (card-only).
  */
 export function buildDepositCheckoutSessionParams(
   args: BuildDepositSessionArgs
@@ -51,10 +50,9 @@ export function buildDepositCheckoutSessionParams(
     appUrl,
   } = args;
 
-  const startDate = isoDate(from);
-  const endDate = isoDate(to);
+  const startDate = formatISO(from, { representation: "date" });
+  const endDate = formatISO(to, { representation: "date" });
 
-  // Single source of truth for metadata (webhook relies on bookingId here)
   const baseMetadata = {
     bookingId: String(bookingId),
     machineId: String(machine.id),
@@ -64,18 +62,20 @@ export function buildDepositCheckoutSessionParams(
 
   return {
     mode: "payment",
-    customer_creation: "always",
+    customer_creation: "always", // ensure a Customer exists so the card can be saved
     billing_address_collection: "auto",
     phone_number_collection: { enabled: false },
     tax_id_collection: { enabled: false },
 
     customer_email: customerEmail,
 
-    // Mirror metadata to PI for reconciliation & webhooks
+    // Mirror metadata + SAVE CARD for future off-session use
     metadata: baseMetadata,
     payment_intent_data: {
       metadata: baseMetadata,
       receipt_email: customerEmail,
+      // ⬇️ NEW: save the card for off-session (lets us try a silent authorization later)
+      setup_future_usage: "off_session",
     },
 
     client_reference_id: String(bookingId),
@@ -83,10 +83,14 @@ export function buildDepositCheckoutSessionParams(
     line_items: [
       {
         price_data: {
-          ...toMoney(depositEuros), // euros -> minor units
+          ...toMoney(depositEuros),
           product_data: {
             name: `Booking deposit - ${machine.name}`,
-            description: lineDesc(startDate, endDate, days),
+            description:
+              `Dates: ${startDate} to ${endDate}` +
+              (typeof days === "number"
+                ? ` (${days} day${days > 1 ? "s" : ""})`
+                : ""),
           },
         },
         quantity: 1,

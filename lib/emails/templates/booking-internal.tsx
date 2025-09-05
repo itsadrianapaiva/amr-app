@@ -88,7 +88,6 @@ export default function BookingInternalEmail(
     siteAddressLine1,
     siteAddressCity,
     depositPaid,
-    opsUrl,
   } = props;
 
   const dateRange = fmtRangeLisbon(startYmd, endYmd);
@@ -145,17 +144,6 @@ export default function BookingInternalEmail(
                   {siteAddressCity ? `, ${siteAddressCity}` : ""}
                 </span>
               </p>
-            ) : null}
-
-            {opsUrl ? (
-              <>
-                <hr style={styles.hr} />
-                <p style={styles.p}>
-                  <a href={opsUrl} style={styles.link}>
-                    Open in Ops
-                  </a>
-                </p>
-              </>
             ) : null}
 
             <hr style={styles.hr} />
