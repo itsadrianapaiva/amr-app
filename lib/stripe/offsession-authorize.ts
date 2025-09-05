@@ -28,6 +28,25 @@ function paymentMethodIdFromSession(
   return pm ? (typeof pm === "string" ? pm : (pm.id ?? null)) : null;
 }
 
+/** Fallback: if the PI doesn't expose a payment_method, pick the newest card on the Customer. */
+async function fallbackPaymentMethodIdForCustomer(
+  customerId: string
+): Promise<string | null> {
+  try {
+    const stripe = getStripe();
+    const list = await stripe.paymentMethods.list({
+      customer: customerId,
+      type: "card",
+      limit: 1,
+    });
+    const first = list.data?.[0];
+    return first?.id ?? null;
+  } catch (e) {
+    console.debug("[auth] paymentMethods.list failed", e);
+    return null;
+  }
+}
+
 /**
  * attemptOffSessionAuthorizationForBooking
  * - Computes remaining amount from DB.
@@ -54,21 +73,49 @@ export async function attemptOffSessionAuthorizationForBooking(
     });
     if (!booking) return { kind: "error", message: "Booking not found." };
     if (booking.authorizedPaymentIntentId) {
+      console.debug("[auth] skip: already_authorized", { bookingId });
       return { kind: "skipped", reason: "already_authorized" };
     }
 
     const totalEuros = Number(booking.totalCost);
     const depositEuros = Number(booking.machine.deposit);
     const remainingEuros = Math.max(0, totalEuros - depositEuros);
-    if (remainingEuros <= 0) return { kind: "skipped", reason: "no_remaining" };
+
+    if (remainingEuros <= 0) {
+      console.debug("[auth] skip: no_remaining", {
+        bookingId,
+        totalEuros,
+        depositEuros,
+      });
+      return { kind: "skipped", reason: "no_remaining" };
+    }
 
     // 2) Pull Customer + the exact card used for the deposit (saved by setup_future_usage).
     const customerId =
       typeof session.customer === "string"
         ? session.customer
         : (session.customer?.id ?? null);
-    const paymentMethodId = paymentMethodIdFromSession(session);
+
+    let paymentMethodId = paymentMethodIdFromSession(session);
+
+    // Robust fallback: if PI doesn't expose it, fetch the newest card on the customer.
+    if (!paymentMethodId && customerId) {
+      paymentMethodId = await fallbackPaymentMethodIdForCustomer(customerId);
+      if (paymentMethodId) {
+        console.debug("[auth] using fallback PM from customer", {
+          bookingId,
+          customerId,
+          paymentMethodId,
+        });
+      }
+    }
+
     if (!customerId || !paymentMethodId) {
+      console.debug("[auth] skip: missing_customer_or_pm", {
+        bookingId,
+        hasCustomer: !!customerId,
+        hasPM: !!paymentMethodId,
+      });
       // Missing identity to try off-session -> fall back to a customer-facing auth Checkout
       return await buildFallbackAuth(booking, remainingEuros, customerId);
     }
@@ -98,6 +145,11 @@ export async function attemptOffSessionAuthorizationForBooking(
         paymentIntentId: intent.id,
         amountCents: intent.amount_capturable,
       });
+      console.debug("[auth] capturable", {
+        bookingId,
+        intent: intent.id,
+        capturable: intent.amount_capturable,
+      });
       return {
         kind: "capturable",
         paymentIntentId: intent.id,
@@ -107,14 +159,22 @@ export async function attemptOffSessionAuthorizationForBooking(
 
     // 5) SCA needed -> build an authorization Checkout to complete verification.
     if (intent.status === "requires_action") {
+      console.debug("[auth] requires_action → building fallback Checkout", {
+        bookingId,
+      });
       return await buildFallbackAuth(booking, remainingEuros, customerId);
     }
 
     // Any other unexpected state: fall back gracefully.
+    console.debug("[auth] unexpected PI status → fallback", {
+      bookingId,
+      status: intent.status,
+    });
     return await buildFallbackAuth(booking, remainingEuros, customerId);
   } catch (err: any) {
     // Typical off-session failures include 'authentication_required' or 'card_declined'.
     const code: string | undefined = err?.code ?? err?.raw?.code;
+    console.debug("[auth] error", { bookingId, code, message: err?.message });
     if (code === "authentication_required" || code === "card_declined") {
       const booking = await db.booking.findUnique({
         where: { id: bookingId },
