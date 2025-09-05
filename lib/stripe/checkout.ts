@@ -5,7 +5,7 @@ import type Stripe from "stripe";
 import { formatISO } from "date-fns";
 import { toMoney } from "@/lib/stripe";
 
-/* ---------------------------- small helpers ---------------------------- */
+/*  small helpers  */
 
 function isoDate(d: Date) {
   return formatISO(d, { representation: "date" });
@@ -18,7 +18,7 @@ function lineDesc(start?: string, end?: string, days?: number) {
   return `Dates: ${start} to ${end}${span}`;
 }
 
-/* ------------------------------- DEPOSIT ------------------------------- */
+/*  DEPOSIT  */
 
 export type BuildDepositSessionArgs = {
   bookingId: number;
@@ -74,7 +74,7 @@ export function buildDepositCheckoutSessionParams(
     payment_intent_data: {
       metadata: baseMetadata,
       receipt_email: customerEmail,
-      // ⬇️ NEW: save the card for off-session (lets us try a silent authorization later)
+      // save the card for off-session (lets us try a silent authorization later)
       setup_future_usage: "off_session",
     },
 
@@ -102,20 +102,37 @@ export function buildDepositCheckoutSessionParams(
   };
 }
 
-/* ----------------------- BALANCE AUTHORIZATION (HOLD) ------------------ */
+/*  BALANCE AUTHORIZATION (HOLD)  */
 
 export type BuildBalanceAuthorizationArgs = {
   bookingId: number;
   machine: { id: number; name: string };
+
   /** Optional for description shown in Stripe UI */
   from?: Date;
   to?: Date;
   days?: number;
+
   /** Remaining balance (in euros) to AUTHORIZE now (manual capture later) */
   authorizeEuros: number;
   customerEmail: string;
   appUrl: string;
+
+  /** bind session to an existing Stripe Customer (keeps identity coherent) */
+  customerId?: string;
+
+  /** allow caller to override success/cancel URLs for customer vs ops contexts */
+  successUrlOverride?: string;
+  cancelUrlOverride?: string;
 };
+
+/**
+ * buildBalanceAuthorizationCheckoutSessionParams
+ * - **Authorization only** (manual capture).
+ * - Flags flow to webhook via metadata.flow = 'balance_authorize'.
+ * - Mirrors metadata to Session and PaymentIntent.
+ * - Now supports URL override & binding to existing Customer.
+ */
 
 export function buildBalanceAuthorizationCheckoutSessionParams(
   args: BuildBalanceAuthorizationArgs
@@ -129,11 +146,15 @@ export function buildBalanceAuthorizationCheckoutSessionParams(
     authorizeEuros,
     customerEmail,
     appUrl,
+    customerId,
+    successUrlOverride,
+    cancelUrlOverride,
   } = args;
 
   const startDate = from ? isoDate(from) : undefined;
   const endDate = to ? isoDate(to) : undefined;
 
+  // Webhook flow marker + booking facts
   const baseMetadata = {
     bookingId: String(bookingId),
     machineId: String(machine.id),
@@ -143,22 +164,33 @@ export function buildBalanceAuthorizationCheckoutSessionParams(
     ...(typeof days === "number" ? { days: String(days) } : {}),
   };
 
+  // ⬇Default to customer-facing success page if overrides provided, otherwise OPS dev defaults
+  const defaultSuccess = `${appUrl}/ops/success?booking_id=${bookingId}&session_id={CHECKOUT_SESSION_ID}`;
+  const defaultCancel = `${appUrl}/ops?auth=cancelled&booking_id=${bookingId}`;
+
+  const success_url =
+    successUrlOverride ??
+    // Customer-friendly fallback: land back on booking success with an auth flag
+    `${appUrl}/booking/success?booking_id=${bookingId}&session_id={CHECKOUT_SESSION_ID}&auth=1`;
+
+  const cancel_url = cancelUrlOverride ?? defaultCancel;
+
   return {
     mode: "payment",
-
-    // Card-only so manual capture works (prevents MB WAY/Multibanco here).
-    payment_method_types: ["card"],
-
     customer_creation: "always",
+    // If we know the Customer, set it explicitly to prevent duplicate customers
+    ...(customerId ? { customer: customerId } : {}),
+
     billing_address_collection: "auto",
     phone_number_collection: { enabled: false },
     tax_id_collection: { enabled: false },
 
     customer_email: customerEmail,
 
+    // Mirror metadata & switch to manual capture for an authorization (hold)
     metadata: baseMetadata,
     payment_intent_data: {
-      capture_method: "manual", // Authorization (hold), not capture
+      capture_method: "manual",
       receipt_email: customerEmail,
       metadata: baseMetadata,
     },
@@ -178,10 +210,7 @@ export function buildBalanceAuthorizationCheckoutSessionParams(
       },
     ],
 
-    // ⬇️ On auth success, hand off to a customer route that will start the deposit Checkout.
-    success_url: `${appUrl}/booking/authorize-success?booking_id=${bookingId}&session_id={CHECKOUT_SESSION_ID}`,
-
-    // ⬇️ On cancel, return customer to the machine page (same as the deposit flow).
-    cancel_url: `${appUrl}/machine/${machine.id}?checkout=cancelled`,
+    success_url,
+    cancel_url,
   };
 }

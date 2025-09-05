@@ -69,7 +69,8 @@ export async function attemptOffSessionAuthorizationForBooking(
         : (session.customer?.id ?? null);
     const paymentMethodId = paymentMethodIdFromSession(session);
     if (!customerId || !paymentMethodId) {
-      return await buildFallbackAuth(booking, remainingEuros);
+      // Missing identity to try off-session -> fall back to a customer-facing auth Checkout
+      return await buildFallbackAuth(booking, remainingEuros, customerId);
     }
 
     // 3) Attempt a silent off-session authorization (manual capture).
@@ -106,11 +107,11 @@ export async function attemptOffSessionAuthorizationForBooking(
 
     // 5) SCA needed -> build an authorization Checkout to complete verification.
     if (intent.status === "requires_action") {
-      return await buildFallbackAuth(booking, remainingEuros);
+      return await buildFallbackAuth(booking, remainingEuros, customerId);
     }
 
     // Any other unexpected state: fall back gracefully.
-    return await buildFallbackAuth(booking, remainingEuros);
+    return await buildFallbackAuth(booking, remainingEuros, customerId);
   } catch (err: any) {
     // Typical off-session failures include 'authentication_required' or 'card_declined'.
     const code: string | undefined = err?.code ?? err?.raw?.code;
@@ -131,14 +132,20 @@ export async function attemptOffSessionAuthorizationForBooking(
           0,
           Number(booking.totalCost) - Number(booking.machine.deposit)
         );
-        return await buildFallbackAuth(booking, remainingEuros);
+        return await buildFallbackAuth(
+          booking,
+          remainingEuros,
+          typeof session.customer === "string"
+            ? session.customer
+            : (session.customer?.id ?? null)
+        );
       }
     }
     return { kind: "error", message: "Authorization attempt failed." };
   }
 }
 
-/** Builds a card-only authorization Checkout Session and returns its URL. */
+/** Builds a card-only authorization Checkout Session and returns its URL (customer-facing). */
 async function buildFallbackAuth(
   booking: {
     id: number;
@@ -148,12 +155,17 @@ async function buildFallbackAuth(
     endDate: Date;
     machine: { id: number; name: string; deposit: any };
   },
-  remainingEuros: number
+  remainingEuros: number,
+  customerId: string | null
 ): Promise<OffSessionAuthResult> {
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.APP_URL ||
     "http://localhost:3000";
+
+  // Customer-friendly URLs (success returns to booking success; cancel returns to machine page).
+  const successUrl = `${appUrl}/booking/success?booking_id=${booking.id}&session_id={CHECKOUT_SESSION_ID}&auth=1`;
+  const cancelUrl = `${appUrl}/machine/${booking.machine.id}?auth_cancelled=1&booking_id=${booking.id}`;
 
   const params = buildBalanceAuthorizationCheckoutSessionParams({
     bookingId: booking.id,
@@ -163,6 +175,11 @@ async function buildFallbackAuth(
     authorizeEuros: remainingEuros,
     customerEmail: booking.customerEmail,
     appUrl,
+    // bind to same Customer to avoid creating new customers in fallback
+    customerId: customerId ?? undefined,
+    // explicit customer-facing URLs (avoid /ops)
+    successUrlOverride: successUrl,
+    cancelUrlOverride: cancelUrl,
   });
 
   const session = await createCheckoutSessionWithGuards(params, {
