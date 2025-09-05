@@ -128,15 +128,23 @@ export type BuildBalanceAuthorizationArgs = {
 
 /**
  * buildBalanceAuthorizationCheckoutSessionParams
- * - **Authorization only** (manual capture).
- * - Flags flow to webhook via metadata.flow = 'balance_authorize'.
- * - Mirrors metadata to Session and PaymentIntent.
- * - Now supports URL override & binding to existing Customer.
+ * - Manual-capture Checkout (authorization only).
+ * - If `customerId` is provided, DO NOT send `customer_email`/`customer_creation`.
+ * - Otherwise, send `customer_email` and let Checkout create/attach a Customer.
  */
-
-export function buildBalanceAuthorizationCheckoutSessionParams(
-  args: BuildBalanceAuthorizationArgs
-): Stripe.Checkout.SessionCreateParams {
+export function buildBalanceAuthorizationCheckoutSessionParams(args: {
+  bookingId: number;
+  machine: { id: number; name: string };
+  from?: Date;
+  to?: Date;
+  days?: number;
+  authorizeEuros: number;
+  customerEmail: string;
+  appUrl: string;
+  customerId?: string;
+  successUrlOverride?: string;
+  cancelUrlOverride?: string;
+}): Stripe.Checkout.SessionCreateParams {
   const {
     bookingId,
     machine,
@@ -151,10 +159,11 @@ export function buildBalanceAuthorizationCheckoutSessionParams(
     cancelUrlOverride,
   } = args;
 
-  const startDate = from ? isoDate(from) : undefined;
-  const endDate = to ? isoDate(to) : undefined;
+  const startDate = from
+    ? new Date(from).toISOString().slice(0, 10)
+    : undefined;
+  const endDate = to ? new Date(to).toISOString().slice(0, 10) : undefined;
 
-  // Webhook flow marker + booking facts
   const baseMetadata = {
     bookingId: String(bookingId),
     machineId: String(machine.id),
@@ -164,30 +173,32 @@ export function buildBalanceAuthorizationCheckoutSessionParams(
     ...(typeof days === "number" ? { days: String(days) } : {}),
   };
 
-  // ⬇Default to customer-facing success page if overrides provided, otherwise OPS dev defaults
-  const defaultSuccess = `${appUrl}/ops/success?booking_id=${bookingId}&session_id={CHECKOUT_SESSION_ID}`;
-  const defaultCancel = `${appUrl}/ops?auth=cancelled&booking_id=${bookingId}`;
-
   const success_url =
     successUrlOverride ??
-    // Customer-friendly fallback: land back on booking success with an auth flag
     `${appUrl}/booking/success?booking_id=${bookingId}&session_id={CHECKOUT_SESSION_ID}&auth=1`;
+  const cancel_url =
+    cancelUrlOverride ??
+    `${appUrl}/machine/${machine.id}?auth_cancelled=1&booking_id=${bookingId}`;
 
-  const cancel_url = cancelUrlOverride ?? defaultCancel;
+  // IMPORTANT: choose exactly ONE of `customer` OR `customer_email` (+customer_creation) 
+  const customerIdentity = customerId
+    ? { customer: customerId } // bind to existing Customer
+    : {
+        customer_email: customerEmail, // let Checkout create/attach
+        customer_creation: "always" as const,
+      };
 
   return {
     mode: "payment",
-    customer_creation: "always",
-    // If we know the Customer, set it explicitly to prevent duplicate customers
-    ...(customerId ? { customer: customerId } : {}),
+
+    // identity (mutually exclusive)
+    ...customerIdentity,
 
     billing_address_collection: "auto",
     phone_number_collection: { enabled: false },
     tax_id_collection: { enabled: false },
 
-    customer_email: customerEmail,
-
-    // Mirror metadata & switch to manual capture for an authorization (hold)
+    // mirror metadata, manual capture
     metadata: baseMetadata,
     payment_intent_data: {
       capture_method: "manual",
@@ -200,10 +211,18 @@ export function buildBalanceAuthorizationCheckoutSessionParams(
     line_items: [
       {
         price_data: {
-          ...toMoney(authorizeEuros),
+          unit_amount: Math.round(authorizeEuros * 100),
+          currency: "eur",
           product_data: {
             name: `Balance authorization - ${machine.name}`,
-            description: lineDesc(startDate, endDate, days),
+            description:
+              startDate && endDate
+                ? `Dates: ${startDate} to ${endDate}${
+                    typeof days === "number"
+                      ? ` (${days} day${days > 1 ? "s" : ""})`
+                      : ""
+                  }`
+                : "Remaining balance",
           },
         },
         quantity: 1,
