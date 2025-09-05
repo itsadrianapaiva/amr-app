@@ -1,4 +1,3 @@
-// File: lib/stripe/checkout.ts
 // Pure builders for Stripe Checkout Session params (no network calls).
 // Keep functions tiny, predictable, and testable. Server-only import recommended.
 
@@ -149,6 +148,9 @@ export function buildBalanceAuthorizationCheckoutSessionParams(
 
   return {
     mode: "payment",
+    // Force a manual-capture capable method only
+    payment_method_types: ["card"],
+
     customer_creation: "always",
     billing_address_collection: "auto",
     phone_number_collection: { enabled: false },
