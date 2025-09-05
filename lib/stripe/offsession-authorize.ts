@@ -4,7 +4,7 @@
 import { db } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
 import { upsertBalanceAuthorization } from "@/lib/stripe/webhook-service";
-import { buildBalanceAuthorizationCheckoutSessionParams } from "@/lib/stripe/checkout";
+import { buildBalanceAuthorizationCheckoutSessionParams } from "@/lib/stripe/checkout.auth";
 import { createCheckoutSessionWithGuards } from "@/lib/stripe/create-session";
 import type Stripe from "stripe";
 

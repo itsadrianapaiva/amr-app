@@ -10,10 +10,8 @@ import { getMachineById } from "@/lib/data";
 import { parseBookingInput } from "@/lib/booking/parse-input";
 import { computeTotals } from "@/lib/pricing";
 import { INSURANCE_CHARGE, OPERATOR_CHARGE } from "@/lib/config";
-import {
-  buildDepositCheckoutSessionParams,
-  buildBalanceAuthorizationCheckoutSessionParams, // ⬅️ NEW
-} from "@/lib/stripe/checkout";
+import { buildDepositCheckoutSessionParams } from "@/lib/stripe/checkout.deposit";
+import { buildBalanceAuthorizationCheckoutSessionParams } from "@/lib/stripe/checkout.auth";
 import { createCheckoutSessionWithGuards } from "@/lib/stripe/create-session";
 import { checkServiceArea } from "@/lib/geo/check-service-area";
 import { tomorrowStartLisbonUTC } from "@/lib/dates/lisbon";
