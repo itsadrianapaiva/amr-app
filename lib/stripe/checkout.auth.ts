@@ -1,8 +1,8 @@
 // Builds Stripe Checkout Session params for the BALANCE AUTHORIZATION (manual-capture) flow.
-// Pure: no network calls. Behavior unchanged from the original builder.
+// Pure: no network calls.
 
 import type Stripe from "stripe";
-import { isoDate, lineDesc } from "@/lib/stripe/checkout";
+import { isoDate, lineDesc } from "./checkout";
 
 /* Types */
 
@@ -26,12 +26,14 @@ export type BuildBalanceAuthorizationArgs = {
   /** Allow caller to override success/cancel URLs for customer vs ops contexts */
   successUrlOverride?: string;
   cancelUrlOverride?: string;
+
+  /** Optional copy shown under the submit button to clarify “verification only”. */
+  customTextMessage?: string;
 };
 
 /**
  * Manual-capture Checkout (authorization only).
  * IMPORTANT: choose exactly ONE of `customer` OR `customer_email` (+customer_creation).
- * Behavior kept identical to the original implementation (no extra payment_method_types/custom_text added here).
  */
 export function buildBalanceAuthorizationCheckoutSessionParams(
   args: BuildBalanceAuthorizationArgs
@@ -48,6 +50,7 @@ export function buildBalanceAuthorizationCheckoutSessionParams(
     customerId,
     successUrlOverride,
     cancelUrlOverride,
+    customTextMessage,
   } = args;
 
   const startDate = from ? isoDate(from) : undefined;
@@ -74,6 +77,11 @@ export function buildBalanceAuthorizationCheckoutSessionParams(
     ? { customer: customerId }
     : { customer_email: customerEmail, customer_creation: "always" as const };
 
+  // Clear, reassuring copy under the submit button
+  const submitMessage =
+    customTextMessage ??
+    "Verification only — no additional charge today. A temporary hold may appear and will be released if not captured.";
+
   return {
     mode: "payment",
 
@@ -90,23 +98,31 @@ export function buildBalanceAuthorizationCheckoutSessionParams(
       capture_method: "manual",
       receipt_email: customerEmail,
       metadata: baseMetadata,
+      description: `Card verification (no charge today) for booking ${bookingId}`, // also visible in Stripe UI
     },
 
     client_reference_id: String(bookingId),
 
+    // Force card-only so users don't see non-holdable methods
+    payment_method_types: ["card"],
+
+    // Crystal-clear line item name to avoid “second charge” perception
     line_items: [
       {
         price_data: {
           unit_amount: Math.round(authorizeEuros * 100),
           currency: "eur",
           product_data: {
-            name: `Balance authorization - ${machine.name}`,
+            name: `Card verification — balance authorization for ${machine.name} (no charge today)`,
             description: lineDesc(startDate, endDate, days),
           },
         },
         quantity: 1,
       },
     ],
+
+    // Copy shown under the submit button on the Checkout page
+    custom_text: { submit: { message: submitMessage } },
 
     success_url,
     cancel_url,

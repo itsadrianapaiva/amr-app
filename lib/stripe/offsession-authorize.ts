@@ -167,6 +167,11 @@ async function buildFallbackAuth(
   const successUrl = `${appUrl}/booking/success?booking_id=${booking.id}&session_id={CHECKOUT_SESSION_ID}&auth=1`;
   const cancelUrl = `${appUrl}/machine/${booking.machine.id}?auth_cancelled=1&booking_id=${booking.id}`;
 
+  // Crystal-clear reassurance shown under the submit button in Checkout.
+  const submitMsg = `Verification only — no additional charge today. We’ll place a temporary hold up to €${remainingEuros.toFixed(
+    2
+  )}. It’s captured only after your rental.`;
+
   const params = buildBalanceAuthorizationCheckoutSessionParams({
     bookingId: booking.id,
     machine: { id: booking.machine.id, name: booking.machine.name },
@@ -180,6 +185,8 @@ async function buildFallbackAuth(
     // explicit customer-facing URLs (avoid /ops)
     successUrlOverride: successUrl,
     cancelUrlOverride: cancelUrl,
+    // NEW: show explicit “verification only” copy on the second page
+    customTextMessage: submitMsg,
   });
 
   const session = await createCheckoutSessionWithGuards(params, {

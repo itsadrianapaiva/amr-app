@@ -3,64 +3,44 @@ import { BookingStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
 import ClearBookingDraft from "@/components/booking/clear-draft-on-mount";
+import AuthVerifiedBanner from "@/components/booking/auth-verified-banner";
 
 import { attemptOffSessionAuthorizationForBooking } from "@/lib/stripe/offsession-authorize";
+import {
+  getMetaFromCheckoutSession,
+  getPaymentIntentId,
+  isPaymentComplete,
+  type MinimalCheckoutSession,
+} from "@/lib/stripe/checkout-session";
 
 // Ensure Node runtime for Stripe
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  searchParams: Promise<{ session_id?: string }>;
+  // include ?auth=1 for the SCA fallback return path
+  searchParams: Promise<{ session_id?: string; auth?: string }>;
 };
 
-// Helper: Read metadata we set on the Checkout Session
-function getMeta(session: any) {
-  const m = session?.metadata ?? {};
-  return {
-    bookingId: Number(session?.client_reference_id),
-    machineId: m.machineId ? Number(m.machineId) : undefined,
-    startDate: m.startDate as string | undefined,
-    endDate: m.endDate as string | undefined,
-  };
-}
-
-// Helper: normalize PI id regardless of expand behavior
-function paymentIntentId(session: any): string | null {
-  const pi = session?.payment_intent;
-  if (!pi) return null;
-  return typeof pi === "string" ? pi : (pi.id ?? null);
-}
-
-// Safely check if the PaymentIntent succeeded without violating the union
-function paymentIntentSucceeded(session: any): boolean {
-  const pi = session?.payment_intent;
-  return typeof pi === "object" && pi?.status === "succeeded";
-}
-
 export default async function SuccessPage({ searchParams }: PageProps) {
-  const { session_id } = await searchParams;
+  const { session_id, auth } = await searchParams;
   const sessionId = session_id;
+  const showAuthBanner = auth === "1";
 
-  if (!sessionId) {
-    redirect("/");
-  }
+  if (!sessionId) redirect("/");
 
   const stripe = getStripe();
 
-  // Retrieve the Checkout Session and expand payment_intent if possible
+  // Retrieve the Checkout Session (expand PI so our helpers can read status/id)
   const session = await stripe.checkout.sessions.retrieve(sessionId, {
     expand: ["payment_intent"],
   });
+  const s: MinimalCheckoutSession = session as unknown as MinimalCheckoutSession;
 
-  // Use helper to avoid direct property access on a union
-  const paid =
-    session.payment_status === "paid" ||
-    session.status === "complete" ||
-    paymentIntentSucceeded(session);
-
-  const piId = paymentIntentId(session);
-  const { bookingId, machineId, startDate, endDate } = getMeta(session);
+  // Unified “paid” check + PI id + booking-related metadata
+  const paid = isPaymentComplete(s);
+  const piId = getPaymentIntentId(s);
+  const { bookingId, machineId, startDate, endDate } = getMetaFromCheckoutSession(s);
 
   // If we lack booking id, render minimal info
   if (!Number.isFinite(bookingId)) {
@@ -68,8 +48,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
       <div className="mx-auto max-w-2xl space-y-6 p-6">
         <h1 className="text-2xl font-semibold">Payment received</h1>
         <p className="text-sm text-gray-700">
-          We could not match your booking automatically. Our team will follow
-          up.
+          We could not match your booking automatically. Our team will follow up.
         </p>
         <div className="flex items-center gap-3 pt-2">
           <a href="/" className="underline">
@@ -90,19 +69,13 @@ export default async function SuccessPage({ searchParams }: PageProps) {
         status: true,
         depositPaid: true,
         stripePaymentIntentId: true,
-        holdExpiresAt: true, //clear this on success
+        holdExpiresAt: true, // clear this on success
       },
     });
-
     if (!existing) return;
 
     // Promote if paid and not already recorded (webhook may be slow)
-    if (
-      paid &&
-      !existing.depositPaid &&
-      !existing.stripePaymentIntentId &&
-      piId
-    ) {
+    if (paid && !existing.depositPaid && !existing.stripePaymentIntentId && piId) {
       await tx.booking.update({
         where: { id: bookingId },
         data: {
@@ -117,10 +90,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
     }
 
     // If already CONFIRMED (likely via webhook) but the hold timestamp lingers, clear it.
-    if (
-      existing.status === BookingStatus.CONFIRMED &&
-      existing.holdExpiresAt !== null
-    ) {
+    if (existing.status === BookingStatus.CONFIRMED && existing.holdExpiresAt !== null) {
       await tx.booking.update({
         where: { id: bookingId },
         data: { holdExpiresAt: null },
@@ -131,10 +101,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
   // Best-effort revalidation via API route (allowed outside render)
   if (didPromote) {
     const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.APP_URL ||
-      "http://localhost:3000";
-
+      process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000";
     try {
       const body = typeof machineId === "number" ? { machineId } : {};
       await fetch(`${appUrl}/api/revalidate-after-confirm`, {
@@ -148,49 +115,55 @@ export default async function SuccessPage({ searchParams }: PageProps) {
     }
   }
 
-  // Lean off-session authorization: delegate to the tiny service.
-  // It will either (a) store the capturable PI and return 'capturable',
-  // (b) return a fallback Checkout URL for SCA ('requires_action'), or
-  // (c) skip when already authorized / no remaining / missing customer/pm.
+  // Attempt off-session authorization; if SCA is required, redirect to the verification Checkout
   if (paid) {
-    const result = await attemptOffSessionAuthorizationForBooking(
-      bookingId,
-      session
-    );
-
+    const result = await attemptOffSessionAuthorizationForBooking(bookingId, session);
     if (result.kind === "requires_action") {
-      // Clear UX: this page is a quick verification, not a second charge.
+      // Clear UX: next page is a quick verification, not a second charge.
       redirect(result.checkoutUrl);
     }
     // For 'capturable' | 'skipped' | 'error' we simply continue to render the success UI.
+  }
+
+  // Compute banner amount when coming back from verification (?auth=1)
+  let holdAmountEuros: number | undefined;
+  if (showAuthBanner) {
+    const b = await db.booking.findUnique({
+      where: { id: bookingId },
+      select: { totalCost: true, machine: { select: { deposit: true } } },
+    });
+    if (b) {
+      const total = Number(b.totalCost);
+      const deposit = Number(b.machine.deposit);
+      holdAmountEuros = Math.max(0, total - deposit);
+    }
   }
 
   // ——— UI
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
       {/* clear the per-machine draft now that we're on the success page */}
-      {typeof machineId === "number" && (
-        <ClearBookingDraft machineId={machineId} />
-      )}
+      {typeof machineId === "number" && <ClearBookingDraft machineId={machineId} />}
+
+      {/* Show a gentle, explicit banner after SCA verification */}
+      <AuthVerifiedBanner visible={showAuthBanner} amountEuros={holdAmountEuros} />
 
       <h1 className="text-2xl font-semibold">Booking confirmed</h1>
       <p className="text-sm text-gray-700">
-        Thank you. Your deposit was processed successfully. We’re securing your
-        card for the remaining balance (like a hotel hold). This isn’t another
-        charge.
+        Thank you. Your deposit was processed successfully. We’re securing your card for the
+        remaining balance (like a hotel hold). This isn’t another charge.
       </p>
 
       <div className="rounded-md border bg-gray-50 p-4 text-sm text-gray-800">
         <div className="space-y-1">
           <p>
-            Booking ID:{" "}
-            <span className="font-medium text-foreground">{bookingId}</span>
+            Booking ID: <span className="font-medium text-foreground">{bookingId}</span>
           </p>
           {startDate && endDate && (
             <p>
               Dates:{" "}
-              <span className="font-medium text-foreground">{startDate}</span>{" "}
-              to <span className="font-medium text-foreground">{endDate}</span>
+              <span className="font-medium text-foreground">{startDate}</span> to{" "}
+              <span className="font-medium text-foreground">{endDate}</span>
             </p>
           )}
         </div>
