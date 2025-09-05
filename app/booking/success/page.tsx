@@ -3,6 +3,7 @@ import { BookingStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
 import ClearBookingDraft from "@/components/booking/clear-draft-on-mount";
+import { createBalanceAuthorization } from "@/app/actions/create-balance-authorization";
 
 // Ensure Node runtime for Stripe
 export const runtime = "nodejs";
@@ -27,7 +28,7 @@ function getMeta(session: any) {
 function paymentIntentId(session: any): string | null {
   const pi = session?.payment_intent;
   if (!pi) return null;
-  return typeof pi === "string" ? pi : pi.id ?? null;
+  return typeof pi === "string" ? pi : (pi.id ?? null);
 }
 
 // Safely check if the PaymentIntent succeeded without violating the union
@@ -88,7 +89,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
         status: true,
         depositPaid: true,
         stripePaymentIntentId: true,
-        holdExpiresAt: true, // <-- NEW: we need to see if a hold remains
+        holdExpiresAt: true,
       },
     });
 
@@ -107,7 +108,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
           stripePaymentIntentId: piId,
           depositPaid: true,
           status: BookingStatus.CONFIRMED,
-          holdExpiresAt: null, // <-- NEW: clear hold on promotion
+          holdExpiresAt: null,
         },
       });
       didPromote = true;
@@ -121,7 +122,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
     ) {
       await tx.booking.update({
         where: { id: bookingId },
-        data: { holdExpiresAt: null }, // <-- NEW: clear lingering hold
+        data: { holdExpiresAt: null },
       });
     }
   });
@@ -143,6 +144,23 @@ export default async function SuccessPage({ searchParams }: PageProps) {
       });
     } catch {
       // Non-fatal: UI still renders; stale pages will update on next request.
+    }
+  }
+
+  // Immediately start a manual-capture authorization for the remaining balance.
+  // This mirrors a car-rental preauth. The server action is idempotent (uses an idempotency key),
+  // so refreshes won't create duplicate Sessions.
+  if (paid) {
+    try {
+      const auth = await createBalanceAuthorization(bookingId);
+      if (auth.ok) {
+        // Jump straight into Stripe Checkout to place the authorization hold.
+        // Success URL for this auth currently points to /ops/success; we can change that later.
+        redirect(auth.url);
+      }
+      // If it wasn't ok, we fall through and render the page with the message below.
+    } catch {
+      // Ignore and fall through to render; Ops can still run /api/dev/balance-auth if needed.
     }
   }
 
@@ -185,6 +203,23 @@ export default async function SuccessPage({ searchParams }: PageProps) {
           </a>
         )}
       </div>
+
+      {/* If auto-redirect failed for any reason, fallback action for manual trigger */}
+      <form
+        action={async () => {
+          "use server";
+          const res = await createBalanceAuthorization(bookingId);
+          if (res.ok) redirect(res.url);
+          redirect("/");
+        }}
+      >
+        <button
+          type="submit"
+          className="mt-4 rounded-md border px-4 py-2 text-sm"
+        >
+          Authorize remaining balance now
+        </button>
+      </form>
     </div>
   );
 }
