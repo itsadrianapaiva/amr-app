@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db";
 import { BookingStatus } from "@prisma/client";
-import { buildBalanceAuthorizationCheckoutSessionParams } from "@/lib/stripe/checkout";
+import { buildBalanceAuthorizationCheckoutSessionParams } from "@/lib/stripe/checkout.auth";
 import { createCheckoutSessionWithGuards } from "@/lib/stripe/create-session";
 
 export type CreateBalanceAuthResult =

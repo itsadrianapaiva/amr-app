@@ -3,7 +3,7 @@
 
 import type Stripe from "stripe";
 import { toMoney } from "@/lib/stripe";
-import { isoDate, lineDesc } from "./checkout"; // ⬅️ CHANGED: import helpers from checkout.ts
+import { isoDate, lineDesc } from "./checkout";
 
 /* Types */
 
