@@ -1,207 +1,38 @@
-// File: lib/stripe/webhook-handlers.ts
-// Flow-aware Stripe webhook handlers. Keeps app/api/stripe/webhook/route.ts tiny.
+// Minimal router + in-file registry. All event logic lives in handlers/* files.
 
 import type Stripe from "stripe";
-import { notifyBookingConfirmed } from "@/lib/notifications/notify-booking-confirmed";
-import {
-  extractSessionFacts,
-  extractPIFacts,
-  promoteBookingToConfirmed,
-  upsertBalanceAuthorization,
-  cancelPendingBooking,
-  ensurePaymentIntentIdFromSession, // ⬅️ NEW: fallback to expand session for PI id
-  type LogFn,
-} from "@/lib/stripe/webhook-service";
+import type { LogFn } from "@/lib/stripe/webhook-service";
 
-/**
- * handleStripeEvent
- * Single entrypoint for all supported Stripe events.
- * `route.ts` should do signature verification, then call this.
- */
-export async function handleStripeEvent(
-  event: Stripe.Event,
-  log: LogFn
-): Promise<void> {
-  switch (event.type) {
-    case "checkout.session.completed": {
-      const session = event.data.object as Stripe.Checkout.Session;
-      const { bookingId, flow, paymentIntentId, amountTotalCents } =
-        extractSessionFacts(session);
+// ---- per-event handlers (each kept <150 LOC) ----
+import { onCheckoutSessionCompleted } from "@/lib/stripe/handlers/checkout/completed";
+import { onCheckoutSessionAsyncPaymentSucceeded } from "@/lib/stripe/handlers/checkout/async-payment-succeeded";
+import { onCheckoutSessionExpired } from "@/lib/stripe/handlers/checkout/expired";
+import { onPaymentIntentCapturableUpdated } from "@/lib/stripe/handlers/payment_intent/capturable-updated";
+import { onPaymentIntentSucceeded } from "@/lib/stripe/handlers/payment_intent/succeeded";
+import { onPaymentIntentFailed } from "@/lib/stripe/handlers/payment_intent/failed";
 
-      if (bookingId == null) {
-        log("completed:no_booking_id", {
-          client_reference_id: session.client_reference_id,
-          metadata: session.metadata,
-        });
-        return;
-      }
+// Uniform handler signature
+type EventHandler = (event: Stripe.Event, log: LogFn) => Promise<void>;
 
-      if (flow === "balance_authorize") {
-        // 🔒 Manual capture: guarantee PI id even if not on payload
-        const piId =
-          paymentIntentId ??
-          (await ensurePaymentIntentIdFromSession(session, log)); // expand ['payment_intent'] if needed
+// Flat registry: event type → handler
+const HANDLERS: Record<string, EventHandler> = {
+  // checkout.*
+  "checkout.session.completed": onCheckoutSessionCompleted,
+  "checkout.session.async_payment_succeeded": onCheckoutSessionAsyncPaymentSucceeded,
+  "checkout.session.expired": onCheckoutSessionExpired,
 
-        log("completed:balance_authorize", {
-          bookingId,
-          sessionId: session.id,
-          piId: piId ?? null,
-          amount_total: amountTotalCents ?? null,
-        });
+  // payment_intent.*
+  "payment_intent.amount_capturable_updated": onPaymentIntentCapturableUpdated,
+  "payment_intent.succeeded": onPaymentIntentSucceeded,
+  "payment_intent.payment_failed": onPaymentIntentFailed,
+};
 
-        await upsertBalanceAuthorization(
-          { bookingId, paymentIntentId: piId, amountCents: amountTotalCents },
-          log
-        );
-        return;
-      }
-
-      // Deposit flow: confirm booking + notify customer
-      log("completed:deposit_promote", {
-        bookingId,
-        sessionId: session.id,
-        piId: paymentIntentId ?? null,
-      });
-      await promoteBookingToConfirmed({ bookingId, paymentIntentId }, log);
-
-      log("notify:start", { bookingId, SEND_EMAILS: process.env.SEND_EMAILS });
-      try {
-        await notifyBookingConfirmed(bookingId, "customer");
-        log("notify:done", { bookingId });
-      } catch (err) {
-        log("notify:error", {
-          bookingId,
-          err: err instanceof Error ? err.message : String(err),
-        });
-      }
-      return;
-    }
-
-    case "payment_intent.amount_capturable_updated": {
-      // Authoritative signal for manual-capture funds readiness
-      const pi = event.data.object as Stripe.PaymentIntent;
-      const { bookingId, flow, amountCapturableCents } = extractPIFacts(pi);
-
-      if (flow !== "balance_authorize") {
-        log("pi.capturable:ignored_flow", { flow });
-        return;
-      }
-      if (!bookingId) {
-        log("pi.capturable:no_booking_id", { metadata: pi.metadata });
-        return;
-      }
-
-      log("pi.capturable:store_auth", {
-        bookingId,
-        piId: pi.id,
-        amount_capturable: amountCapturableCents,
-      });
-
-      await upsertBalanceAuthorization(
-        {
-          bookingId,
-          paymentIntentId: pi.id,
-          amountCents: amountCapturableCents,
-        },
-        log
-      );
-      return;
-    }
-
-    case "payment_intent.succeeded": {
-      const pi = event.data.object as Stripe.PaymentIntent;
-      const { bookingId, flow } = extractPIFacts(pi);
-
-      if (flow === "balance_authorize") {
-        // Balance capture completed later by Ops; nothing to promote here.
-        log("pi.succeeded:balance_capture", { piId: pi.id });
-        return;
-      }
-
-      if (!bookingId) {
-        log("pi.succeeded:no_booking_id", { metadata: pi.metadata });
-        return;
-      }
-
-      log("pi.succeeded:deposit_promote", { bookingId, piId: pi.id });
-      await promoteBookingToConfirmed(
-        { bookingId, paymentIntentId: pi.id },
-        log
-      );
-
-      log("notify:start", { bookingId, SEND_EMAILS: process.env.SEND_EMAILS });
-      try {
-        await notifyBookingConfirmed(bookingId, "customer");
-        log("notify:done", { bookingId });
-      } catch (err) {
-        log("notify:error", {
-          bookingId,
-          err: err instanceof Error ? err.message : String(err),
-        });
-      }
-      return;
-    }
-
-    case "checkout.session.async_payment_succeeded": {
-      // Async methods (wallets/bank transfers) that confirm after the session
-      const session = event.data.object as Stripe.Checkout.Session;
-      const { bookingId, flow, paymentIntentId, amountTotalCents } =
-        extractSessionFacts(session);
-
-      if (!bookingId) {
-        log("async_succeeded:no_booking_id", {
-          client_reference_id: session.client_reference_id,
-          metadata: session.metadata,
-        });
-        return;
-      }
-
-      if (flow === "balance_authorize") {
-        // 🔒 Manual capture (async): guarantee PI id before storing
-        const piId =
-          paymentIntentId ??
-          (await ensurePaymentIntentIdFromSession(session, log));
-
-        log("async_succeeded:balance_authorize", {
-          bookingId,
-          sessionId: session.id,
-          piId: piId ?? null,
-          amount_total: amountTotalCents ?? null,
-        });
-
-        await upsertBalanceAuthorization(
-          { bookingId, paymentIntentId: piId, amountCents: amountTotalCents },
-          log
-        );
-        return;
-      }
-
-      log("async_succeeded:deposit_promote", {
-        bookingId,
-        sessionId: session.id,
-        piId: paymentIntentId ?? null,
-      });
-      await promoteBookingToConfirmed({ bookingId, paymentIntentId }, log);
-      await notifyBookingConfirmed(bookingId, "customer");
-      return;
-    }
-
-    case "checkout.session.expired": {
-      const session = event.data.object as Stripe.Checkout.Session;
-      const { bookingId } = extractSessionFacts(session);
-      if (bookingId == null) {
-        log("expired:no_booking_id", {
-          client_reference_id: session.client_reference_id,
-          metadata: session.metadata,
-        });
-        return;
-      }
-      await cancelPendingBooking(bookingId, log);
-      return;
-    }
-
-    default:
-      log("ignored", { type: event.type });
-      return;
+// Entry point used by app/api/stripe/webhook/route.ts
+export async function handleStripeEvent(event: Stripe.Event, log: LogFn): Promise<void> {
+  const handler = HANDLERS[event.type];
+  if (!handler) {
+    log("ignored", { type: event.type });
+    return;
   }
+  await handler(event, log);
 }

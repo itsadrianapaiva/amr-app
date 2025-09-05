@@ -13,7 +13,7 @@ type PageProps = {
   searchParams: Promise<{ session_id?: string }>;
 };
 
-// Small helper: Read metadata we set on the Checkout Session
+// Helper: Read metadata we set on the Checkout Session
 function getMeta(session: any) {
   const m = session?.metadata ?? {};
   return {
@@ -24,14 +24,14 @@ function getMeta(session: any) {
   };
 }
 
-// Small helper: normalize PI id regardless of expand behavior
+// Helper: normalize PI id regardless of expand behavior
 function paymentIntentId(session: any): string | null {
   const pi = session?.payment_intent;
   if (!pi) return null;
-  return typeof pi === "string" ? pi : (pi.id ?? null);
+  return typeof pi === "string" ? pi : pi.id ?? null;
 }
 
-// Safely check if the PaymentIntent succeeded without violating the union
+// Helper: PaymentIntent succeeded check without violating unions
 function paymentIntentSucceeded(session: any): boolean {
   const pi = session?.payment_intent;
   return typeof pi === "object" && pi?.status === "succeeded";
@@ -40,19 +40,15 @@ function paymentIntentSucceeded(session: any): boolean {
 export default async function SuccessPage({ searchParams }: PageProps) {
   const { session_id } = await searchParams;
   const sessionId = session_id;
-
-  if (!sessionId) {
-    redirect("/");
-  }
+  if (!sessionId) redirect("/");
 
   const stripe = getStripe();
-
-  // Retrieve the Checkout Session and expand payment_intent if possible
+  // Retrieve Session and expand PI when possible
   const session = await stripe.checkout.sessions.retrieve(sessionId, {
     expand: ["payment_intent"],
   });
 
-  // Use helper to avoid direct property access on a union
+  // Determine if deposit is paid
   const paid =
     session.payment_status === "paid" ||
     session.status === "complete" ||
@@ -61,26 +57,22 @@ export default async function SuccessPage({ searchParams }: PageProps) {
   const piId = paymentIntentId(session);
   const { bookingId, machineId, startDate, endDate } = getMeta(session);
 
-  // If we somehow lack booking id, show a simple explanation
+  // If we lack booking id, render minimal info
   if (!Number.isFinite(bookingId)) {
     return (
       <div className="mx-auto max-w-2xl space-y-6 p-6">
         <h1 className="text-2xl font-semibold">Payment received</h1>
         <p className="text-sm text-gray-700">
-          We could not match your booking automatically. Our team will follow
-          up.
+          We could not match your booking automatically. Our team will follow up.
         </p>
         <div className="flex items-center gap-3 pt-2">
-          <a href="/" className="underline">
-            Back to homepage
-          </a>
+          <a href="/" className="underline">Back to homepage</a>
         </div>
       </div>
     );
   }
 
-  // Idempotent promotion to CONFIRMED + always clear lingering hold on success page
-  let didPromote = false;
+  // Idempotent promotion to CONFIRMED + clear lingering hold
   await db.$transaction(async (tx) => {
     const existing = await tx.booking.findUnique({
       where: { id: bookingId },
@@ -92,16 +84,10 @@ export default async function SuccessPage({ searchParams }: PageProps) {
         holdExpiresAt: true,
       },
     });
-
     if (!existing) return;
 
-    // Promote if paid and not already recorded (webhook may be slow)
-    if (
-      paid &&
-      !existing.depositPaid &&
-      !existing.stripePaymentIntentId &&
-      piId
-    ) {
+    // Promote if paid and not yet recorded
+    if (paid && !existing.depositPaid && !existing.stripePaymentIntentId && piId) {
       await tx.booking.update({
         where: { id: bookingId },
         data: {
@@ -111,15 +97,11 @@ export default async function SuccessPage({ searchParams }: PageProps) {
           holdExpiresAt: null,
         },
       });
-      didPromote = true;
       return;
     }
 
-    // If already CONFIRMED (likely via webhook) but the hold timestamp lingers, clear it.
-    if (
-      existing.status === BookingStatus.CONFIRMED &&
-      existing.holdExpiresAt !== null
-    ) {
+    // Clear lingering hold if already confirmed
+    if (existing.status === BookingStatus.CONFIRMED && existing.holdExpiresAt !== null) {
       await tx.booking.update({
         where: { id: bookingId },
         data: { holdExpiresAt: null },
@@ -127,40 +109,19 @@ export default async function SuccessPage({ searchParams }: PageProps) {
     }
   });
 
-  // Best-effort revalidation via API route (allowed outside render)
-  if (didPromote) {
-    const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.APP_URL ||
-      "http://localhost:3000";
-
-    try {
-      const body = typeof machineId === "number" ? { machineId } : {};
-      await fetch(`${appUrl}/api/revalidate-after-confirm`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        cache: "no-store",
-        body: JSON.stringify(body),
-      });
-    } catch {
-      // Non-fatal: UI still renders; stale pages will update on next request.
-    }
-  }
-
   // Immediately start a manual-capture authorization for the remaining balance.
-  // This mirrors a car-rental preauth. The server action is idempotent (uses an idempotency key),
-  // so refreshes won't create duplicate Sessions.
+  // This is idempotent (stable idempotency key in the server action), so refreshes are safe.
   if (paid) {
     try {
       const auth = await createBalanceAuthorization(bookingId);
       if (auth.ok) {
-        // Jump straight into Stripe Checkout to place the authorization hold.
-        // Success URL for this auth currently points to /ops/success; we can change that later.
+        // Auto-redirect to Stripe to place the authorization hold (no customer choice).
+        // Current success_url for this auth goes to /ops/success (fine for MVP).
         redirect(auth.url);
       }
-      // If it wasn't ok, we fall through and render the page with the message below.
+      // If not ok, fall through and show a fallback message.
     } catch {
-      // Ignore and fall through to render; Ops can still run /api/dev/balance-auth if needed.
+      // Fall through to fallback UI.
     }
   }
 
@@ -193,6 +154,11 @@ export default async function SuccessPage({ searchParams }: PageProps) {
         </div>
       </div>
 
+      <p className="text-sm text-gray-700">
+        We’re preparing a card authorization for the remaining balance. If this page
+        does not redirect automatically, our team will get in touch to finalize the hold.
+      </p>
+
       <div className="flex items-center gap-3">
         <a href="/" className="rounded-md bg-black px-4 py-2 text-white">
           Back to homepage
@@ -203,23 +169,6 @@ export default async function SuccessPage({ searchParams }: PageProps) {
           </a>
         )}
       </div>
-
-      {/* If auto-redirect failed for any reason, fallback action for manual trigger */}
-      <form
-        action={async () => {
-          "use server";
-          const res = await createBalanceAuthorization(bookingId);
-          if (res.ok) redirect(res.url);
-          redirect("/");
-        }}
-      >
-        <button
-          type="submit"
-          className="mt-4 rounded-md border px-4 py-2 text-sm"
-        >
-          Authorize remaining balance now
-        </button>
-      </form>
     </div>
   );
 }

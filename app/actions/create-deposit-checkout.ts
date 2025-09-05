@@ -2,13 +2,22 @@
 
 /**
  * Server action: validate booking payload, compute totals, create/reuse a PENDING booking,
- * and create a Stripe Checkout Session for the **deposit** only.
+ * and start the **AUTH-FIRST** flow:
+ *   1) Create a Stripe Checkout Session to **AUTHORIZE** the remaining balance (manual capture, card-only).
+ *   2) On auth success, our handoff page /booking/authorize-success creates the **deposit** Checkout.
+ *
+ * Notes:
+ * - We keep the function name for compatibility with existing callers.
+ * - If remaining balance is zero or negative, we fall back to deposit-only.
  */
 import { getMachineById } from "@/lib/data";
 import { parseBookingInput } from "@/lib/booking/parse-input";
 import { computeTotals } from "@/lib/pricing";
 import { INSURANCE_CHARGE, OPERATOR_CHARGE } from "@/lib/config";
-import { buildDepositCheckoutSessionParams } from "@/lib/stripe/checkout";
+import {
+  buildDepositCheckoutSessionParams,
+  buildBalanceAuthorizationCheckoutSessionParams, // ⬅️ NEW
+} from "@/lib/stripe/checkout";
 import { createCheckoutSessionWithGuards } from "@/lib/stripe/create-session";
 import { checkServiceArea } from "@/lib/geo/check-service-area";
 import { tomorrowStartLisbonUTC } from "@/lib/dates/lisbon";
@@ -106,36 +115,75 @@ export async function createDepositCheckoutAction(
     // This handles: (a) your own abandoned hold → reuse; (b) real conflict → throws OverlapError.
     const booking = await persistPendingBooking(dto);
 
-    // 5) Create Stripe Checkout Session for the deposit only (guarded wrapper)
+    // 5) AUTH-FIRST: compute remaining = total - deposit, and build a manual-capture Checkout.
+    const totalEuros = Number(totals.total);
+    const depositEuros = Number(machine.deposit);
+    const remainingEuros = Math.max(0, totalEuros - depositEuros);
+
     const appUrl =
       process.env.NEXT_PUBLIC_APP_URL ||
       process.env.APP_URL ||
       "http://localhost:3000";
 
-    const sessionParams = buildDepositCheckoutSessionParams({
+    if (remainingEuros > 0) {
+      // Build **authorization** Session (card-only, capture_method: 'manual').
+      const authParams = buildBalanceAuthorizationCheckoutSessionParams({
+        bookingId: booking.id,
+        machine: { id: machine.id, name: machine.name },
+        from,
+        to,
+        days,
+        authorizeEuros: remainingEuros,
+        customerEmail: payload.email,
+        appUrl,
+      });
+
+      const authSession = await createCheckoutSessionWithGuards(authParams, {
+        // Stable idempotency key: avoids duplicate Sessions on refresh.
+        idempotencyKey: `booking-${booking.id}-balance-auth-customer`,
+        log: (event, data) => console.debug(`[stripe] ${event}`, data),
+      });
+
+      if (!authSession.url) {
+        return {
+          ok: false,
+          formError:
+            "Stripe did not return an authorization URL. Please try again.",
+        };
+      }
+
+      // Redirect caller to the **auth** Session; its success_url hands off to deposit.
+      return { ok: true, url: authSession.url };
+    }
+
+    // Edge case: no remaining balance (deposit covers total). Fall back to deposit-only.
+    const depositParams = buildDepositCheckoutSessionParams({
       bookingId: booking.id,
       machine: { id: machine.id, name: machine.name },
       from,
       to,
       days,
-      depositEuros: Number(machine.deposit),
+      depositEuros,
       customerEmail: payload.email,
       appUrl,
     });
 
-    const session = await createCheckoutSessionWithGuards(sessionParams, {
-      idempotencyKey: `booking-${booking.id}-deposit`,
-      log: (event, data) => console.debug(`[stripe] ${event}`, data),
-    });
+    const depositSession = await createCheckoutSessionWithGuards(
+      depositParams,
+      {
+        idempotencyKey: `booking-${booking.id}-deposit`,
+        log: (event, data) => console.debug(`[stripe] ${event}`, data),
+      }
+    );
 
-    if (!session.url) {
+    if (!depositSession.url) {
       return {
         ok: false,
-        formError: "Stripe did not return a checkout URL. Please try again.",
+        formError:
+          "Stripe did not return a checkout URL. Please try again.",
       };
     }
-
-    return { ok: true, url: session.url };
+    return { ok: true, url: depositSession.url };
   } catch (e: any) {
     if (e instanceof LeadTimeError) {
       const friendly = e.earliestAllowedDay.toLocaleDateString("en-GB", {
@@ -164,7 +212,7 @@ export async function createDepositCheckoutAction(
       return { ok: false, formError: e.issues[0]?.message ?? "Invalid input." };
     }
 
-    console.error("createDepositCheckoutAction failed:", e);
+    console.error("createDepositCheckoutAction (auth-first) failed:", e);
     return {
       ok: false,
       formError: "Unexpected server error. Please try again.",
