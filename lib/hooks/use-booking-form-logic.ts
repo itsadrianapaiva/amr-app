@@ -1,25 +1,28 @@
 "use client";
 
 import { useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver, type FieldValues } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { addDays, differenceInCalendarDays } from "date-fns";
+import type { ZodType } from "zod";
 
 import type { DisabledRangeJSON } from "@/lib/availability";
 import type { BookingFormValues } from "@/lib/validation/booking";
 import { startOfLisbonDayUTC } from "@/lib/dates/lisbon";
 
+/** Concrete Zod schema type for this form's values (caller passes an instance). */
+type BookingSchema = ZodType<BookingFormValues>;
+
 /**
- * Centralizes common booking-form wiring:
- * - Computes minStart (tomorrow 00:00 Lisbon) or accepts an override
- * - Initializes RHF with your schema
- * - Derives rentalDays and disabledDays (server + policy)
- *
- * IMPORTANT: We accept the concrete Zod schema INSTANCE from the caller.
- * That keeps generics perfectly aligned with what the container uses.
+ * Narrow shim to stabilize resolver typing across resolver/Zod versions without any.
+ * Localize the cast here so the rest stays strongly typed.
  */
+function typedZodResolver<T extends FieldValues>(schema: unknown): Resolver<T> {
+  return zodResolver(schema as never) as unknown as Resolver<T>;
+}
+
 export function useBookingFormLogic(args: {
-  schema: any; // Zod schema instance for BookingFormValues
+  schema: BookingSchema;
   disabledRangesJSON?: DisabledRangeJSON[];
   /** Optional initial values to avoid post-mount resets in containers */
   defaultValues?: Partial<BookingFormValues>;
@@ -33,19 +36,17 @@ export function useBookingFormLogic(args: {
     minStart: minStartOverride,
   } = args;
 
-  // Base defaults for a pristine form; callers can override via defaultValues
+  // Base defaults for a pristine form. Callers can override via defaultValues.
   const baseDefaults: BookingFormValues = {
     dateRange: { from: undefined, to: undefined },
     name: "",
     email: "",
     phone: "",
     customerNIF: "",
-    // Add-ons live in the schema too; caller may provide them here to override
     deliverySelected: true,
     pickupSelected: true,
     insuranceSelected: true,
     operatorSelected: false,
-    // basic billing defaults
     billingIsBusiness: false,
     billingCompanyName: "",
     billingTaxId: "",
@@ -57,12 +58,12 @@ export function useBookingFormLogic(args: {
 
   const mergedDefaults: BookingFormValues = {
     ...baseDefaults,
-    ...(defaultValues as BookingFormValues | undefined),
+    ...(defaultValues ?? {}),
   };
 
   // Earliest allowed start:
-  // - If caller provided an override (from useDatePolicy), use it.
-  // - Else default to "tomorrow 00:00 Lisbon" (expressed as a UTC Date).
+  // If caller provided an override (from useDatePolicy), use it.
+  // Else default to tomorrow 00:00 Lisbon (as a UTC Date).
   const minStart = useMemo(() => {
     if (minStartOverride) return minStartOverride;
     const todayLisbon = startOfLisbonDayUTC(new Date());
@@ -71,7 +72,7 @@ export function useBookingFormLogic(args: {
 
   // Initialize RHF once, using the provided schema and merged defaults
   const form = useForm<BookingFormValues>({
-    resolver: zodResolver(schema),
+    resolver: typedZodResolver<BookingFormValues>(schema),
     defaultValues: mergedDefaults,
     mode: "onChange",
   });
@@ -83,7 +84,7 @@ export function useBookingFormLogic(args: {
     return differenceInCalendarDays(dateRange.to, dateRange.from) + 1;
   }, [dateRange]);
 
-  // Convert server JSON to Date objects for Calendar "disabled" prop
+  // Convert server JSON to Date objects for Calendar disabled prop
   const serverDisabled = useMemo(
     () =>
       (disabledRangesJSON ?? []).map((r) => ({
