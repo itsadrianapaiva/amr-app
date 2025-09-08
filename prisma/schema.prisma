@@ -38,25 +38,31 @@ model Booking {
   id                         Int                     @id @default(autoincrement())
   machineId                  Int
   machine                    Machine                 @relation(fields: [machineId], references: [id])
+
   startDate                  DateTime
   endDate                    DateTime
   holdExpiresAt              DateTime?               @db.Timestamp(6)
+
   status                     BookingStatus           @default(PENDING)
+
   customerName               String
   customerEmail              String
   customerPhone              String
-  totalCost                  Decimal
-  depositPaid                Boolean                 @default(false)
-  stripePaymentIntentId      String?                 @unique
 
-  authorizedPaymentIntentId  String?                 @unique
-  authorizedAmount           Decimal?
+  totalCost                  Decimal
+  /// Temporarily reused to mean "fully paid" after the pivot.
+  /// (Optional: rename to `paid` in a later migration.)
+  depositPaid           Boolean          @default(false)
+
+  /// PI for the successful full payment (card/MB WAY/SEPA once confirmed).
+  stripePaymentIntentId String?          @unique
 
   customerNIF                String?
 
   insuranceSelected          Boolean                 @default(true)
   deliverySelected           Boolean                 @default(true)
   pickupSelected             Boolean                 @default(true)
+
   billingAddressLine1        String?
   billingCity                String?
   billingCompanyName         String?
@@ -64,7 +70,9 @@ model Booking {
   billingIsBusiness          Boolean                 @default(false)
   billingPostalCode          String?
   billingTaxId               String?
+
   operatorSelected           Boolean                 @default(false)
+
   siteAddressCity            String?
   /// Operational site address (NOT for invoicing)
   siteAddressLine1           String?
@@ -72,6 +80,7 @@ model Booking {
   siteAddressPostalCode      String?
 
   during                     Unsupported("tsrange")? @default(dbgenerated("tsrange(\"startDate\", \"endDate\", '[]'::text)"))
+  
   createdAt                  DateTime                @default(now())
   updatedAt                  DateTime                @updatedAt
 }
@@ -81,17 +90,3 @@ enum BookingStatus {
   CONFIRMED
   CANCELLED
 }
-
-// # ---- Commands (run after saving) ----
-// # Create a safety branch
-// #   git checkout -b chore/prisma-machine-category-and-model
-// # Regenerate & inspect the SQL before applying
-// #   npx prisma generate
-// #   npx prisma migrate dev --create-only --name add_machine_category_model_and_drop_gcal
-// # Review the SQL in prisma/migrations/*/migration.sql, ensure it DOES NOT drop the 'type' column.
-// # If it looks good, apply it:
-// #   npx prisma migrate dev
-// # Or in CI/preview: npx prisma migrate deploy
-// # Then search usages of machine.type in the codebase:
-// #   git grep -n "machine\\.type"
-// # Carefully replace with machine.category where appropriate (avoid unrelated `.type` usages).
