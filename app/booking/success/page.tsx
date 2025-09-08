@@ -3,9 +3,7 @@ import { BookingStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
 import ClearBookingDraft from "@/components/booking/clear-draft-on-mount";
-import AuthVerifiedBanner from "@/components/booking/auth-verified-banner";
 
-import { attemptOffSessionAuthorizationForBooking } from "@/lib/stripe/offsession-authorize";
 import {
   getMetaFromCheckoutSession,
   getPaymentIntentId,
@@ -115,38 +113,12 @@ export default async function SuccessPage({ searchParams }: PageProps) {
     }
   }
 
-  // Attempt off-session authorization; if SCA is required, redirect to the verification Checkout
-  if (paid) {
-    const result = await attemptOffSessionAuthorizationForBooking(bookingId, session);
-    if (result.kind === "requires_action") {
-      // Clear UX: next page is a quick verification, not a second charge.
-      redirect(result.checkoutUrl);
-    }
-    // For 'capturable' | 'skipped' | 'error' we simply continue to render the success UI.
-  }
-
-  // Compute banner amount when coming back from verification (?auth=1)
-  let holdAmountEuros: number | undefined;
-  if (showAuthBanner) {
-    const b = await db.booking.findUnique({
-      where: { id: bookingId },
-      select: { totalCost: true, machine: { select: { deposit: true } } },
-    });
-    if (b) {
-      const total = Number(b.totalCost);
-      const deposit = Number(b.machine.deposit);
-      holdAmountEuros = Math.max(0, total - deposit);
-    }
-  }
-
   // ——— UI
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
       {/* clear the per-machine draft now that we're on the success page */}
       {typeof machineId === "number" && <ClearBookingDraft machineId={machineId} />}
 
-      {/* Show a gentle, explicit banner after SCA verification */}
-      <AuthVerifiedBanner visible={showAuthBanner} amountEuros={holdAmountEuros} />
 
       <h1 className="text-2xl font-semibold">Booking confirmed</h1>
       <p className="text-sm text-gray-700">

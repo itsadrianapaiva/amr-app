@@ -7,7 +7,6 @@ import type { LogFn } from "@/lib/stripe/webhook-service";
 import { onCheckoutSessionCompleted } from "@/lib/stripe/handlers/checkout/completed";
 import { onCheckoutSessionAsyncPaymentSucceeded } from "@/lib/stripe/handlers/checkout/async-payment-succeeded";
 import { onCheckoutSessionExpired } from "@/lib/stripe/handlers/checkout/expired";
-import { onPaymentIntentCapturableUpdated } from "@/lib/stripe/handlers/payment_intent/capturable-updated";
 import { onPaymentIntentSucceeded } from "@/lib/stripe/handlers/payment_intent/succeeded";
 import { onPaymentIntentFailed } from "@/lib/stripe/handlers/payment_intent/failed";
 
@@ -22,7 +21,6 @@ const HANDLERS: Record<string, EventHandler> = {
   "checkout.session.expired": onCheckoutSessionExpired,
 
   // payment_intent.*
-  "payment_intent.amount_capturable_updated": onPaymentIntentCapturableUpdated,
   "payment_intent.succeeded": onPaymentIntentSucceeded,
   "payment_intent.payment_failed": onPaymentIntentFailed,
 };
