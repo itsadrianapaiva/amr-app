@@ -2,12 +2,13 @@
 
 import * as React from "react";
 import { DateRangeInput } from "../booking/date-range-input";
-import type { DateRange as RDPDateRange, Matcher } from "react-day-picker";
+import type { Matcher, DateRange as RDPDateRange } from "react-day-picker";
 
-export type MachineOption = { id: number; name: string };
-
-type DisabledRange = { from: string; to: string };
-type DisabledByMachine = Record<string, DisabledRange[]>;
+import {
+  useOpsBookingForm,
+  type DisabledByMachine,
+  type MachineOption,
+} from "@/lib/ops/use-ops-booking-form";
 
 type Props = {
   machines: MachineOption[];
@@ -22,14 +23,6 @@ type Props = {
   disabledByMachine: DisabledByMachine;
 };
 
-const LISBON_TZ = "Europe/Lisbon";
-
-/**
- * OpsBookingFields
- * Pure presentational form sections for the /ops booking form.
- * Adds client-side stickiness for the machine select and shared DateRangeInput
- * with visual "blocked dates" pulled from the DB.
- */
 export default function OpsBookingFields({
   machines,
   minYmd,
@@ -38,70 +31,16 @@ export default function OpsBookingFields({
   fe,
   disabledByMachine,
 }: Props) {
-  // ——— Sticky machine selection ———
-  const [selectedMachineId, setSelectedMachineId] = React.useState<string>("");
-
-  // Initialize from (1) server-provided values, (2) sessionStorage, (3) prop default.
-  React.useEffect(() => {
-    let initial = values?.machineId ?? "";
-    if (!initial) {
-      try {
-        initial = sessionStorage.getItem("ops.selectedMachineId") || "";
-      } catch {
-        initial = "";
-      }
-    }
-    if (!initial) {
-      initial = machineDefault || "";
-    }
-    setSelectedMachineId(initial);
-  }, [values?.machineId, machineDefault]);
-
-  const onChangeMachine = React.useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const v = e.target.value;
-      setSelectedMachineId(v);
-      try {
-        sessionStorage.setItem("ops.selectedMachineId", v);
-      } catch {
-        /* ignore storage errors (e.g., private mode) */
-      }
-    },
-    []
-  );
-
-  // ——— Date range state (RDPDateRange | undefined) ———
-  const initialRange: RDPDateRange | undefined = React.useMemo(() => {
-    if (values?.startYmd) {
-      return {
-        from: ymdToDate(values.startYmd),
-        to: values?.endYmd ? ymdToDate(values.endYmd) : undefined,
-      };
-    }
-    return undefined;
-  }, [values?.startYmd, values?.endYmd]);
-
-  const [range, setRange] = React.useState<RDPDateRange | undefined>(
-    initialRange
-  );
-
-  // Keep state in sync if server sends new values after a failed submit
-  React.useEffect(() => {
-    setRange(initialRange);
-  }, [initialRange]); // ✅ simpler dep, avoids complex expression warning
-
-  // Build disabled matchers for the selected machine: before min date + booked ranges
-  const minDate = React.useMemo(() => ymdToDate(minYmd), [minYmd]);
-
-  const disabledDays: Matcher[] = React.useMemo(() => {
-    const base: Matcher[] = [{ before: minDate }];
-    const key = selectedMachineId ? String(selectedMachineId) : "";
-    const ranges: Matcher[] = (disabledByMachine?.[key] || []).map((r) => ({
-      from: new Date(r.from),
-      to: new Date(r.to),
-    }));
-    return [...base, ...ranges];
-  }, [minDate, selectedMachineId, disabledByMachine]);
+  // All state + derived values live in the hook (keeps component dumb & lean)
+  const {
+    selectedMachineId,
+    onChangeMachine,
+    range,
+    setRange,
+    disabledDays,
+    startYmdHidden,
+    endYmdHidden,
+  } = useOpsBookingForm({ minYmd, values, machineDefault, disabledByMachine });
 
   return (
     <>
@@ -138,21 +77,13 @@ export default function OpsBookingFields({
             <DateRangeInput
               value={range as unknown as RDPDateRange}
               onChange={(next) => setRange(next as RDPDateRange | undefined)}
-              disabledDays={disabledDays}
+              disabledDays={disabledDays as Matcher[]}
             />
           </div>
 
           {/* Hidden inputs to keep the existing server action contract unchanged */}
-          <input
-            type="hidden"
-            name="startYmd"
-            value={range?.from ? formatYmdLisbon(range.from) : ""}
-          />
-          <input
-            type="hidden"
-            name="endYmd"
-            value={range?.to ? formatYmdLisbon(range.to) : ""}
-          />
+          <input type="hidden" name="startYmd" value={startYmdHidden} />
+          <input type="hidden" name="endYmd" value={endYmdHidden} />
 
           {/* Inline server-side validation feedback */}
           <div className="mt-1 grid gap-1">
@@ -267,24 +198,4 @@ export default function OpsBookingFields({
 function FieldError({ msg }: { msg?: string }) {
   if (!msg) return null;
   return <p className="mt-1 text-sm text-red-600">{msg}</p>;
-}
-
-/** Parse 'YYYY-MM-DD' into a Date (avoids timezone off-by-ones). */
-function ymdToDate(ymd: string): Date {
-  const [y, m, d] = ymd.split("-").map((n) => parseInt(n, 10));
-  return new Date(Date.UTC(y, (m || 1) - 1, d || 1));
-}
-
-/**
- * Format Date → 'YYYY-MM-DD' in Lisbon wall time.
- * Avoids UTC getters (which were shifting dates during DST).
- */
-function formatYmdLisbon(d?: Date): string {
-  if (!d) return "";
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: LISBON_TZ,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d); // YYYY-MM-DD
 }
