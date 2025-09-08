@@ -1,14 +1,18 @@
+// lib/ops/booking-service.ts
 import type { ManagerOpsInput } from "@/lib/validation/manager-booking";
 
-/** Inputs the action passes in after schema validation. */
-export type CreateManagerBookingInput = Omit<ManagerOpsInput, "opsPasscode">;
+/** Inputs the action passes in after schema validation (no passcode here). */
+export type CreateManagerBookingInput = Omit<ManagerOpsInput, "opsPasscode"> & {
+  /** Optional audit note (e.g., heavy-transport lead-time override). */
+  overrideNote?: string;
+};
 
 /** Repository port: DB-only concerns live behind this interface. */
 export interface BookingRepoPort {
   hasConfirmedOverlap(input: {
     machineId: number;
     startYmd: string; // inclusive YYYY-MM-DD
-    endYmd: string; // inclusive YYYY-MM-DD
+    endYmd: string;   // inclusive YYYY-MM-DD
   }): Promise<boolean>;
 
   createConfirmedOpsBooking(input: {
@@ -21,7 +25,9 @@ export interface BookingRepoPort {
     siteAddressCity?: string;
     siteAddressNotes?: string;
     totalCostCents: number; // always 0 for ops
-    depositCents: number; // always 0 for ops
+    depositCents: number;   // always 0 for ops
+    /** Optional audit note (stored alongside site notes). */
+    overrideNote?: string;
   }): Promise<{ bookingId: string }>;
 }
 
@@ -32,14 +38,14 @@ export type CreateManagerBookingResult =
 
 /** Safe numeric compare of YYYY-MM-DD without allocating Date objects. */
 function ymdToNumber(ymd: string): number {
-  // yyyymmdd as integer
+  // e.g., "2025-09-08" -> 20250908
   return Number(ymd.replaceAll("-", ""));
 }
 
 /**
  * createManagerBooking
- * Pure orchestration: enforce invariants, consult repo ports, create booking.
- * No calendar or Stripe here. Those are handled by the action layer.
+ * Pure orchestration: enforce invariants, consult repo port, create booking.
+ * NOTE: `hasConfirmedOverlap` is a UX precheck; repo must still enforce atomic no-overlap.
  */
 export async function createManagerBooking(
   input: CreateManagerBookingInput,
@@ -47,16 +53,16 @@ export async function createManagerBooking(
 ): Promise<CreateManagerBookingResult> {
   const { repo } = deps;
 
-  // Minimal sanity check (schema already validated).
-  if (ymdToNumber(input.startYmd) >= ymdToNumber(input.endYmd)) {
+  // 1) Minimal invariant — allow same-day rentals (start <= end).
+  if (ymdToNumber(input.startYmd) > ymdToNumber(input.endYmd)) {
     return {
       ok: false,
       reason: "UNKNOWN",
-      message: "Start must be before end",
+      message: "Start date must be on or before end date.",
     };
   }
 
-  // Domain rule: do not allow overlap with confirmed bookings.
+  // 2) Domain rule: do not allow overlap with CONFIRMED bookings.
   const overlap = await repo.hasConfirmedOverlap({
     machineId: input.machineId,
     startYmd: input.startYmd,
@@ -66,11 +72,11 @@ export async function createManagerBooking(
     return {
       ok: false,
       reason: "OVERLAP",
-      message: "Selected dates overlap an existing booking",
+      message: "Selected dates overlap an existing booking.",
     };
   }
 
-  // Ops bookings are always waived.
+  // 3) Create as CONFIRMED, waived (0 totals) — repo handles atomicity.
   const { bookingId } = await repo.createConfirmedOpsBooking({
     machineId: input.machineId,
     startYmd: input.startYmd,
@@ -82,6 +88,7 @@ export async function createManagerBooking(
     siteAddressNotes: input.siteAddressNotes,
     totalCostCents: 0,
     depositCents: 0,
+    overrideNote: input.overrideNote, 
   });
 
   return { ok: true, bookingId };
