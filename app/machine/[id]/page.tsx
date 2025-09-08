@@ -12,12 +12,27 @@ import { MACHINE_DETAIL_COPY } from "@/lib/content/machine-detail";
 import { MACHINE_CARD_COPY } from "@/lib/content/machines";
 import { resolveMachineImage } from "@/lib/content/images";
 
+/** Safe reader for either 'category' (new) or 'type' (legacy) without using 'any'. */
+function getCategoryOrType(m: unknown): string {
+  if (m && typeof m === "object") {
+    const r = m as Record<string, unknown>;
+    const cat =
+      typeof r["category"] === "string" ? (r["category"] as string) : undefined;
+    const typ =
+      typeof r["type"] === "string" ? (r["type"] as string) : undefined;
+    return cat ?? typ ?? "";
+  }
+  return "";
+}
+
+type PageParams = { id: string };
+
 export default async function MachineDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: PageParams;
 }) {
-  const { id } = await params;
+  const { id } = params;
   const machineId = parseInt(id, 10);
   if (isNaN(machineId)) {
     notFound();
@@ -53,14 +68,13 @@ export default async function MachineDetailPage({
   // Display strings
   const displayName = toTitleCase(machine.name);
 
-  // Prefer new 'category', fall back to legacy 'type' during migration
-  const categoryOrType =
-    (machine as any).category ?? (machine as any).type ?? "";
-  const displayType = MACHINE_CARD_COPY.displayType(String(categoryOrType));
+  // Prefer new 'category', fall back to legacy 'type' during migration (no 'any')
+  const categoryOrType = getCategoryOrType(machine);
+  const displayType = MACHINE_CARD_COPY.displayType(categoryOrType);
 
   // Centralized image resolution: type → name → (ignore DB URL on detail page) → fallback
   const img = resolveMachineImage({
-    type: String(categoryOrType),
+    type: categoryOrType,
     name: String(machine.name ?? ""),
     dbUrl: null, // never render external CSV links here to avoid Next/Image host issues
   });

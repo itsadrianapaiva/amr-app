@@ -7,6 +7,17 @@ import { cn, formatCurrency, moneyDisplay, toTitleCase } from "@/lib/utils";
 import { MACHINE_CARD_COPY } from "@/lib/content/machines";
 import { resolveMachineImage } from "@/lib/content/images";
 
+/** Safe reader for either 'category' (new) or 'type' (legacy) without using 'any'. */
+function getCategoryOrType(m: unknown): string {
+  if (m && typeof m === "object") {
+    const r = m as Record<string, unknown>;
+    const cat = typeof r["category"] === "string" ? (r["category"] as string) : undefined;
+    const typ = typeof r["type"] === "string" ? (r["type"] as string) : undefined;
+    return cat ?? typ ?? "";
+  }
+  return "";
+}
+
 interface MachineCardProps {
   machine: SerializableMachine;
 }
@@ -16,9 +27,8 @@ export function MachineCard({ machine }: MachineCardProps) {
   const displayName = toTitleCase(machine.name);
 
   // Support both fields during the migration (category preferred, fallback to type)
-  const categoryOrType =
-    (machine as any).category ?? (machine as any).type ?? "";
-  const displayType = MACHINE_CARD_COPY.displayType(String(categoryOrType));
+  const categoryOrType = getCategoryOrType(machine);
+  const displayType = MACHINE_CARD_COPY.displayType(categoryOrType);
 
   const dailyRateFormatted = formatCurrency(machine.dailyRate);
   const pricePerDay = MACHINE_CARD_COPY.formatPricePerDay(dailyRateFormatted);
@@ -45,8 +55,8 @@ export function MachineCard({ machine }: MachineCardProps) {
 
   // Always resolve via our internal map; ignore DB/CSV links to avoid Next/Image host errors
   const img = resolveMachineImage({
-    type: String(categoryOrType),
-    name: String(machine.name ?? ""),
+    type: categoryOrType,
+    name: machine.name ?? "",
     dbUrl: null, // explicitly ignore external URLs on cards
   });
 

@@ -1,4 +1,3 @@
-import { Checkbox } from "@/components/ui/checkbox";
 import AddOnRow from '@/components/booking/add-on-row';
 
 type AddOnsPanelProps = {

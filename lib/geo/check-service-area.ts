@@ -6,7 +6,6 @@
 import { geocodeAddress } from "@/lib/geo/mapbox";
 import {
   isInsideServiceArea,
-  SERVICE_AREA_NAME,
   SERVICE_AREA_CENTROID,
 } from "@/lib/geo/service-area";
 

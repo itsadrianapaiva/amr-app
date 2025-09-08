@@ -1,5 +1,6 @@
 import { CONTACTS } from "@/lib/content/contacts";
 import { buildWhatsAppHref } from "@/lib/contacts/utils";
+import Image from "next/image";
 
 type Props = {
   /** Defaults to /assets/whatsapp.png (under /public). */
@@ -25,7 +26,7 @@ export default function WhatsAppFab({
       {/* ping halo */}
       <span className="absolute z-10 h-12 w-12 animate-ping rounded-full bg-green-500/40 opacity-75 sm:h-16 sm:w-16" />
       {/* icon */}
-      <img
+      <Image
         src={iconSrc}
         alt="WhatsApp"
         className="relative z-20 h-12 w-12 transition-transform hover:scale-110 sm:h-16 sm:w-16"

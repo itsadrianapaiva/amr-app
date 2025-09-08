@@ -4,26 +4,35 @@ import { MACHINE_CARD_COPY } from "@/lib/content/machines";
 import { Prisma } from "@prisma/client";
 import type { PrismaClient } from "@prisma/client";
 
-// Lean row type for our query
-type MachineCategoryRow = { category: string };
+// Safe runtime guard: checks object has `machine.findMany` like a PrismaClient
+function isPrismaClient(x: unknown): x is PrismaClient {
+  if (!x || typeof x !== "object") return false;
+  const r = x as Record<string, unknown>;
+  const machine = r["machine"];
+  if (!machine || typeof machine !== "object") return false;
+  const findMany = (machine as Record<string, unknown>)["findMany"];
+  return typeof findMany === "function";
+}
 
 /**
  * Resolve a PrismaClient instance:
- * 1) Try whatever your "@/lib/db" exports (named/default/db/client).
- * 2) Fallback: create a local singleton (dev-safe via globalThis).
+ * 1) Try whatever "@/lib/db" exports (named/default/db/client)
+ * 2) Fallback: create a local singleton (dev-safe via globalThis)
  */
 async function resolvePrisma(): Promise<PrismaClient> {
   try {
-    const mod: any = await import("@/lib/db");
-    const candidate =
-      mod?.prisma ?? mod?.default ?? mod?.db ?? mod?.client ?? null;
-
-    if (
-      candidate &&
-      typeof candidate === "object" &&
-      candidate.machine?.findMany
-    ) {
-      return candidate as PrismaClient;
+    const mod: unknown = await import("@/lib/db");
+    if (mod && typeof mod === "object") {
+      const m = mod as Record<string, unknown>;
+      const candidates: unknown[] = [
+        m["prisma"],
+        m["default"],
+        m["db"],
+        m["client"],
+      ];
+      for (const c of candidates) {
+        if (isPrismaClient(c)) return c;
+      }
     }
   } catch {
     // ignore and fallback below
@@ -31,9 +40,7 @@ async function resolvePrisma(): Promise<PrismaClient> {
 
   const { PrismaClient } = await import("@prisma/client");
   const g = globalThis as unknown as { __amr_prisma?: PrismaClient };
-  if (!g.__amr_prisma) {
-    g.__amr_prisma = new PrismaClient();
-  }
+  if (!g.__amr_prisma) g.__amr_prisma = new PrismaClient();
   return g.__amr_prisma;
 }
 
@@ -45,24 +52,19 @@ async function resolvePrisma(): Promise<PrismaClient> {
 export const getFooterCategories = cache(async (): Promise<string[]> => {
   const prisma = await resolvePrisma();
 
-  const categories = (await prisma.machine.findMany({
+  // rows: { category: string | null }[]
+  const rows = await prisma.machine.findMany({
     select: { category: true },
-    distinct: [Prisma.MachineScalarFieldEnum.category], // <-- Prisma 6 enum
+    distinct: [Prisma.MachineScalarFieldEnum.category],
     orderBy: { category: "asc" },
-  })) as MachineCategoryRow[];
+  });
 
-  const labelsSet = new Set<string>(
-    categories
-      // Reuse existing display mapper; it can accept category keys as before.
-      .map((row: MachineCategoryRow) =>
-        MACHINE_CARD_COPY.displayType(row.category)
-      )
-      .filter(Boolean)
-  );
+  const labelsSet = new Set<string>();
+  for (const row of rows) {
+    // Reuse existing display mapper; tolerate nulls
+    const label = MACHINE_CARD_COPY.displayType(String(row.category ?? ""));
+    if (label) labelsSet.add(label);
+  }
 
-  const labels: string[] = Array.from(labelsSet).sort((a: string, b: string) =>
-    a.localeCompare(b)
-  );
-
-  return labels;
+  return Array.from(labelsSet).sort((a, b) => a.localeCompare(b));
 });

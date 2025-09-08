@@ -1,4 +1,4 @@
-// app/booking/success/page.tsx
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BookingStatus } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -32,12 +32,14 @@ export default async function SuccessPage({ searchParams }: PageProps) {
   const session = await stripe.checkout.sessions.retrieve(sessionId, {
     expand: ["payment_intent"],
   });
-  const s: MinimalCheckoutSession = session as unknown as MinimalCheckoutSession;
+  const s: MinimalCheckoutSession =
+    session as unknown as MinimalCheckoutSession;
 
   // Unified “paid” check + PI id + booking-related metadata
   const paid = isPaymentComplete(s);
   const piId = getPaymentIntentId(s);
-  const { bookingId, machineId, startDate, endDate } = getMetaFromCheckoutSession(s);
+  const { bookingId, machineId, startDate, endDate } =
+    getMetaFromCheckoutSession(s);
 
   // If we lack booking id, render minimal info
   if (!Number.isFinite(bookingId)) {
@@ -45,10 +47,13 @@ export default async function SuccessPage({ searchParams }: PageProps) {
       <div className="mx-auto max-w-2xl space-y-6 p-6">
         <h1 className="text-2xl font-semibold">Payment received</h1>
         <p className="text-sm text-gray-700">
-          We could not match your booking automatically. Our team will follow up.
+          We could not match your booking automatically. Our team will follow
+          up.
         </p>
         <div className="flex items-center gap-3 pt-2">
-          <a href="/" className="underline">Back to homepage</a>
+          <Link href="/" className="underline">
+            Back to homepage
+          </Link>
         </div>
       </div>
     );
@@ -70,7 +75,12 @@ export default async function SuccessPage({ searchParams }: PageProps) {
     if (!existing) return;
 
     // Promote if paid and not already recorded (webhook may be slow)
-    if (paid && !existing.depositPaid && !existing.stripePaymentIntentId && piId) {
+    if (
+      paid &&
+      !existing.depositPaid &&
+      !existing.stripePaymentIntentId &&
+      piId
+    ) {
       await tx.booking.update({
         where: { id: bookingId },
         data: {
@@ -85,7 +95,10 @@ export default async function SuccessPage({ searchParams }: PageProps) {
     }
 
     // If already CONFIRMED (likely via webhook) but the hold timestamp lingers, clear it.
-    if (existing.status === BookingStatus.CONFIRMED && existing.holdExpiresAt !== null) {
+    if (
+      existing.status === BookingStatus.CONFIRMED &&
+      existing.holdExpiresAt !== null
+    ) {
       await tx.booking.update({
         where: { id: bookingId },
         data: { holdExpiresAt: null },
@@ -96,7 +109,9 @@ export default async function SuccessPage({ searchParams }: PageProps) {
   // Best-effort revalidation via API route (allowed outside render)
   if (didPromote) {
     const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000";
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.APP_URL ||
+      "http://localhost:3000";
     try {
       const body = typeof machineId === "number" ? { machineId } : {};
       await fetch(`${appUrl}/api/revalidate-after-confirm`, {
@@ -119,7 +134,9 @@ export default async function SuccessPage({ searchParams }: PageProps) {
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
       {/* clear the per-machine draft now that we're on the success page */}
-      {typeof machineId === "number" && <ClearBookingDraft machineId={machineId} />}
+      {typeof machineId === "number" && (
+        <ClearBookingDraft machineId={machineId} />
+      )}
 
       <h1 className="text-2xl font-semibold">{title}</h1>
       <p className="text-sm text-gray-700">{message}</p>
@@ -127,24 +144,27 @@ export default async function SuccessPage({ searchParams }: PageProps) {
       <div className="rounded-md border bg-gray-50 p-4 text-sm text-gray-800">
         <div className="space-y-1">
           <p>
-            Booking ID: <span className="font-medium text-foreground">{bookingId}</span>
+            Booking ID:{" "}
+            <span className="font-medium text-foreground">{bookingId}</span>
           </p>
           {startDate && endDate && (
             <p>
               Dates:{" "}
-              <span className="font-medium text-foreground">{startDate}</span> to{" "}
-              <span className="font-medium text-foreground">{endDate}</span>
+              <span className="font-medium text-foreground">{startDate}</span>{" "}
+              to <span className="font-medium text-foreground">{endDate}</span>
             </p>
           )}
         </div>
       </div>
 
       <div className="flex items-center gap-3">
-        <a href="/" className="rounded-md bg-black px-4 py-2 text-white">Back to homepage</a>
+        <Link href="/" className="rounded-md bg-black px-4 py-2 text-white">
+          Back to homepage
+        </Link>
         {typeof machineId === "number" && (
-          <a href={`/machine/${machineId}`} className="underline">
+          <Link href={`/machine/${machineId}`} className="underline">
             View machine
-          </a>
+          </Link>
         )}
       </div>
     </div>

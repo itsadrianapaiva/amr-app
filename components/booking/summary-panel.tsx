@@ -65,7 +65,7 @@ export default function SummaryPanel({
       </p>
       <p className="text-xs text-muted-foreground">
         A refundable deposit is due at handover (drop-off at your site or when
-        you're picking up at our warehouse).
+        you&apos;re picking up at our warehouse).
       </p>
     </div>
   );

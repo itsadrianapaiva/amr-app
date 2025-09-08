@@ -6,15 +6,19 @@
  */
 
 import { buildBookingSchema } from "@/lib/validation/booking";
+import type { BookingFormValues } from "@/lib/validation/booking";
 import { asLisbonDateOnly, rentalDaysInclusive } from "@/lib/dates/lisbon";
+
+/** Narrow helper for object-like unknowns. */
+type UnknownRecord = Record<string, unknown>;
 
 /** Minimal shape the action needs after parsing. */
 export type ParsedBooking = {
   from: Date;
   to: Date;
   days: number;
-  /** Original parsed payload (siteAddress, booleans, customer fields, etc.). */
-  payload: any;
+  /** Original parsed payload (fully typed booking values). */
+  payload: BookingFormValues;
   /** Free-text address derived from payload.siteAddress for geocoding. */
   siteAddrStr: string;
 };
@@ -23,7 +27,7 @@ export type ParsedBooking = {
 function normalizeAddressToString(addr: unknown): string {
   if (typeof addr === "string") return addr;
   if (addr && typeof addr === "object") {
-    const a = addr as Record<string, unknown>;
+    const a = addr as UnknownRecord;
     return [a.line1, a.postalCode, a.city, "Portugal"]
       .filter(Boolean)
       .join(", ");
@@ -48,14 +52,20 @@ export function parseBookingInput(
   const schema = buildBookingSchema(minStart, minDays);
 
   // Normalize incoming dates to Lisbon day space before Zod parsing.
-  const cast = raw as any;
+  const input: UnknownRecord =
+    raw && typeof raw === "object" ? (raw as UnknownRecord) : {};
+  const rawRange =
+    input.dateRange && typeof input.dateRange === "object"
+      ? (input.dateRange as UnknownRecord)
+      : {};
+
   const parsed = schema.parse({
-    ...(cast as Record<string, unknown>),
+    ...input,
     dateRange: {
-      from: asLisbonDateOnly(cast?.dateRange?.from),
-      to: asLisbonDateOnly(cast?.dateRange?.to),
+      from: asLisbonDateOnly(rawRange.from as Date | string | undefined),
+      to: asLisbonDateOnly(rawRange.to as Date | string | undefined),
     },
-  });
+  }) as BookingFormValues;
 
   // Extract normalized dates and compute inclusive days in Lisbon day space.
   const from: Date = parsed.dateRange.from!;

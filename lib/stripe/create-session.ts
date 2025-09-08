@@ -18,25 +18,42 @@ type CreateOpts = {
   log?: (event: string, data?: Record<string, unknown>) => void;
 };
 
-/** Ensure bookingId lives in both session and payment_intent metadata. */
-function withBookingMetadata(params: CheckoutParams): CheckoutParams {
-  const sessionMeta = params.metadata ?? {};
-  // Try to read bookingId from any known slot.
-  const bookingId =
-    (sessionMeta as any).bookingId ??
-    ((params.client_reference_id ?? "").replace(/^booking-/, "") || undefined);
+/** Metadata shape helper (Stripe requires string→string). */
+type Metadata = Stripe.MetadataParam;
 
-  // If we still do not have it, leave params as is. Guard will catch this later.
+/** Try to extract a bookingId from params (metadata first, else client_reference_id "booking-<id>"). */
+function extractBookingIdFromParams(
+  params: CheckoutParams
+): string | undefined {
+  const metaId =
+    (params.metadata && typeof params.metadata["bookingId"] === "string"
+      ? params.metadata["bookingId"]
+      : undefined) ?? undefined;
+
+  if (metaId) return metaId;
+
+  const clientRef = params.client_reference_id ?? "";
+  if (clientRef.startsWith("booking-")) {
+    const id = clientRef.replace(/^booking-/, "");
+    return id || undefined;
+  }
+  return undefined;
+}
+
+/** Ensure bookingId lives in both session and payment_intent metadata (without using `any`). */
+function withBookingMetadata(params: CheckoutParams): CheckoutParams {
+  const bookingId = extractBookingIdFromParams(params);
   if (!bookingId) return params;
 
-  const piMeta = {
+  const sessionMeta: Metadata = { ...(params.metadata ?? {}), bookingId };
+  const piMeta: Metadata = {
     ...(params.payment_intent_data?.metadata ?? {}),
     bookingId,
   };
 
   return {
     ...params,
-    metadata: { ...sessionMeta, bookingId },
+    metadata: sessionMeta,
     payment_intent_data: {
       ...params.payment_intent_data,
       metadata: piMeta,
@@ -57,17 +74,16 @@ export async function createCheckoutSessionWithGuards(
   // Mirror bookingId metadata to PI for later lookups in webhooks or dashboards.
   const params = withBookingMetadata(rawParams);
 
-  // Guard rails: require client_reference_id and metadata.bookingId.
+  // Guard rails: require client_reference_id and a resolvable bookingId.
   const hasClientRef = !!params.client_reference_id;
-  const hasBookingId =
-    !!params.metadata &&
-    typeof (params.metadata as any).bookingId !== "undefined";
+  const bookingId = extractBookingIdFromParams(params);
+  const hasBookingId = !!bookingId;
 
   if (!hasClientRef || !hasBookingId) {
-    const detail = {
+    const detail: Record<string, unknown> = {
       hasClientRef,
       hasBookingId,
-      metadata: params.metadata,
+      metadata: params.metadata ?? {},
       mode: params.mode,
       success_url: params.success_url,
       cancel_url: params.cancel_url,
@@ -83,7 +99,7 @@ export async function createCheckoutSessionWithGuards(
 
   opts?.log?.("stripe.checkout.create_attempt", {
     client_reference_id: params.client_reference_id,
-    bookingId: (params.metadata as any).bookingId,
+    bookingId,
     mode: params.mode,
   });
 

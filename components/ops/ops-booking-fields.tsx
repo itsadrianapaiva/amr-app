@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { DateRangeInput } from "../booking/date-range-input";
-import type { DateRange as RDPDateRange } from "react-day-picker";
+import type { DateRange as RDPDateRange, Matcher } from "react-day-picker";
 
 export type MachineOption = { id: number; name: string };
 
@@ -88,19 +88,19 @@ export default function OpsBookingFields({
   // Keep state in sync if server sends new values after a failed submit
   React.useEffect(() => {
     setRange(initialRange);
-  }, [initialRange?.from?.getTime(), initialRange?.to?.getTime()]);
+  }, [initialRange]); // ✅ simpler dep, avoids complex expression warning
 
   // Build disabled matchers for the selected machine: before min date + booked ranges
   const minDate = React.useMemo(() => ymdToDate(minYmd), [minYmd]);
 
-  const disabledDays = React.useMemo(() => {
-    const base: any[] = [{ before: minDate }];
+  const disabledDays: Matcher[] = React.useMemo(() => {
+    const base: Matcher[] = [{ before: minDate }];
     const key = selectedMachineId ? String(selectedMachineId) : "";
-    const ranges = (disabledByMachine?.[key] || []).map((r) => ({
-      from: new Date(r.from), // r.from/to are ISO strings; construct Date directly
+    const ranges: Matcher[] = (disabledByMachine?.[key] || []).map((r) => ({
+      from: new Date(r.from),
       to: new Date(r.to),
     }));
-    return base.concat(ranges);
+    return [...base, ...ranges];
   }, [minDate, selectedMachineId, disabledByMachine]);
 
   return (

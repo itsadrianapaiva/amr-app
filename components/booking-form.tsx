@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import type { FieldErrors } from "react-hook-form";
 
 import type { SerializableMachine } from "@/lib/types";
 import type { BookingFormValues } from "@/lib/validation/booking";
@@ -105,7 +106,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
   // 6) Date error for presenter visuals
   const { message: dateErrorMessage, invalid: isDateInvalid } =
     deriveDateRangeError({
-      errors: form.formState.errors as any,
+      errors: form.formState.errors as FieldErrors<BookingFormValues>,
       rentalDays,
       minDays,
     });

@@ -1,15 +1,9 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
 import "./globals.css";
 import SiteNav from "@/components/site-nav";
 import SiteFooter from "@/components/site-footer";
 import WhatsAppFab from "@/components/whatsapp-fab";
 import { getFooterCategories } from "@/lib/data/footer-categories";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "AMR — Machinery Rentals in the Algarve",

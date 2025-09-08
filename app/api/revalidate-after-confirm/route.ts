@@ -8,19 +8,39 @@ import { revalidatePath } from "next/cache";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST(req: NextRequest) {
-  // 1) Parse JSON body leniently; default to an empty object if none.
-  let body: any = {};
-  try {
-    body = await req.json();
-  } catch {
-    body = {};
+/** Narrow unknown JSON to a loose body shape we accept. */
+type Body = { machineId?: number | string | null };
+
+/** True if value is a non-null object (record-like). */
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+
+/** Read a finite number from unknown (accepts number|string). */
+function readFiniteNumber(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
   }
+  return null;
+}
+
+export async function POST(req: NextRequest) {
+  // 1) Parse JSON body safely; default to empty object on failure.
+  let raw: unknown = null;
+  try {
+    raw = await req.json();
+  } catch {
+    raw = null;
+  }
+  const body: Body = isRecord(raw) ? (raw as Body) : {};
 
   // 2) Always revalidate the catalog; optionally revalidate a machine page.
   const revalidated = new Set<string>(["/"]);
-  const machineId = Number(body?.machineId);
-  if (Number.isFinite(machineId)) {
+
+  const machineId = readFiniteNumber(body.machineId);
+  if (machineId !== null) {
     revalidated.add(`/machine/${machineId}`);
   }
 

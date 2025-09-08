@@ -6,11 +6,16 @@ import { Resend } from "resend";
 import { renderAsync } from "@react-email/render"; // render React → HTML
 import type { ReactElement } from "react";
 
+/** Derive the exact param/return types from the SDK (no `any`). */
+type ResendSend = InstanceType<typeof Resend>["emails"]["send"];
+type ResendSendArg = Parameters<ResendSend>[0];
+type ResendSendResp = Awaited<ReturnType<ResendSend>>;
+
 type MailRequest = {
   to: string | string[];
   subject: string;
   react?: ReactElement; // Optional React email body
-  text?: string; // Optional plain-text fallback
+  text?: string; // Optional plain-text override
   replyTo?: string; // We'll set your Gmail here for now
   headers?: Record<string, string>;
 };
@@ -36,16 +41,15 @@ export function emailsEnabled() {
   return ENABLED;
 }
 
-/** A minimal shape accepted by `resend.emails.send` when sending pre-rendered HTML. */
-type HtmlSendOptions = {
-  from: string;
-  to: string | string[];
-  subject: string;
-  html?: string;
-  text?: string;
-  replyTo?: string;
-  headers?: Record<string, string>;
-};
+/** Very small, safe HTML → text fallback (no dependencies). */
+function htmlToText(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 /**
  * sendEmail
@@ -86,8 +90,8 @@ export async function sendEmail(req: MailRequest): Promise<MailResult> {
         (html
           ? `[HTML ${Buffer.byteLength(html, "utf8")} bytes]`
           : req.react
-          ? "[React email body present]"
-          : "(no body provided)"),
+            ? "[React email body present]"
+            : "(no body provided)"),
     });
     return { ok: true };
   }
@@ -97,27 +101,35 @@ export async function sendEmail(req: MailRequest): Promise<MailResult> {
 
     // Require at least one of html or text for the live send
     if (!html && !req.text) {
-      return { ok: false, error: "No email content provided (html or text required)." };
+      return {
+        ok: false,
+        error: "No email content provided (html or text required).",
+      };
     }
 
-    // Narrow, HTML-centric send options to steer TS to the right overload.
-    const options: HtmlSendOptions = {
+    // Always include a plain-text body to satisfy the stricter SDK overload.
+    const textResolved = req.text ?? (html ? htmlToText(html) : ""); // never undefined here
+
+    // Build an argument typed exactly as Resend expects.
+    const sendArgs: ResendSendArg = {
       from: FROM!, // validated via ENABLED
       to,
       subject: req.subject,
-      html,
-      text: req.text,
-      replyTo,
-      headers: req.headers,
+      text: textResolved, // ✅ guaranteed
+      ...(html ? { html } : {}), // optional HTML
+      ...(replyTo ? { reply_to: replyTo } : {}),
+      ...(req.headers ? { headers: req.headers } : {}),
     };
 
-    // NOTE: Older `resend` typings may still prefer the "react" overload.
-    // Casting the options to the minimal shape avoids TS2345 while keeping runtime safe.
-    const res = await client.emails.send(options as any);
+    const res: ResendSendResp = await client.emails.send(sendArgs);
 
-    if (res.error) return { ok: false, error: res.error.message };
-    console.log("[email] sent", { to, subject: req.subject, id: res.data?.id });
-    return { ok: true, id: res.data?.id };
+    // Handle the canonical { data, error } shape.
+    const data = (res as { data?: { id?: string } | null }).data ?? null;
+    const error = (res as { error?: { message: string } | null }).error ?? null;
+
+    if (error) return { ok: false, error: error.message };
+    console.log("[email] sent", { to, subject: req.subject, id: data?.id });
+    return { ok: true, id: data?.id };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[email:error]", message);

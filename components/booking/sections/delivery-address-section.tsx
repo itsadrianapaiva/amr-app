@@ -8,7 +8,6 @@ import {
   FormLabel,
   FormControl,
   FormMessage,
-  FormDescription,
 } from "@/components/ui/form";
 import type { BookingFormValues } from "@/lib/validation/booking";
 

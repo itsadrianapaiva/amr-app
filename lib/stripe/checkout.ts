@@ -22,6 +22,8 @@ export type CheckoutCustomText = {
 };
 
 /** Return the Checkout submit message object only if a message is provided. */
-export function optionalCustomText(message?: string): CheckoutCustomText | {} {
+export function optionalCustomText(
+  message?: string
+): CheckoutCustomText | Record<string, never> {
   return message ? { custom_text: { submit: { message } } } : {};
 }

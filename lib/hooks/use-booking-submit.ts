@@ -1,6 +1,4 @@
-// Composes the full-upfront Checkout submit flow with the opt-out gate.
-// Small, focused, and reusable across booking forms.
-
+// lib/hooks/use-booking-submit.ts
 "use client";
 
 import * as React from "react";
@@ -21,6 +19,20 @@ type UseBookingSubmitOpts = {
   operatorOn: boolean;
 };
 
+// Discriminated union expected from the server action
+type CreateCheckoutResult =
+  | { ok: true; url: string }
+  | { ok: false; formError?: string };
+
+// Runtime guard to narrow unknown → CreateCheckoutResult
+function isCreateCheckoutResult(x: unknown): x is CreateCheckoutResult {
+  if (!x || typeof x !== "object") return false;
+  const r = x as Record<string, unknown>;
+  if (typeof r.ok !== "boolean") return false;
+  if (r.ok === true) return typeof r.url === "string";
+  return r.formError === undefined || typeof r.formError === "string";
+}
+
 export function useBookingSubmit(opts: UseBookingSubmitOpts) {
   const { form, machineId, insuranceOn, deliveryOn, pickupOn, operatorOn } =
     opts;
@@ -31,19 +43,26 @@ export function useBookingSubmit(opts: UseBookingSubmitOpts) {
       const payload = { ...values, machineId };
 
       try {
-        const res: any = await createCheckoutAction(payload);
+        const unknownRes: unknown = await createCheckoutAction(payload);
 
-        if (res?.ok && res.url) {
-          // Redirect to Stripe Checkout
-          window.location.assign(res.url);
+        if (isCreateCheckoutResult(unknownRes)) {
+          if (unknownRes.ok) {
+            window.location.assign(unknownRes.url);
+            return;
+          }
+          const message =
+            unknownRes.formError ??
+            "Selected dates are currently unavailable. Please try another range.";
+          form.setError("root", { type: "server", message });
           return;
         }
 
-        // Show a friendly, server-driven error (falls back to availability msg)
-        const message =
-          res?.formError ??
-          "Selected dates are currently unavailable. Please try another range.";
-        form.setError("root", { type: "server", message });
+        // Unexpected payload shape
+        form.setError("root", {
+          type: "server",
+          message:
+            "We couldn't start the checkout. Please refresh and try again.",
+        });
       } catch (err) {
         const message =
           err instanceof Error
@@ -71,13 +90,10 @@ export function useBookingSubmit(opts: UseBookingSubmitOpts) {
   );
 
   return {
-    // Opt-out dialog state + actions
     dialogOpen: gate.dialogOpen,
     setDialogOpen: gate.setDialogOpen,
     missing: gate.missing,
     onConfirm: gate.onConfirm,
-
-    // Submit handler for <form onSubmit={form.handleSubmit(onSubmitAttempt)}>
     onSubmitAttempt,
   };
 }

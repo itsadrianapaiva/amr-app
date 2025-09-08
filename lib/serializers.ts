@@ -1,5 +1,16 @@
+// lib/serializers.ts
 import type { Machine } from "@prisma/client";
 import type { SerializableMachine } from "@/lib/types";
+
+/** Read a string property safely from an unknown-ish object. */
+function readStringKey(obj: unknown, key: string): string | undefined {
+  if (obj && typeof obj === "object") {
+    const r = obj as Record<string, unknown>;
+    const v = r[key];
+    if (typeof v === "string") return v;
+  }
+  return undefined;
+}
 
 /**
  * serializeMachine
@@ -7,20 +18,20 @@ import type { SerializableMachine } from "@/lib/types";
  * Keeps UI types decoupled from the DB schema.
  */
 export function serializeMachine(m: Machine): SerializableMachine {
-  // Prefer new 'category' (Prisma field renamed with @map("type")).
-  // Keep legacy 'type' for any code still reading it.
-  const category = (m as any).category ?? (m as any).type ?? null;
-  const legacyType = (m as any).type ?? category ?? null;
+  // Prefer new 'category'; fall back to legacy 'type'
+  const category = readStringKey(m, "category");
+  const legacyType: string = readStringKey(m, "type") ?? category ?? "";
 
   return {
     // primitives / nullable text
     id: m.id,
     name: m.name,
-    // Back-compat: keep 'type' until all callsites migrate
-    type: legacyType as any,
-    // New field so the client can read category directly
-    // (extra property is fine; SerializableMachine callers that don't use it can ignore)
-    ...(category != null ? { category } : {}),
+
+    // Back-compat: keep 'type' as strict string (empty string if absent)
+    type: legacyType,
+
+    // New field so the client can read category directly (optional)
+    ...(category ? { category } : {}),
 
     description: m.description,
     imageUrl: m.imageUrl,
@@ -30,20 +41,16 @@ export function serializeMachine(m: Machine): SerializableMachine {
     minDays: m.minDays,
 
     // Decimal -> string
-    dailyRate: m.dailyRate.toString(),
-    deposit: m.deposit.toString(),
+    dailyRate: String(m.dailyRate),
+    deposit: String(m.deposit),
 
     // Nullable Decimal -> string | null
-    deliveryCharge:
-      m.deliveryCharge != null ? m.deliveryCharge.toString() : null,
-    pickupCharge: m.pickupCharge != null ? m.pickupCharge.toString() : null,
+    deliveryCharge: m.deliveryCharge != null ? String(m.deliveryCharge) : null,
+    pickupCharge: m.pickupCharge != null ? String(m.pickupCharge) : null,
   };
 }
 
-/**
- * serializeMachines
- * Map helper to avoid repeating logic.
- */
+/** Map helper to avoid repeating logic. */
 export function serializeMachines(ms: Machine[]): SerializableMachine[] {
   return ms.map(serializeMachine);
 }

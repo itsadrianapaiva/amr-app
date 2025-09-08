@@ -20,13 +20,17 @@ import {
   type ContactActionResult,
 } from "@/app/actions/send-contact-message";
 
+type DataLayer = { push?: (e: Record<string, unknown>) => void };
+type FBQ = (...args: unknown[]) => void;
+type AnalyticsWindow = typeof window & { dataLayer?: DataLayer; fbq?: FBQ };
+
 //  analytics helpers (client-safe, no-throw)
 function trackContactFormSubmitted(
   payload: Pick<ContactFormPayload, "name" | "email">
 ) {
   try {
-    // Google Tag (GTM/GA4) convention: push to dataLayer if present
-    (window as any)?.dataLayer?.push?.({
+    const w = window as unknown as AnalyticsWindow;
+    w.dataLayer?.push?.({
       event: "contact_form_submitted",
       method: "email",
       name: payload.name,
@@ -34,8 +38,7 @@ function trackContactFormSubmitted(
     });
   } catch {}
   try {
-    // Meta Pixel (if present)
-    (window as any)?.fbq?.("track", "Contact");
+    (window as unknown as AnalyticsWindow).fbq?.("track", "Contact");
   } catch {}
 }
 

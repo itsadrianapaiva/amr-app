@@ -2,6 +2,10 @@ import { db } from "@/lib/db";
 import OpsCreateBookingForm from "@/components/ops/ops-create-booking-form";
 import { getDisabledRangesByMachine } from "@/lib/availability.server";
 
+// --- Type-only wiring to match ./actions exactly (no runtime import)
+type CreateOpsBookingAction = typeof import("./actions")["createOpsBookingAction"];
+type OpsPrevState = Parameters<CreateOpsBookingAction>[0];
+
 // This page depends on live DB data (bookings), so keep it dynamic.
 export const dynamic = "force-dynamic";
 
@@ -41,7 +45,7 @@ export default async function OpsPage() {
       <OpsCreateBookingForm
         machines={machines as MachineOption[]}
         minYmd={today}
-        serverAction={async (_prev: any, formData: FormData) => {
+        serverAction={async (_prev: OpsPrevState, formData: FormData) => {
           "use server";
           const { createOpsBookingAction } = await import("./actions");
           return createOpsBookingAction(_prev, formData);
