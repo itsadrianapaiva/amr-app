@@ -117,9 +117,13 @@ export function PriceSummary({
             </PriceRow>
           </div>
         </div>
-
+        {/* Compliance + business notes */}
         <p className="mt-3 text-xs text-muted-foreground">
-        VAT calculated at checkout. Refundable deposit due at machine handover.
+          VAT is calculated automatically at checkout.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          A refundable deposit is due at handover (drop-off at your site or when
+          you&apos;re picking up at our warehouse).
         </p>
       </CardContent>
     </Card>

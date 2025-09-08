@@ -58,15 +58,6 @@ export default function SummaryPanel({
         operatorSelected={operatorSelected}
         operatorCharge={operatorCharge}
       />
-
-      {/* Compliance + business notes */}
-      <p className="text-xs text-muted-foreground">
-        VAT is calculated automatically at checkout.
-      </p>
-      <p className="text-xs text-muted-foreground">
-        A refundable deposit is due at handover (drop-off at your site or when
-        you&apos;re picking up at our warehouse).
-      </p>
     </div>
   );
 }

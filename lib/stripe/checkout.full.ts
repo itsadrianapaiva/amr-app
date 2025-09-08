@@ -67,8 +67,6 @@ export function buildFullCheckoutSessionParams(
 
     // Collect enough address info for tax. Required works best for EU VAT.
     billing_address_collection: "required",
-    // Keep customer data fresh when users edit in Checkout.
-    customer_update: { address: "auto", name: "auto" },
 
     // Mirror metadata into Session (PI metadata mirrored by our wrapper).
     metadata: baseMetadata,

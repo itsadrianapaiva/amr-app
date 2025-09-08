@@ -38,46 +38,13 @@ function appBaseUrl(): string {
   );
 }
 
-/** Narrow unknown to a record. */
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null;
-}
-
-/** Read a finite number from unknown (accepts number|string). */
-function readFiniteNumber(v: unknown): number | null {
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (typeof v === "string") {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
-}
-
-/** Get machineId from unknown input safely. */
-function getMachineIdFromInput(input: unknown): number | null {
-  if (!isRecord(input)) return null;
-  return readFiniteNumber(input.machineId);
-}
-
-/** Extract first Zod issue message if shape matches. */
-function getZodFirstIssueMessage(err: unknown): string | null {
-  if (!isRecord(err)) return null;
-  const name = (err as { name?: unknown }).name;
-  const issues = (err as { issues?: unknown }).issues;
-  if (name === "ZodError" && Array.isArray(issues) && issues.length) {
-    const msg = (issues[0] as { message?: unknown })?.message;
-    return typeof msg === "string" ? msg : null;
-  }
-  return null;
-}
-
 export async function createCheckoutAction(
   input: unknown
 ): Promise<CheckoutResult> {
   try {
     // 1) Fetch machine
-    const machineId = getMachineIdFromInput(input);
-    if (machineId === null) {
+    const machineId = Number((input as any)?.machineId);
+    if (!Number.isFinite(machineId)) {
       return { ok: false, formError: "Invalid or missing machine selection." };
     }
     const machine = await getMachineById(machineId);
@@ -162,7 +129,7 @@ export async function createCheckoutAction(
     });
 
     const session = await createCheckoutSessionWithGuards(sessionParams, {
-      idempotencyKey: `booking-${booking.id}-full`,
+      idempotencyKey: `booking-${booking.id}-full-v2`,
       log: (event, data) => console.debug(`[stripe] ${event}`, data),
     });
 
@@ -174,8 +141,7 @@ export async function createCheckoutAction(
     }
 
     return { ok: true, url: session.url };
-  } catch (e: unknown) {
-    // Keep the strongly-typed domain errors first
+  } catch (e: any) {
     if (e instanceof LeadTimeError) {
       const friendly = e.earliestAllowedDay.toLocaleDateString("en-GB", {
         timeZone: "Europe/Lisbon",
@@ -199,10 +165,8 @@ export async function createCheckoutAction(
       };
     }
 
-    // Then check a Zod-like shape without importing zod here
-    const zodMsg = getZodFirstIssueMessage(e);
-    if (zodMsg) {
-      return { ok: false, formError: zodMsg };
+    if (e?.name === "ZodError" && e?.issues?.length) {
+      return { ok: false, formError: e.issues[0]?.message ?? "Invalid input." };
     }
 
     console.error("createCheckoutAction failed:", e);

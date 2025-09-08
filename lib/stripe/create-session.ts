@@ -3,6 +3,7 @@
  * - Verifies client_reference_id and metadata.bookingId are present.
  * - Mirrors metadata to payment_intent_data.metadata for easy reconciliation.
  * - Supports an idempotency key to avoid duplicate sessions.
+ * - NEW: Strips `customer_update` when no `customer` is provided (Stripe 400 guard).
  */
 
 import type Stripe from "stripe";
@@ -62,6 +63,28 @@ function withBookingMetadata(params: CheckoutParams): CheckoutParams {
 }
 
 /**
+ * NEW: Stripe now enforces that `customer_update` can only be used when a `customer` is attached.
+ * If callers don't attach a Customer, silently drop `customer_update` to avoid 400s.
+ * (We keep this behavior here so all call sites get the guard automatically.)
+ */
+function stripCustomerUpdateIfNoCustomer(
+  params: CheckoutParams,
+  log?: CreateOpts["log"]
+): CheckoutParams {
+  if (params.customer) return params; // valid usage; leave as-is
+  if (params.customer_update) {
+    // Destructure to omit `customer_update` while preserving the rest of the payload.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { customer_update, ...rest } = params;
+    log?.("stripe.checkout.strip_customer_update", {
+      reason: "no_customer",
+    });
+    return rest;
+  }
+  return params;
+}
+
+/**
  * createCheckoutSessionWithGuards
  * Validates minimal fields, mirrors metadata to the PaymentIntent, and creates the session.
  */
@@ -72,21 +95,21 @@ export async function createCheckoutSessionWithGuards(
   const stripe = getStripe();
 
   // Mirror bookingId metadata to PI for later lookups in webhooks or dashboards.
-  const params = withBookingMetadata(rawParams);
+  const paramsWithMeta = withBookingMetadata(rawParams);
 
   // Guard rails: require client_reference_id and a resolvable bookingId.
-  const hasClientRef = !!params.client_reference_id;
-  const bookingId = extractBookingIdFromParams(params);
+  const hasClientRef = !!paramsWithMeta.client_reference_id;
+  const bookingId = extractBookingIdFromParams(paramsWithMeta);
   const hasBookingId = !!bookingId;
 
   if (!hasClientRef || !hasBookingId) {
     const detail: Record<string, unknown> = {
       hasClientRef,
       hasBookingId,
-      metadata: params.metadata ?? {},
-      mode: params.mode,
-      success_url: params.success_url,
-      cancel_url: params.cancel_url,
+      metadata: paramsWithMeta.metadata ?? {},
+      mode: paramsWithMeta.mode,
+      success_url: paramsWithMeta.success_url,
+      cancel_url: paramsWithMeta.cancel_url,
     };
     opts?.log?.("stripe.checkout.guard_failed", detail);
     throw new Error(
@@ -94,16 +117,22 @@ export async function createCheckoutSessionWithGuards(
     );
   }
 
+  // Drop `customer_update` if `customer` is not present (prevents 400).
+  const safeParams = stripCustomerUpdateIfNoCustomer(
+    paramsWithMeta,
+    opts?.log
+  );
+
   // Optional idempotency key to protect against double clicks.
   const idempotencyKey = opts?.idempotencyKey;
 
   opts?.log?.("stripe.checkout.create_attempt", {
-    client_reference_id: params.client_reference_id,
+    client_reference_id: safeParams.client_reference_id,
     bookingId,
-    mode: params.mode,
+    mode: safeParams.mode,
   });
 
-  const session = await stripe.checkout.sessions.create(params, {
+  const session = await stripe.checkout.sessions.create(safeParams, {
     idempotencyKey,
   });
 
