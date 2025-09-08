@@ -119,8 +119,7 @@ export function PriceSummary({
         </div>
 
         <p className="mt-3 text-xs text-muted-foreground">
-          Prices shown exclude VAT. We’ll collect invoicing details at checkout
-          if you’re booking as a business.
+        VAT calculated at checkout. Refundable deposit due at machine handover.
         </p>
       </CardContent>
     </Card>

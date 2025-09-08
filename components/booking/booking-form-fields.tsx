@@ -2,16 +2,15 @@
 
 import * as React from "react";
 import type { Control } from "react-hook-form";
+import type { Matcher } from "react-day-picker";
 
 import { AddOnsPanel } from "@/components/booking/add-ons-panel";
-import { PriceSummary } from "@/components/booking/price-summary";
 import { DateRangeSection } from "@/components/booking/sections/date-range-section";
 import { ContactSection } from "@/components/booking/sections/contact-section";
 import DeliveryAddressSection from "@/components/booking/sections/delivery-address-section";
 import { BillingSection } from "@/components/booking/sections/billing-section";
 
 import { Button } from "@/components/ui/button";
-import { INSURANCE_CHARGE, OPERATOR_CHARGE } from "@/lib/config";
 import type { BookingFormValues } from "@/lib/validation/booking";
 
 /**
@@ -24,7 +23,7 @@ export default function BookingFormFields(props: {
   control: Control<BookingFormValues>;
 
   // Date policy + validation visuals
-  disabledDays: any[];
+  disabledDays?: Matcher | Matcher[];
   helperText: string;
   isDateInvalid: boolean;
   dateErrorMessage?: string | undefined;
@@ -51,6 +50,9 @@ export default function BookingFormFields(props: {
   // Conditional surfaces
   showAddress: boolean;
 
+  // Slot to inject a summary block (e.g., <SummaryPanel />) between Add-ons and Contact
+  summary?: React.ReactNode;
+
   // Submit visuals
   isSubmitDisabled: boolean;
   rootError?: string | null;
@@ -63,11 +65,9 @@ export default function BookingFormFields(props: {
     dateErrorMessage,
     onRangeChange,
 
-    rentalDays,
-    dailyRate,
-    deposit,
-    deliveryCharge,
-    pickupCharge,
+    // Keep pricing props available for future sub-sections if needed
+    // rentalDays, dailyRate, deposit, deliveryCharge, pickupCharge,
+
     minDays,
 
     deliverySelected,
@@ -80,6 +80,8 @@ export default function BookingFormFields(props: {
     onToggleOperator,
 
     showAddress,
+
+    summary,
 
     isSubmitDisabled,
     rootError,
@@ -110,22 +112,8 @@ export default function BookingFormFields(props: {
         minDays={minDays}
       />
 
-      {/* Price summary */}
-      {rentalDays > 0 && (
-        <PriceSummary
-          rentalDays={rentalDays}
-          dailyRate={dailyRate}
-          deposit={deposit}
-          deliverySelected={!!deliverySelected}
-          pickupSelected={!!pickupSelected}
-          insuranceSelected={!!insuranceSelected}
-          deliveryCharge={deliveryCharge}
-          pickupCharge={pickupCharge}
-          insuranceCharge={INSURANCE_CHARGE}
-          operatorSelected={!!operatorSelected}
-          operatorCharge={operatorSelected ? OPERATOR_CHARGE : null}
-        />
-      )}
+      {/* Summary slot (renders pricing breakdown + notes) */}
+      {summary ?? null}
 
       {/* Contact fields */}
       <ContactSection control={control} />

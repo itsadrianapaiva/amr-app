@@ -2,6 +2,7 @@
 
 import { DateRange, Matcher } from "react-day-picker";
 import { Control } from "react-hook-form";
+import type { BookingFormValues } from "@/lib/validation/booking";
 import {
   FormField,
   FormItem,
@@ -13,7 +14,7 @@ import { DateRangeInput } from "@/components/booking/date-range-input";
 
 type DateRangeSectionProps = {
   /** RHF control from the parent form */
-  control: Control<any>;
+  control: Control<BookingFormValues>;
   /** Disabled days matcher list passed to the calendar */
   disabledDays?: Matcher | Matcher[];
   /** Small helper text under the calendar */
@@ -59,7 +60,7 @@ export function DateRangeSection({
               <span className="font-medium text-red-700">
                 Check your dates:{" "}
               </span>
-              <span className="text-muted-bakckground">{errorMessage}</span>
+              <span className="text-muted-background">{errorMessage}</span>
             </div>
           ) : null}
 
