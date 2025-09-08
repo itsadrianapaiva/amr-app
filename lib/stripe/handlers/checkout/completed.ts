@@ -1,5 +1,5 @@
-// Single-responsibility handler for `checkout.session.completed`.
-// Kept small by delegating to webhook-service helpers.
+// Full-upfront pivot: promote the booking on completion (card immediate),
+// and ignore legacy manual-capture auth sessions gracefully.
 
 import type Stripe from "stripe";
 import { notifyBookingConfirmed } from "@/lib/notifications/notify-booking-confirmed";
@@ -7,7 +7,6 @@ import {
   extractSessionFacts,
   ensurePaymentIntentIdFromSession,
   promoteBookingToConfirmed,
-  upsertBalanceAuthorization,
   type LogFn,
 } from "@/lib/stripe/webhook-service";
 
@@ -18,11 +17,11 @@ export async function onCheckoutSessionCompleted(
 ): Promise<void> {
   const session = event.data.object as Stripe.Checkout.Session;
 
-  // Read facts (bookingId, flow, PI id if present, total) from the session
+  // Normalize common facts from the Session.
   const { bookingId, flow, paymentIntentId, amountTotalCents } =
     extractSessionFacts(session);
 
-  // If for any reason we can't tie to a booking, we short-circuit and log
+  // If we can’t tie to a booking, log and exit safely.
   if (bookingId == null) {
     log("completed:no_booking_id", {
       client_reference_id: session.client_reference_id,
@@ -31,36 +30,32 @@ export async function onCheckoutSessionCompleted(
     return;
   }
 
-  // Authorization flow (manual capture, card-only)
+  // Legacy safety: we no longer do balance authorizations. Ignore if seen.
   if (flow === "balance_authorize") {
-    // Ensure we have a PI id (expand if Stripe didn’t include it inline)
-    const piId =
-      paymentIntentId ?? (await ensurePaymentIntentIdFromSession(session, log));
-
-    log("completed:balance_authorize", {
+    log("completed:balance_authorize_ignored", {
       bookingId,
       sessionId: session.id,
-      piId: piId ?? null,
-      amount_total: amountTotalCents ?? null,
     });
-
-    // Store/refresh the authorization on the booking (PI id + amount)
-    await upsertBalanceAuthorization(
-      { bookingId, paymentIntentId: piId, amountCents: amountTotalCents },
-      log
-    );
     return;
   }
 
-  // Deposit flow (capture): promote + notify
-  log("completed:deposit_promote", {
+  // Full payment (covers legacy "deposit" and new "full_upfront").
+  // Ensure we have a PI id; expand if Stripe didn’t include it inline.
+  const piId =
+    paymentIntentId ?? (await ensurePaymentIntentIdFromSession(session, log));
+
+  log("completed:full_payment_promote", {
     bookingId,
     sessionId: session.id,
-    piId: paymentIntentId ?? null,
+    piId: piId ?? null,
+    amount_total: amountTotalCents ?? null,
+    flow,
   });
 
-  await promoteBookingToConfirmed({ bookingId, paymentIntentId }, log);
+  // Idempotent promotion to CONFIRMED + attach PI.
+  await promoteBookingToConfirmed({ bookingId, paymentIntentId: piId ?? null }, log);
 
+  // Best-effort notification (non-fatal if it errors).
   log("notify:start", { bookingId, SEND_EMAILS: process.env.SEND_EMAILS });
   try {
     await notifyBookingConfirmed(bookingId, "customer");

@@ -1,5 +1,5 @@
 // Centralized helpers for Stripe webhook handling.
-// Keep route.ts tiny and testable by importing only these functions.
+// Full-upfront pivot: no manual-capture auth storage; keep helpers lean.
 
 import type Stripe from "stripe";
 import { db } from "@/lib/db";
@@ -12,7 +12,7 @@ export type LogFn = (event: string, data?: Record<string, unknown>) => void;
 /** No-op logger by default to keep helpers side-effect free in tests. */
 const defaultLog: LogFn = () => {};
 
-/** Extract first integer found in a string like "booking-123" or "123" */
+/** Extract first integer found in a string like "booking-123" or "123". */
 export function parseIdLike(val: unknown): number | null {
   if (val == null) return null;
   const m = String(val).match(/\d+/);
@@ -21,7 +21,7 @@ export function parseIdLike(val: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Extract PI id in a type-safe way from a Checkout Session */
+/** Extract PI id in a type-safe way from a Checkout Session. */
 export function paymentIntentIdFromSession(
   session: Stripe.Checkout.Session
 ): string | null {
@@ -30,7 +30,7 @@ export function paymentIntentIdFromSession(
   return typeof pi === "string" ? pi : pi.id;
 }
 
-/** Prefer metadata.bookingId, fallback to client_reference_id */
+/** Prefer metadata.bookingId, fallback to client_reference_id. */
 export function bookingIdFromSession(
   session: Stripe.Checkout.Session
 ): number | null {
@@ -39,18 +39,19 @@ export function bookingIdFromSession(
   return parseIdLike(session.client_reference_id);
 }
 
-/** Pull a simple 'flow' marker (defaults to 'deposit' for back-compat) */
+/**
+ * Pull a simple 'flow' marker.
+ * - "balance_authorize": legacy manual-capture auth (ignored now).
+ * - "full_upfront": new flow (treated as full payment).
+ * - default: treat as historical "deposit" → same as full payment for promotion.
+ */
 export function flowFromMeta(
   meta?: Stripe.Metadata | null
-): "deposit" | "balance_authorize" {
+): "full_upfront" | "deposit" | "balance_authorize" {
   const raw = (meta?.flow ?? "").toString().trim().toLowerCase();
-  return raw === "balance_authorize" ? "balance_authorize" : "deposit";
-}
-
-/** Convert Stripe minor units (cents) into a Decimal-friendly EUR string */
-export function euroStringFromCents(cents?: number | null): string | null {
-  if (typeof cents !== "number" || !Number.isFinite(cents)) return null;
-  return (cents / 100).toFixed(2);
+  if (raw === "balance_authorize") return "balance_authorize";
+  if (raw === "full_upfront") return "full_upfront";
+  return "deposit";
 }
 
 /**
@@ -73,11 +74,7 @@ export async function ensurePaymentIntentIdFromSession(
     const pi = fresh.payment_intent;
     const id = typeof pi === "string" ? pi : (pi?.id ?? null);
     if (!id) log("pi.ensure:missing_after_expand", { sessionId: session.id });
-    else
-      log("pi.ensure:resolved_after_expand", {
-        sessionId: session.id,
-        piId: id,
-      });
+    else log("pi.ensure:resolved_after_expand", { sessionId: session.id, piId: id });
     return id;
   } catch (err) {
     log("pi.ensure:error", {
@@ -88,7 +85,7 @@ export async function ensurePaymentIntentIdFromSession(
   }
 }
 
-/** Idempotent promotion: PENDING -> CONFIRMED, clear hold window, attach PI */
+/** Idempotent promotion: PENDING -> CONFIRMED, clear hold window, attach PI. */
 export async function promoteBookingToConfirmed(
   args: { bookingId: number; paymentIntentId: string | null },
   log: LogFn = defaultLog
@@ -100,7 +97,7 @@ export async function promoteBookingToConfirmed(
         id: true,
         status: true,
         stripePaymentIntentId: true,
-        depositPaid: true,
+        depositPaid: true, // TODO: rename to `paid` in a later migration.
       },
     });
     if (!existing) {
@@ -108,7 +105,7 @@ export async function promoteBookingToConfirmed(
       return; // ack anyway
     }
 
-    // If already confirmed and paid, nothing to do
+    // If already confirmed and paid, nothing to do.
     if (existing.status === BookingStatus.CONFIRMED && existing.depositPaid) {
       log("promote:already_confirmed", { bookingId: existing.id });
       return;
@@ -118,7 +115,7 @@ export async function promoteBookingToConfirmed(
       where: { id: args.bookingId },
       data: {
         status: BookingStatus.CONFIRMED,
-        depositPaid: true,
+        depositPaid: true, // interim: means "fully paid" after the pivot.
         holdExpiresAt: null,
         stripePaymentIntentId:
           args.paymentIntentId ?? existing.stripePaymentIntentId ?? null,
@@ -132,38 +129,7 @@ export async function promoteBookingToConfirmed(
   });
 }
 
-/** Store/refresh manual-capture authorization (PI id + amount) */
-export async function upsertBalanceAuthorization(
-  args: {
-    bookingId: number;
-    paymentIntentId: string | null;
-    amountCents?: number | null; // capturable or total; converted to EUR string
-  },
-  log: LogFn = defaultLog
-) {
-  if (!args.paymentIntentId) {
-    log("auth:skip_no_pi", { bookingId: args.bookingId });
-    return;
-  }
-  const amountStr = euroStringFromCents(args.amountCents);
-  const data: any = {
-    authorizedPaymentIntentId: args.paymentIntentId,
-  };
-  if (amountStr != null) data.authorizedAmount = amountStr;
-
-  const res = await db.booking.updateMany({
-    where: { id: args.bookingId },
-    data,
-  });
-  log("auth:stored", {
-    bookingId: args.bookingId,
-    pi: args.paymentIntentId,
-    amount: amountStr ?? null,
-    changed: res.count,
-  });
-}
-
-/** Cancel a still-pending booking on session.expired — idempotent */
+/** Cancel a still-pending booking on session.expired — idempotent. */
 export async function cancelPendingBooking(
   bookingId: number,
   log: LogFn = defaultLog
@@ -175,7 +141,7 @@ export async function cancelPendingBooking(
   log("expired:cancelled_pending", { bookingId, changed: res.count });
 }
 
-/** Convenience: read bookingId + PI + flow from a Session in one place */
+/** Convenience: read bookingId + PI + flow from a Session in one place. */
 export function extractSessionFacts(session: Stripe.Checkout.Session) {
   return {
     bookingId: bookingIdFromSession(session),
@@ -186,11 +152,10 @@ export function extractSessionFacts(session: Stripe.Checkout.Session) {
   };
 }
 
-/** Convenience: read bookingId + flow from a PaymentIntent in one place */
+/** Convenience: read bookingId + flow from a PaymentIntent in one place. */
 export function extractPIFacts(pi: Stripe.PaymentIntent) {
   return {
     bookingId: parseIdLike(pi.metadata?.bookingId),
     flow: flowFromMeta(pi.metadata),
-    amountCapturableCents: pi.amount_capturable,
   };
 }

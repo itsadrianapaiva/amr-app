@@ -1,15 +1,12 @@
-// File: lib/stripe/handlers/checkout/async-payment-succeeded.ts
-// Single-responsibility handler for `checkout.session.async_payment_succeeded`.
-// Covers async confirmations (e.g., bank transfers, wallets). We:
-// - For balance_authorize: ensure PI id, then persist the authorization (PI + amount).
-// - For deposit: promote booking to CONFIRMED and notify the customer.
+// Full-upfront pivot:
+// - Ignore legacy manual-capture auth sessions.
+// - Promote the booking to CONFIRMED on async success (MB WAY / SEPA), attach PI, notify.
 
 import type Stripe from "stripe";
 import { notifyBookingConfirmed } from "@/lib/notifications/notify-booking-confirmed";
 import {
   extractSessionFacts,
   ensurePaymentIntentIdFromSession,
-  upsertBalanceAuthorization,
   promoteBookingToConfirmed,
   type LogFn,
 } from "@/lib/stripe/webhook-service";
@@ -25,7 +22,7 @@ export async function onCheckoutSessionAsyncPaymentSucceeded(
     extractSessionFacts(session);
 
   // 2) If we cannot tie the session to a booking, log and exit safely.
-  if (!bookingId) {
+  if (bookingId == null) {
     log("async_succeeded:no_booking_id", {
       client_reference_id: session.client_reference_id,
       metadata: session.metadata,
@@ -33,33 +30,40 @@ export async function onCheckoutSessionAsyncPaymentSucceeded(
     return;
   }
 
-  // 3) Authorization flow (manual capture): guarantee PI id and store the auth (PI + amount).
+  // 3) Legacy safety: we no longer support manual-capture balance authorizations.
   if (flow === "balance_authorize") {
-    // Some async-success payloads omit payment_intent; expand as a fallback.
-    const piId =
-      paymentIntentId ?? (await ensurePaymentIntentIdFromSession(session, log));
-
-    log("async_succeeded:balance_authorize", {
+    log("async_succeeded:balance_authorize_ignored", {
       bookingId,
       sessionId: session.id,
-      piId: piId ?? null,
       amount_total: amountTotalCents ?? null,
     });
-
-    await upsertBalanceAuthorization(
-      { bookingId, paymentIntentId: piId, amountCents: amountTotalCents },
-      log
-    );
     return;
   }
 
-  // 4) Deposit flow (capture): promote to CONFIRMED and notify.
-  log("async_succeeded:deposit_promote", {
+  // 4) Full payment (covers legacy "deposit" and new "full_upfront"):
+  //    Ensure a PI id exists; some async payloads omit it and require expansion.
+  const piId =
+    paymentIntentId ?? (await ensurePaymentIntentIdFromSession(session, log));
+
+  log("async_succeeded:full_payment_promote", {
     bookingId,
     sessionId: session.id,
-    piId: paymentIntentId ?? null,
+    piId: piId ?? null,
+    amount_total: amountTotalCents ?? null,
+    flow,
   });
 
-  await promoteBookingToConfirmed({ bookingId, paymentIntentId }, log);
-  await notifyBookingConfirmed(bookingId, "customer");
+  // 5) Idempotent promotion to CONFIRMED + attach PI.
+  await promoteBookingToConfirmed({ bookingId, paymentIntentId: piId ?? null }, log);
+
+  // 6) Notify customer (best-effort; non-fatal on error).
+  try {
+    await notifyBookingConfirmed(bookingId, "customer");
+    log("notify:done", { bookingId });
+  } catch (err) {
+    log("notify:error", {
+      bookingId,
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
 }

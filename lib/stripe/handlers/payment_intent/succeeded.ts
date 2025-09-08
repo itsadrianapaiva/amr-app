@@ -1,6 +1,5 @@
-// Handler for `payment_intent.succeeded`.
-// - Deposit flow: promote booking + send emails.
-// - Balance auth capture (later by Ops): no booking promotion.
+// - Promote the booking (idempotent), attach PI, notify.
+// - Ignore legacy manual-capture auth flow safely.
 
 import type Stripe from "stripe";
 import { notifyBookingConfirmed } from "@/lib/notifications/notify-booking-confirmed";
@@ -12,8 +11,10 @@ import {
 
 /**
  * onPaymentIntentSucceeded
- * Deposit success → confirm booking.
- * Balance authorization capture → log only (promotion not applicable).
+ * Primary path for card (immediate) success.
+ * Async methods (MB WAY / SEPA) are primarily handled by
+ * `checkout.session.async_payment_succeeded`, but this remains
+ * as a robust backstop (idempotent).
  */
 export async function onPaymentIntentSucceeded(
   event: Stripe.Event,
@@ -23,20 +24,20 @@ export async function onPaymentIntentSucceeded(
   const pi = event.data.object as Stripe.PaymentIntent;
   const { bookingId, flow } = extractPIFacts(pi);
 
-  // 2) Balance authorization capture (manual capture done later by Ops)
+  // 2) Legacy safety: ignore manual-capture auth flow
   if (flow === "balance_authorize") {
-    log("pi.succeeded:balance_capture", { piId: pi.id });
+    log("pi.succeeded:balance_authorize_ignored", { piId: pi.id });
     return;
   }
 
-  // 3) Deposit flow must tie back to a booking id
+  // 3) If we can’t tie to a booking, log and exit safely
   if (!bookingId) {
     log("pi.succeeded:no_booking_id", { metadata: pi.metadata });
     return;
   }
 
   // 4) Promote booking to CONFIRMED and attach the PI id (idempotent)
-  log("pi.succeeded:deposit_promote", { bookingId, piId: pi.id });
+  log("pi.succeeded:full_payment_promote", { bookingId, piId: pi.id });
   await promoteBookingToConfirmed({ bookingId, paymentIntentId: pi.id }, log);
 
   // 5) Notify customer (best-effort; non-fatal on error)
