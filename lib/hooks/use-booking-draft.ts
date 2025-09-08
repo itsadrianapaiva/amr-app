@@ -140,18 +140,30 @@ export function useBookingDraft(opts: {
   debounceMs?: number;
 }) {
   const { form, machineId, debounceMs = 300 } = opts;
+
+  // Stable storage key for this machine's draft
   const key = React.useMemo(() => `amr:draft:${machineId}`, [machineId]);
 
-  // Load on mount
-  React.useEffect(() => {
-    const draft = loadDraft<DraftV1>(key);
-    if (!draft) return;
-    const merged = merge(form.getValues(), draft);
-    form.reset(merged);
-    void form.trigger(["dateRange", "siteAddress"]);
-  }, [key]);
+  // Remember which key we've already initialized (prevents double reset when `form` identity changes)
+  const didInitRef = React.useRef<string | null>(null);
 
-  // Save on change (debounced)
+  // One-time hydrate from local storage for this key
+  React.useEffect(() => {
+    // Skip if we already initialized this key (avoids duplicate reset/trigger on form identity change)
+    if (didInitRef.current === key) return;
+
+    const draft = loadDraft<DraftV1>(key);
+    if (draft) {
+      const merged = merge(form.getValues(), draft);
+      form.reset(merged);
+      // Trigger validation for fields that commonly need re-check after hydrate
+      void form.trigger(["dateRange", "siteAddress"]);
+    }
+
+    didInitRef.current = key;
+  }, [key, form]);
+
+  // Debounced auto-save whenever form values change
   const debounceRef = React.useRef<number | null>(null);
   React.useEffect(() => {
     const sub = form.watch((values) => {
@@ -162,6 +174,7 @@ export function useBookingDraft(opts: {
         debounceMs
       );
     });
+
     return () => {
       sub.unsubscribe();
       if (debounceRef.current) window.clearTimeout(debounceRef.current);

@@ -1,142 +1,38 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { MachineCard } from "@/components/machine-card";
-import Pretitle from "@/components/ui/pretitle";
-import type { SerializableMachine } from "@/lib/types";
 import Hero from "@/components/hero";
-import { HOME_HERO, HOME_INVENTORY } from "@/lib/content/home";
-import { MACHINE_CARD_COPY } from "@/lib/content/machines";
-import { toTitleCase } from "@/lib/utils"; // ⬅️ fallback label helper
+import CatalogSection from "@/components/catalog-section";
 import WhyBook from "./why-book";
 import Faq from "./faq";
 import ContactSection from "./contact-section";
+import { HOME_HERO } from "@/lib/content/home";
+import type { SerializableMachine } from "@/lib/types";
 
 interface HomeViewProps {
   machines: SerializableMachine[];
 }
 
-// Normalize label: prefer friendly mapper; fallback to raw category/type in Title Case.
-function labelFor(m: SerializableMachine): string {
-  const raw = String((m as any).category ?? (m as any).type ?? "").trim();
-  const friendly = MACHINE_CARD_COPY.displayType(raw);
-  if (friendly && friendly.length) return friendly;
-  return raw ? toTitleCase(raw) : ""; // empty → ignored by category builder
-}
-
+/**
+ * HomeView
+ * Composition-only wrapper: each UI section lives in its own component.
+ */
 export function HomeView({ machines }: HomeViewProps) {
-  const [headerActive, setHeaderActive] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
-
-  useEffect(() => {
-    const handleScroll = () => setHeaderActive(window.scrollY > 0);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  // Build unique categories using resilient labelFor()
-  const categories = useMemo(() => {
-    const labels = new Set<string>();
-    for (const m of machines) {
-      const label = labelFor(m);
-      if (label) labels.add(label);
-    }
-    return ["All", ...Array.from(labels).sort((a, b) => a.localeCompare(b))];
-  }, [machines]);
-
-  // Filter with the same label function to stay consistent with pills
-  const visibleMachines = useMemo(() => {
-    if (selectedCategory === "All") return machines;
-    return machines.filter((m) => labelFor(m) === selectedCategory);
-  }, [machines, selectedCategory]);
-
-  // URL SYNC (stable)
-  const didInitFromURL = useRef(false);
-
-  // URL -> State (init once, after categories exist)
-  useEffect(() => {
-    if (didInitFromURL.current) return;
-    const url = new URL(window.location.href);
-    const qp = url.searchParams.get("category");
-    if (qp) {
-      const match = categories.find(
-        (c) => c.toLowerCase() === qp.toLowerCase()
-      );
-      if (match) setSelectedCategory(match);
-    }
-    didInitFromURL.current = true;
-  }, [categories]);
-
-  // State -> URL (only write when changed)
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    const current = url.searchParams.get("category");
-    const desired = selectedCategory === "All" ? null : selectedCategory;
-    if (current === desired) return;
-    if (desired === null) url.searchParams.delete("category");
-    else url.searchParams.set("category", desired);
-    const newUrl = `${url.pathname}${url.search}${url.hash}`;
-    window.history.replaceState({}, "", newUrl);
-  }, [selectedCategory]);
-
   return (
-    <main className="">
-      {/* HERO — small, conversion-first */}
+    <main>
+      {/* Section: Hero */}
       <Hero {...HOME_HERO} />
 
-      {/* Inventory header fed by content lib */}
-      <section className="container mx-auto py-18 text-center md:py-20 xl:py-22">
-        <Pretitle text={HOME_INVENTORY.pretitle} center />
-        <h2 className="my-6 text-3xl font-bold tracking-tight md:text-4xl">
-          {HOME_INVENTORY.title}
-        </h2>
-        <p className="mx-auto max-w-xl text-muted-foreground">
-          {HOME_INVENTORY.subtitle}
-        </p>
-      </section>
+      {/* Section: Catalog (intro + pills + grid) */}
+      <CatalogSection machines={machines} />
 
-      {/* Category filter + grid */}
-      <section id="catalog" className="container mx-auto">
-        <div className="mb-6 w-full">
-          <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-2 sm:gap-3 py-1">
-            {categories.map((cat) => {
-              const selected = cat === selectedCategory;
-              return (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setSelectedCategory(cat)}
-                  aria-pressed={selected}
-                  className={[
-                    "whitespace-nowrap rounded-full px-4 py-2 text-sm transition-colors",
-                    selected
-                      ? "bg-primary text-primary-foreground"
-                      : "border border-border text-muted-foreground hover:bg-surface/20",
-                  ].join(" ")}
-                >
-                  {cat}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-          {visibleMachines.map((machine) => (
-            <MachineCard key={machine.id} machine={machine} />
-          ))}
-        </div>
-      </section>
-
-      {/* Why Book With Us (anchors to #about for the header link) */}
+      {/* Section: Why book */}
       <WhyBook />
 
-      {/* FAQ */}
+      {/* Section: FAQ */}
       <Faq />
 
-      {/* Contact */}
+      {/* Section: Contact */}
       <ContactSection />
-      {/* Future sections: Legal, Contacts */}
     </main>
   );
 }
