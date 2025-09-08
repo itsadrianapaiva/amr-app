@@ -1,3 +1,4 @@
+// app/booking/success/page.tsx
 import { redirect } from "next/navigation";
 import { BookingStatus } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -16,14 +17,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  // include ?auth=1 for the SCA fallback return path
-  searchParams: Promise<{ session_id?: string; auth?: string }>;
+  searchParams: Promise<{ session_id?: string }>;
 };
 
 export default async function SuccessPage({ searchParams }: PageProps) {
-  const { session_id, auth } = await searchParams;
+  const { session_id } = await searchParams;
   const sessionId = session_id;
-  const showAuthBanner = auth === "1";
 
   if (!sessionId) redirect("/");
 
@@ -49,9 +48,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
           We could not match your booking automatically. Our team will follow up.
         </p>
         <div className="flex items-center gap-3 pt-2">
-          <a href="/" className="underline">
-            Back to homepage
-          </a>
+          <a href="/" className="underline">Back to homepage</a>
         </div>
       </div>
     );
@@ -65,7 +62,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
       select: {
         id: true,
         status: true,
-        depositPaid: true,
+        depositPaid: true, // reuse for "paid" until we rename the column
         stripePaymentIntentId: true,
         holdExpiresAt: true, // clear this on success
       },
@@ -78,7 +75,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
         where: { id: bookingId },
         data: {
           stripePaymentIntentId: piId,
-          depositPaid: true,
+          depositPaid: true, // TODO: rename to "paid" in a later migration
           status: BookingStatus.CONFIRMED,
           holdExpiresAt: null,
         },
@@ -114,17 +111,18 @@ export default async function SuccessPage({ searchParams }: PageProps) {
   }
 
   // ——— UI
+  const title = paid ? "Booking confirmed" : "Payment pending confirmation";
+  const message = paid
+    ? "Thank you. Your payment was processed successfully. A refundable deposit is due at handover (delivery or warehouse)."
+    : "Thanks! Your payment is being confirmed. This can take a few minutes with MB WAY or IBAN. We’ll email you once it’s approved.";
+
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
       {/* clear the per-machine draft now that we're on the success page */}
       {typeof machineId === "number" && <ClearBookingDraft machineId={machineId} />}
 
-
-      <h1 className="text-2xl font-semibold">Booking confirmed</h1>
-      <p className="text-sm text-gray-700">
-        Thank you. Your deposit was processed successfully. We’re securing your card for the
-        remaining balance (like a hotel hold). This isn’t another charge.
-      </p>
+      <h1 className="text-2xl font-semibold">{title}</h1>
+      <p className="text-sm text-gray-700">{message}</p>
 
       <div className="rounded-md border bg-gray-50 p-4 text-sm text-gray-800">
         <div className="space-y-1">
@@ -142,9 +140,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
       </div>
 
       <div className="flex items-center gap-3">
-        <a href="/" className="rounded-md bg-black px-4 py-2 text-white">
-          Back to homepage
-        </a>
+        <a href="/" className="rounded-md bg-black px-4 py-2 text-white">Back to homepage</a>
         {typeof machineId === "number" && (
           <a href={`/machine/${machineId}`} className="underline">
             View machine

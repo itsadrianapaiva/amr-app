@@ -12,21 +12,21 @@ export type BuildFullSessionArgs = {
   from: Date;
   to: Date;
   days: number;
-  /** Total amount to CHARGE now (in euros). */
+  /** Total amount to CHARGE now (euros, pre-tax; Stripe Tax will add VAT). */
   totalEuros: number;
   customerEmail: string;
   appUrl: string;
   /**
-   * Optional: explicitly control which payment methods to show.
-   * If omitted, we default to ["card","mb_way"].
-   * Note: To accept MB WAY / SEPA in Checkout, enable them in Dashboard and
-   * include their types ( "mb_way", "sepa_debit" ). */
+   * Optional explicit override for payment methods.
+   * If omitted, Checkout will dynamically show all eligible methods you enabled
+   * in the Dashboard (e.g., card, MB WAY, SEPA Direct Debit).
+   */
   paymentMethodTypes?: Stripe.Checkout.SessionCreateParams.PaymentMethodType[];
 };
 
 /**
- * Build a Stripe Checkout Session that charges the **full rental** upfront.
- * Also creates/links a Stripe Customer for better receipts and ops lookup.
+ * Build a Stripe Checkout Session that charges the full rental upfront.
+ * VAT is computed automatically by Stripe Tax. We collect tax IDs.
  */
 export function buildFullCheckoutSessionParams(
   args: BuildFullSessionArgs
@@ -54,16 +54,6 @@ export function buildFullCheckoutSessionParams(
     flow: "full_upfront" as const,
   };
 
-  // Default to cards + MB WAY; add SEPA by passing it in paymentMethodTypes when desired.
-  const methods =
-    paymentMethodTypes && paymentMethodTypes.length > 0
-      ? paymentMethodTypes
-      : ([
-          "card",
-          "mb_way",
-          "sepa",
-        ] as Stripe.Checkout.SessionCreateParams.PaymentMethodType[]);
-
   return {
     mode: "payment",
 
@@ -71,20 +61,24 @@ export function buildFullCheckoutSessionParams(
     customer_creation: "always",
     customer_email: customerEmail,
 
-    // Light-touch collection for MVP; can raise later if invoicing rules change.
-    billing_address_collection: "auto",
-    phone_number_collection: { enabled: false },
-    tax_id_collection: { enabled: false },
+    // VAT collection
+    automatic_tax: { enabled: true }, // Stripe calculates VAT
+    tax_id_collection: { enabled: true }, // Collect VAT number when applicable
 
-    // Mirror booking metadata into the Session (and PI via our wrapper).
+    // Collect enough address info for tax. Required works best for EU VAT.
+    billing_address_collection: "required",
+    // Keep customer data fresh when users edit in Checkout.
+    customer_update: { address: "auto", name: "auto" },
+
+    // Mirror metadata into Session (PI metadata mirrored by our wrapper).
     metadata: baseMetadata,
 
     client_reference_id: String(bookingId),
 
-    // Allow the payment methods we want visible in Checkout.
-    payment_method_types: methods,
+    // Only set payment_method_types when caller passes an override.
+    ...(paymentMethodTypes ? { payment_method_types: paymentMethodTypes } : {}),
 
-    // Single clear line item for the whole rental.
+    // One line item, Stripe Tax adds VAT on top.
     line_items: [
       {
         price_data: {
