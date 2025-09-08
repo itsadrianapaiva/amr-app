@@ -2,11 +2,7 @@ import "server-only";
 
 import type { BookingRepoPort } from "./booking-service";
 import { ymdToUtcDate } from "@/lib/ops/support";
-import {
-  createOpsBookingWithLock,
-  findPendingHoldExpiry,
-  tagBookingAsWaivedPI,
-} from "@/lib/ops/repo";
+import { createOpsBookingWithLock, tagBookingAsWaivedPI } from "@/lib/ops/repo";
 import { db } from "@/lib/db";
 
 export class PrismaBookingRepo implements BookingRepoPort {

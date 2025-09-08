@@ -4,9 +4,8 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import type { OpsActionResult } from "@/app/ops/actions";
-import OpsBookingFields, {
-  type MachineOption,
-} from "@/components/ops/ops-booking-fields";
+import OpsBookingFields from "@/components/ops/ops-booking-fields";
+import type { MachineOption } from "@/lib/ops/use-ops-booking-form";
 import ErrorSummary from "../forms/error-summary";
 
 type DisabledRange = { from: string; to: string };

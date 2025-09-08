@@ -26,13 +26,17 @@ function getCategoryOrType(m: unknown): string {
 }
 
 type PageParams = { id: string };
+type MaybePromise<T> = T | Promise<T>;
 
 export default async function MachineDetailPage({
   params,
 }: {
-  params: PageParams;
+  /** Accept both plain and Promise params to satisfy Next.js PageProps variations. */
+  params: MaybePromise<PageParams>;
 }) {
-  const { id } = params;
+  // Resolve params whether it’s a direct object or a Promise from the runtime types.
+  const { id } = await Promise.resolve(params);
+
   const machineId = parseInt(id, 10);
   if (isNaN(machineId)) {
     notFound();
