@@ -1,15 +1,10 @@
 import { db } from "@/lib/db";
 import OpsCreateBookingForm from "@/components/ops/ops-create-booking-form";
 import { getDisabledRangesByMachine } from "@/lib/availability.server";
-
-// --- Type-only wiring to match ./actions exactly (no runtime import)
-type CreateOpsBookingAction = typeof import("./actions")["createOpsBookingAction"];
-type OpsPrevState = Parameters<CreateOpsBookingAction>[0];
+import type { MachineOption } from "@/lib/ops/use-ops-booking-form";
 
 // This page depends on live DB data (bookings), so keep it dynamic.
 export const dynamic = "force-dynamic";
-
-type MachineOption = { id: number; name: string };
 
 // Format a Date → 'YYYY-MM-DD' (ISO-8601 date only).
 function toYmd(d: Date) {
@@ -43,13 +38,8 @@ export default async function OpsPage() {
         Choose a machine, pick a date range, and confirm with the ops passcode.
       </p>
       <OpsCreateBookingForm
-        machines={machines as MachineOption[]}
+        machineOptions={machines as MachineOption[]}
         minYmd={today}
-        serverAction={async (_prev: OpsPrevState, formData: FormData) => {
-          "use server";
-          const { createOpsBookingAction } = await import("./actions");
-          return createOpsBookingAction(_prev, formData);
-        }}
         disabledByMachine={disabledByMachine}
       />
     </section>

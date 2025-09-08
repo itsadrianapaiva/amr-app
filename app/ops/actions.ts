@@ -1,7 +1,5 @@
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
-import "server-only";
+// app/ops/actions.ts
+"use server";
 
 import { notifyBookingConfirmed } from "@/lib/notifications/notify-booking-confirmed";
 import { formatLisbon, leadTimeOverrideNoteIfAny } from "@/lib/ops/support";
@@ -24,12 +22,17 @@ export type OpsActionResult =
       values?: Record<string, string>;
     };
 
+/**
+ * Server Action used by the Ops create booking form.
+ * Note:
+ * - Module-level `"use server"` marks this whole file as server-only (safe to import the function in a Client Component).
+ * - We removed `import "server-only"` (that broke client import).
+ * - Keep the `(prev, formData)` signature for Server Actions.
+ */
 export async function createOpsBookingAction(
   _prev: unknown,
   formData: FormData
 ): Promise<OpsActionResult> {
-  "use server";
-
   // 1) Parse & validate
   const parsed = await parseOpsForm(formData);
   if (!parsed.ok) {
@@ -69,7 +72,7 @@ export async function createOpsBookingAction(
     siteAddressLine1: data.siteAddressLine1,
     siteAddressCity: data.siteAddressCity ?? undefined,
     siteAddressNotes: data.siteAddressNotes ?? undefined,
-    overrideNote: overrideNoteMaybe ?? undefined, // <- coerce null → undefined
+    overrideNote: overrideNoteMaybe ?? undefined, // coerce null → undefined
   };
 
   const result = await createManagerBooking(svcInput, { repo });

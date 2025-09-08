@@ -26,16 +26,15 @@ function getCategoryOrType(m: unknown): string {
 }
 
 type PageParams = { id: string };
-type MaybePromise<T> = T | Promise<T>;
 
 export default async function MachineDetailPage({
   params,
 }: {
-  /** Accept both plain and Promise params to satisfy Next.js PageProps variations. */
-  params: MaybePromise<PageParams>;
+  /** Match Next.js PageProps: params is a Promise here. */
+  params: Promise<PageParams>;
 }) {
-  // Resolve params whether it’s a direct object or a Promise from the runtime types.
-  const { id } = await Promise.resolve(params);
+  // Normalize params per PageProps shape
+  const { id } = await params;
 
   const machineId = parseInt(id, 10);
   if (isNaN(machineId)) {
@@ -76,11 +75,11 @@ export default async function MachineDetailPage({
   const categoryOrType = getCategoryOrType(machine);
   const displayType = MACHINE_CARD_COPY.displayType(categoryOrType);
 
-  // Centralized image resolution: type → name → (ignore DB URL on detail page) → fallback
+  // Centralized image resolution
   const img = resolveMachineImage({
     type: categoryOrType,
     name: String(machine.name ?? ""),
-    dbUrl: null, // never render external CSV links here to avoid Next/Image host issues
+    dbUrl: null, // avoid external hosts in Next/Image on detail page
   });
 
   return (
@@ -114,7 +113,6 @@ export default async function MachineDetailPage({
 
             <MachineSpecs machine={machine} />
 
-            {/* Real booking form */}
             <div className="mt-8">
               <BookingForm
                 machine={formMachine}

@@ -29,6 +29,9 @@ export default function WhatsAppFab({
       <Image
         src={iconSrc}
         alt="WhatsApp"
+        width={64}
+        height={64}
+        loading="lazy"
         className="relative z-20 h-12 w-12 transition-transform hover:scale-110 sm:h-16 sm:w-16"
       />
     </a>
