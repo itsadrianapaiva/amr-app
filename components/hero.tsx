@@ -117,7 +117,7 @@ export default function Hero({
             <Link href={primaryHref} prefetch={false}>
               <Button
                 size="lg"
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
               >
                 {primaryLabel}
               </Button>

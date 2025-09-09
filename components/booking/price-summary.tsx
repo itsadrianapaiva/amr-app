@@ -135,7 +135,7 @@ export function PriceSummary({
 
           {/* Deposit is shown explicitly and is NOT added to the total */}
           <div className="text-sm">
-            <PriceRow label="Refundable deposit at handover">
+            <PriceRow label="Deposit">
               {formatCurrency(deposit)}
             </PriceRow>
           </div>
@@ -145,8 +145,8 @@ export function PriceSummary({
         <p className="mt-3 text-xs text-muted-foreground">
           VAT at 23% is included in the total above.
         </p>
-        <p className="text-xs text-muted-foreground balanced">
-          The refundable deposit is paid at handover (delivery to your site or
+        <p className="text-xs text-muted-foreground">
+          The deposit is refundable and paid at initial handover (drop-off to your site or
           pickup at our warehouse).
         </p>
       </CardContent>
