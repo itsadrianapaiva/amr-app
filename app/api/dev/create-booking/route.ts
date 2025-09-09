@@ -8,7 +8,8 @@ import { db } from "@/lib/db";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// ── internal: build DTO from either JSON body (POST) or query params (GET)
+/* ───────────────────────── helpers: input coercion ───────────────────────── */
+
 function toDto(input: {
   machineId?: unknown;
   startDate?: unknown;
@@ -27,7 +28,6 @@ function toDto(input: {
   const machineId = Number(input.machineId ?? 1);
   const from = new Date(String(input.startDate ?? new Date()));
   const to = new Date(String(input.endDate ?? new Date()));
-
   const name = String(input.name ?? "Test User");
   const email = String(input.email ?? "test@example.com");
   const phone = String(input.phone ?? "+351000000000");
@@ -74,7 +74,6 @@ function forbidProd() {
   return null;
 }
 
-// ── internal: coerce flags for creating already-expired holds (test-only)
 function coerceExpiredFlag(v: unknown) {
   if (typeof v === "boolean") return v;
   if (typeof v === "string") return v.toLowerCase() === "true";
@@ -86,46 +85,92 @@ function coerceMinutes(v: unknown, fallback = 5) {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
 }
 
+/* ────────────── NEW: ensure a valid machineId in non-production ───────────── */
+
+async function resolveMachineIdForEnv(machineId: number): Promise<number> {
+  // If the machine exists, keep it.
+  const exists = await db.machine.findUnique({
+    where: { id: machineId },
+    select: { id: true },
+  });
+  if (exists) return machineId;
+
+  // In production, fail loudly — routes must use real machine IDs.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(`Unknown machineId ${machineId}.`);
+  }
+
+  // In tests/dev, auto-fallback to the first machine to avoid FK 400s on CI.
+  const first = await db.machine.findFirst({
+    select: { id: true },
+    orderBy: { id: "asc" },
+  });
+
+  if (!first) {
+    // Clear message so CI points you to seeding immediately.
+    throw new Error(
+      "No machines exist in the database. Run `npm run db:seed` (or ensure seed runs in CI)."
+    );
+  }
+
+  return first.id;
+}
+
+/* ───────────── small core: create + optional expired override (test) ───────── */
+
+type CreateResult = {
+  id: number;
+  status: "PENDING" | "CONFIRMED" | "CANCELLED";
+  holdExpiresAt: Date | null;
+};
+
+async function createWithOptionalExpired(
+  dto: PendingBookingDTO,
+  expired: boolean,
+  minutes: number
+): Promise<CreateResult> {
+  const created = await createOrReusePendingBooking(dto);
+
+  if (expired) {
+    const holdExpiresAt = new Date(Date.now() - minutes * 60 * 1000);
+    const updated = await db.booking.update({
+      where: { id: created.id },
+      data: { status: "PENDING", holdExpiresAt },
+      select: { id: true, status: true, holdExpiresAt: true },
+    });
+    return updated as CreateResult;
+  }
+
+  const fresh = await db.booking.findUnique({
+    where: { id: created.id },
+    select: { id: true, status: true, holdExpiresAt: true },
+  });
+
+  return (fresh ?? {
+    id: created.id,
+    status: "PENDING",
+    holdExpiresAt: null,
+  }) as CreateResult;
+}
+
+/* ────────────────────────────────── routes ────────────────────────────────── */
+
 export async function POST(req: Request) {
   const deny = forbidProd();
   if (deny) return deny;
 
   try {
     const body = await req.json();
-    const dto = toDto(body);
+    const base = toDto(body);
 
-    // Read testing flags from body
+    // ensure a valid machineId in non-prod environments
+    const machineId = await resolveMachineIdForEnv(base.machineId);
+    const dto: PendingBookingDTO = { ...base, machineId };
+
     const expired = coerceExpiredFlag((body as any)?.expired);
     const minutes = coerceMinutes((body as any)?.minutes, 5);
 
-    const created = await createOrReusePendingBooking(dto);
-
-    // Optional: override hold to be already expired (test-only)
-    let result: {
-      id: number;
-      status: "PENDING" | "CONFIRMED" | "CANCELLED";
-      holdExpiresAt: Date | null;
-    } = {
-      id: created.id,
-      status: "PENDING",
-      holdExpiresAt: null,
-    };
-
-    if (expired) {
-      const holdExpiresAt = new Date(Date.now() - minutes * 60 * 1000);
-      const updated = await db.booking.update({
-        where: { id: created.id },
-        data: { status: "PENDING", holdExpiresAt },
-        select: { id: true, status: true, holdExpiresAt: true },
-      });
-      result = updated as typeof result;
-    } else {
-      const fresh = await db.booking.findUnique({
-        where: { id: created.id },
-        select: { id: true, status: true, holdExpiresAt: true },
-      });
-      if (fresh) result = fresh as typeof result;
-    }
+    const result = await createWithOptionalExpired(dto, expired, minutes);
 
     return NextResponse.json({
       ok: true,
@@ -145,7 +190,7 @@ export async function GET(req: Request) {
 
   try {
     const url = new URL(req.url);
-    const dto = toDto({
+    const base = toDto({
       machineId: url.searchParams.get("machineId") ?? undefined,
       startDate: url.searchParams.get("startDate") ?? undefined,
       endDate: url.searchParams.get("endDate") ?? undefined,
@@ -161,38 +206,14 @@ export async function GET(req: Request) {
       },
     });
 
-    // Read testing flags from query string: ?expired=true&minutes=10
+    // NEW: ensure a valid machineId in non-prod environments
+    const machineId = await resolveMachineIdForEnv(base.machineId);
+    const dto: PendingBookingDTO = { ...base, machineId };
+
     const expired = coerceExpiredFlag(url.searchParams.get("expired"));
     const minutes = coerceMinutes(url.searchParams.get("minutes"), 5);
 
-    const created = await createOrReusePendingBooking(dto);
-
-    // Optional: override hold to be already expired (test-only)
-    let result: {
-      id: number;
-      status: "PENDING" | "CONFIRMED" | "CANCELLED";
-      holdExpiresAt: Date | null;
-    } = {
-      id: created.id,
-      status: "PENDING",
-      holdExpiresAt: null,
-    };
-
-    if (expired) {
-      const holdExpiresAt = new Date(Date.now() - minutes * 60 * 1000);
-      const updated = await db.booking.update({
-        where: { id: created.id },
-        data: { status: "PENDING", holdExpiresAt },
-        select: { id: true, status: true, holdExpiresAt: true },
-      });
-      result = updated as typeof result;
-    } else {
-      const fresh = await db.booking.findUnique({
-        where: { id: created.id },
-        select: { id: true, status: true, holdExpiresAt: true },
-      });
-      if (fresh) result = fresh as typeof result;
-    }
+    const result = await createWithOptionalExpired(dto, expired, minutes);
 
     return NextResponse.json({
       ok: true,

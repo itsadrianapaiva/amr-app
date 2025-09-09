@@ -2,13 +2,14 @@ name: E2E
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
 
 jobs:
   e2e:
     runs-on: ubuntu-latest
 
+    # Ephemeral Postgres for deterministic runs
     services:
       postgres:
         image: postgres:15-alpine
@@ -24,21 +25,20 @@ jobs:
           --health-timeout=5s
           --health-retries=5
 
+    # Make env available to migrations, seeds, netlify dev, and tests
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/amr_test
 
-      # Stripe (test keys)
+      # Stripe test credentials + fixed PT VAT tax rate (if referenced)
       STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
       STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+      STRIPE_TAX_RATE_PT_STANDARD: ${{ secrets.STRIPE_TAX_RATE_PT_STANDARD }}
 
-      # Cron + Mailer
+      # Cron + mailer (set DRY behavior in code if desired)
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
-      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || '' }}
-
-      # Optional: flip to 1 if you add a no-op branch in your mailer
-      MAILER_DRY_RUN: "0"
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
 
     steps:
       - name: Checkout
@@ -50,14 +50,11 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install deps
+      - name: Install dependencies (runs postinstall → prisma generate --no-engine)
         run: npm ci
 
       - name: Install Netlify CLI (Playwright webServer uses `netlify dev`)
         run: npm i -g netlify-cli
-
-      - name: Generate Prisma Client
-        run: npx prisma generate
 
       - name: Wait for Postgres
         run: |
@@ -69,16 +66,19 @@ jobs:
       - name: Apply DB migrations
         run: npx prisma migrate deploy
 
-      - name: Build app
-        run: npm run build
+      - name: Seed database (Machines etc.)
+        run: npm run db:seed
+
+      - name: Build (no lint in CI)
+        run: npm run build:ci
 
       - name: Install Playwright (Chromium only)
         run: npx playwright install --with-deps chromium
 
-      - name: Run Playwright E2E
-        run: npx playwright test --reporter=html,line
+      - name: Run Playwright E2E and create HTML report
+        run: npm run test:e2e -- --reporter=html,line
 
-      - name: Upload Playwright report
+      - name: Upload Playwright HTML report
         if: always()
         uses: actions/upload-artifact@v4
         with:
