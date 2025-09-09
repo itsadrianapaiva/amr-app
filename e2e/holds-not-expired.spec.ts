@@ -1,38 +1,69 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, APIRequestContext } from "@playwright/test";
 
 function fmt(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
+// Robust creator: POST + retries, mirrors other specs to avoid overlap flakes.
+async function createBookingWithRetry(request: APIRequestContext) {
+  const BASE_URL =
+    process.env.APP_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "http://127.0.0.1:8888";
+
+  const base = new Date();
+  const jitter = Date.now() % 30; // per-run jitter
+  const machineId = 1; // avoid heavy transport rule
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const start = new Date(base);
+    start.setUTCDate(start.getUTCDate() + 180 + jitter + attempt * 10);
+    const end = new Date(start);
+    end.setUTCDate(start.getUTCDate() + 2); // 3-day inclusive
+
+    const res = await request.post(`${BASE_URL}/api/dev/create-booking`, {
+      headers: { "content-type": "application/json" },
+      data: JSON.stringify({
+        machineId,
+        startDate: fmt(start),
+        endDate: fmt(end),
+        name: "E2E Fresh Hold",
+        email: `e2e+fresh_${Date.now()}@example.com`,
+        phone: "+351000000001",
+        totalEuros: 99,
+      }),
+    });
+
+    if (res.ok()) {
+      const json = await res.json();
+      return {
+        bookingId: json.bookingId as number,
+        machineId,
+      };
+    }
+
+    const status = res.status();
+    const text = await res.text();
+    if (status === 400 && text.includes("Selected dates are no longer available")) {
+      continue; // shift window and retry
+    }
+    throw new Error(`create-booking failed: HTTP ${status} — ${text}`);
+  }
+
+  throw new Error("create-booking failed after retries due to overlapping dates.");
+}
+
 test("fresh holds are NOT cancelled by cron", async ({ request }) => {
-  // Arrange: choose a near-future window
-  const start = new Date();
-  start.setDate(start.getDate() + 6);
-  const end = new Date(start);
-  end.setDate(start.getDate() + 2);
+  const BASE_URL =
+    process.env.APP_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "http://127.0.0.1:8888";
 
-  // Create a normal (non-expired) hold
-  const createUrl = [
-    "/api/dev/create-booking",
-    `?machineId=1`,
-    `&startDate=${fmt(start)}`,
-    `&endDate=${fmt(end)}`,
-    `&name=E2E Fresh Hold`,
-    `&email=e2e+fresh_${Date.now()}@example.com`,
-    `&phone=%2B351000000001`,
-    `&totalEuros=99`,
-  ].join("");
+  // Arrange: create a normal, non-expired PENDING hold
+  const { bookingId } = await createBookingWithRetry(request);
 
-  const createRes = await request.get(createUrl, {
-    headers: { "Cache-Control": "no-store" },
-  });
-  expect(createRes.ok()).toBeTruthy();
-  const created = await createRes.json();
-  expect(created?.ok).toBe(true);
-  const bookingId: number = created.bookingId;
-
-  // Sanity: was created as PENDING and not expired
-  const initial = await request.get(`/api/dev/inspect-booking?id=${bookingId}`, {
+  // Sanity: it’s PENDING and not expired
+  const initial = await request.get(`${BASE_URL}/api/dev/inspect-booking?id=${bookingId}`, {
     headers: { "Cache-Control": "no-store" },
   });
   expect(initial.ok()).toBeTruthy();
@@ -49,14 +80,14 @@ test("fresh holds are NOT cancelled by cron", async ({ request }) => {
   const secret = process.env.CRON_SECRET;
   if (secret) headers["x-cron-secret"] = secret;
 
-  const cronRes = await request.get(`/api/cron/expire-holds`, { headers });
+  const cronRes = await request.get(`${BASE_URL}/api/cron/expire-holds`, { headers });
   expect(cronRes.ok()).toBeTruthy();
   const cronJson = await cronRes.json();
   expect(cronJson?.ok).toBe(true);
 
   // Assert: booking remains PENDING
   const after = await request.get(
-    `/api/dev/inspect-booking?id=${bookingId}&noCache=${Date.now()}`,
+    `${BASE_URL}/api/dev/inspect-booking?id=${bookingId}&noCache=${Date.now()}`,
     { headers: { "Cache-Control": "no-store" } }
   );
   expect(after.ok()).toBeTruthy();

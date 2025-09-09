@@ -1,8 +1,12 @@
-// playwright.config.ts
 import { defineConfig, devices } from "@playwright/test";
 
+const APP_URL =
+  process.env.APP_URL ||
+  process.env.NEXT_PUBLIC_APP_URL ||
+  "http://127.0.0.1:8888"; // IPv4 default to avoid ::1 issues
+
 export default defineConfig({
-  // Only look in our E2E folder
+  // Look only in our E2E folder
   testDir: "e2e",
 
   // Keep runs deterministic for DB-bound flows
@@ -12,15 +16,31 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 5_000 },
 
-  // Base URL used by request/context.goto — lines up with our tests
+  // Fail on accidental .only in CI
+  forbidOnly: !!process.env.CI,
+
+  // Retry flake in CI only
+  retries: process.env.CI ? 2 : 0,
+
+  // Reporters: concise locally, JUnit on CI (good for GitHub Actions)
+  reporter: process.env.CI
+    ? [["junit", { outputFile: "test-results/junit.xml" }]]
+    : [["list"]],
+
+  // Base URL used by request and page.goto
   use: {
-    baseURL:
-      process.env.APP_URL ||
-      process.env.NEXT_PUBLIC_APP_URL ||
-      "http://localhost:3000",
+    baseURL: APP_URL,
   },
 
-  // Single fast project to start; we can add Firefox/WebKit later
+  // Auto-start our app for tests. Reuse if already running locally.
+  webServer: {
+    command: "npx netlify dev --port 8888",
+    url: APP_URL,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  },
+
+  // Single fast project to start; we can add Firefox or WebKit later
   projects: [
     {
       name: "chromium",
