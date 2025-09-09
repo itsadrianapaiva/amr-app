@@ -177,7 +177,7 @@ export async function createOrReusePendingBooking(
     totals,
   } = dto;
 
-  //  (1) Lead-time guard for heavy machines 
+  //  (1) Lead-time guard for heavy machines
   const isHeavy = HEAVY_MACHINE_IDS.has(machineId);
   const bypass = options.bypassLeadTime === true;
   const leadDays = options.leadDays ?? 2; // business rule: 2-day lead time
@@ -208,87 +208,91 @@ export async function createOrReusePendingBooking(
   // 30-minute rolling hold window
   const newExpiry = new Date(Date.now() + 30 * 60 * 1000);
 
-  return db.$transaction(async (tx) => {
-    // 2) Serialize concurrent attempts for the same machine.
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${1}::int4, ${machineId}::int4)`;
+  // Add explicit timeout/maxWait to avoid "Transaction already closed" in dev/HMR
+  return db.$transaction(
+    async (tx) => {
+      // 2) Serialize concurrent attempts for the same machine.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${1}::int4, ${machineId}::int4)`;
 
-    // 3) Reuse: same machine + same exact dates + same email + still PENDING.
-    //    If found, extend the expiry to keep the checkout window alive.
-    const existing = await tx.booking.findFirst({
-      where: {
-        machineId,
-        status: BookingStatus.PENDING,
-        startDate,
-        endDate,
-        customerEmail: customer.email,
-      },
-      select: { id: true, holdExpiresAt: true },
-    });
-
-    if (existing) {
-      // Only extend forward (never shorten)
-      if (!existing.holdExpiresAt || existing.holdExpiresAt < newExpiry) {
-        await tx.booking.update({
-          where: { id: existing.id },
-          data: { holdExpiresAt: newExpiry },
-          select: { id: true },
-        });
-      }
-      return { id: existing.id };
-    }
-
-    // 3) Try to create a fresh PENDING row with a new expiry.
-    try {
-      return await tx.booking.create({
-        data: {
+      // 3) Reuse: same machine + same exact dates + same email + still PENDING.
+      const existing = await tx.booking.findFirst({
+        where: {
           machineId,
+          status: BookingStatus.PENDING,
           startDate,
           endDate,
-
-          insuranceSelected,
-          deliverySelected,
-          pickupSelected,
-          operatorSelected,
-
-          customerName: customer.name,
           customerEmail: customer.email,
-          customerPhone: customer.phone,
-          customerNIF: toNull(customer.nif ?? null),
-
-          siteAddressLine1: toNull(siteAddress?.line1 ?? null),
-          siteAddressPostalCode: toNull(siteAddress?.postalCode ?? null),
-          siteAddressCity: toNull(siteAddress?.city ?? null),
-          siteAddressNotes: toNull(siteAddress?.notes ?? null),
-
-          billingIsBusiness: billing.isBusiness,
-          billingCompanyName: toNull(billing.companyName ?? null),
-          billingTaxId: toNull(billing.taxId ?? null),
-          billingAddressLine1: toNull(billing.addressLine1 ?? null),
-          billingPostalCode: toNull(billing.postalCode ?? null),
-          billingCity: toNull(billing.city ?? null),
-          billingCountry: toNull(billing.country ?? null),
-
-          totalCost: totals.total,
-          depositPaid: false,
-          status: BookingStatus.PENDING,
-
-          // hold expiry for customer checkout window
-          holdExpiresAt: newExpiry,
         },
-        select: { id: true },
+        select: { id: true, holdExpiresAt: true },
       });
-    } catch (e) {
-      // 5) Map DB exclusion constraint to a typed error for nicer UX.
-      const msg = e instanceof Error ? e.message : String(e);
-      const looksLikeOverlap =
-        msg.includes("booking_no_overlap_for_active") ||
-        msg.toLowerCase().includes("exclusion") ||
-        msg.toLowerCase().includes("overlap");
 
-      if (looksLikeOverlap) {
-        throw new OverlapError();
+      if (existing) {
+        if (!existing.holdExpiresAt || existing.holdExpiresAt < newExpiry) {
+          await tx.booking.update({
+            where: { id: existing.id },
+            data: { holdExpiresAt: newExpiry },
+            select: { id: true },
+          });
+        }
+        return { id: existing.id };
       }
-      throw e;
+
+      try {
+        return await tx.booking.create({
+          data: {
+            machineId,
+            startDate,
+            endDate,
+
+            insuranceSelected,
+            deliverySelected,
+            pickupSelected,
+            operatorSelected,
+
+            customerName: customer.name,
+            customerEmail: customer.email,
+            customerPhone: customer.phone,
+            customerNIF: toNull(customer.nif ?? null),
+
+            siteAddressLine1: toNull(siteAddress?.line1 ?? null),
+            siteAddressPostalCode: toNull(siteAddress?.postalCode ?? null),
+            siteAddressCity: toNull(siteAddress?.city ?? null),
+            siteAddressNotes: toNull(siteAddress?.notes ?? null),
+
+            billingIsBusiness: billing.isBusiness,
+            billingCompanyName: toNull(billing.companyName ?? null),
+            billingTaxId: toNull(billing.taxId ?? null),
+            billingAddressLine1: toNull(billing.addressLine1 ?? null),
+            billingPostalCode: toNull(billing.postalCode ?? null),
+            billingCity: toNull(billing.city ?? null),
+            billingCountry: toNull(billing.country ?? null),
+
+            totalCost: totals.total,
+            depositPaid: false,
+            status: BookingStatus.PENDING,
+
+            holdExpiresAt: newExpiry,
+          },
+          select: { id: true },
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        const looksLikeOverlap =
+          msg.includes("booking_no_overlap_for_active") ||
+          msg.toLowerCase().includes("exclusion") ||
+          msg.toLowerCase().includes("overlap");
+
+        if (looksLikeOverlap) {
+          throw new OverlapError();
+        }
+        throw e;
+      }
+    },
+    {
+      // Give dev server/HMR and first-hit compile some headroom
+      timeout: 12000, // ms a transaction is allowed to run
+      maxWait: 5000, // ms to wait to acquire a transactional slot
+      // isolationLevel: "Serializable", // (leave default; not needed here)
     }
-  });
+  );
 }

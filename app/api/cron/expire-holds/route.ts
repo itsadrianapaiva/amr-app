@@ -7,28 +7,35 @@ import { db } from "@/lib/db";
 import { BookingStatus } from "@prisma/client";
 
 /**
- * Simple safety: if CRON_SECRET is set, require ?token=CRON_SECRET.
- * This secure the endpoint without extra infra.
+ * Auth matrix:
+ * - Netlify Scheduled Function: send header "x-cron-secret: <CRON_SECRET>"
+ * - Vercel Cron: header "x-vercel-cron: 1" (kept for portability)
+ * - Manual fallback: query string ?token=<CRON_SECRET>
  */
 function isAuthorized(req: NextRequest): boolean {
-    // Allow calls coming from Vercel Cron (it sets this header automatically)
-    const cronHeader = req.headers.get("x-vercel-cron");
-    if (cronHeader === "1") return true;
-  
-    // Fallback: allow ?token=... if CRON_SECRET is configured
-    const secret = process.env.CRON_SECRET;
-    if (!secret) return true; // unsecured if no secret configured
-    const url = new URL(req.url);
-    const token = url.searchParams.get("token");
-    return token === secret;
-  }
+  // Accept Vercel's built-in cron header (if ever used)
+  if (req.headers.get("x-vercel-cron") === "1") return true;
+
+  const secret = process.env.CRON_SECRET;
+  // If no secret configured, leave the route open (dev convenience)
+  if (!secret) return true;
+
+  // Primary path for Netlify Scheduled Function
+  const header = req.headers.get("x-cron-secret");
+  if (header && header === secret) return true;
+
+  // Manual fallback via query param
+  const url = new URL(req.url);
+  const token = url.searchParams.get("token");
+  return token === secret;
+}
 
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  // Small grace to avoid races/clock skew (e.g., webhook arriving slightly late)
+  // Small grace to avoid races/clock skew (e.g., webhook arrives slightly late)
   const now = new Date(Date.now() - 2 * 60 * 1000); // 2 minutes ago
 
   // Atomic bulk cancel of expired holds
@@ -43,9 +50,15 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  return Response.json({
-    ok: true,
-    cancelled: result.count,
-    asOfUtc: new Date().toISOString(),
-  });
+  return Response.json(
+    {
+      ok: true,
+      cancelled: result.count,
+      asOfUtc: new Date().toISOString(),
+    },
+    {
+      // Extra safety to avoid any edge caching
+      headers: { "Cache-Control": "no-store" },
+    }
+  );
 }

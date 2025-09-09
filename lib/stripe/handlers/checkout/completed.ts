@@ -39,6 +39,29 @@ export async function onCheckoutSessionCompleted(
     return;
   }
 
+  // ── NEW: Only promote here if the payment is definitively paid.
+  // For async methods (MB WAY / SEPA), completed often arrives with unpaid/processing.
+  const paymentStatus = session.payment_status ?? null;
+  const piStatus =
+    typeof session.payment_intent === "object"
+      ? session.payment_intent?.status ?? null
+      : null;
+
+  const isPaid =
+    paymentStatus === "paid" || piStatus === "succeeded";
+
+  if (!isPaid) {
+    // Defer to checkout.session.async_payment_succeeded or PI.succeeded to promote.
+    log("completed:awaiting_async", {
+      bookingId,
+      sessionId: session.id,
+      payment_status: paymentStatus,
+      pi_status: piStatus,
+    });
+    return;
+  }
+  // ── End NEW guard
+
   // Full payment (covers legacy "deposit" and new "full_upfront").
   // Ensure we have a PI id; expand if Stripe didn’t include it inline.
   const piId =
