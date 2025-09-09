@@ -3,6 +3,7 @@ import {
   createOrReusePendingBooking,
   type PendingBookingDTO,
 } from "@/lib/repos/booking-repo";
+import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -73,6 +74,18 @@ function forbidProd() {
   return null;
 }
 
+// ── internal: coerce flags for creating already-expired holds (test-only)
+function coerceExpiredFlag(v: unknown) {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "string") return v.toLowerCase() === "true";
+  return false;
+}
+
+function coerceMinutes(v: unknown, fallback = 5) {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
 export async function POST(req: Request) {
   const deny = forbidProd();
   if (deny) return deny;
@@ -80,8 +93,46 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const dto = toDto(body);
+
+    // Read testing flags from body
+    const expired = coerceExpiredFlag((body as any)?.expired);
+    const minutes = coerceMinutes((body as any)?.minutes, 5);
+
     const created = await createOrReusePendingBooking(dto);
-    return NextResponse.json({ ok: true, bookingId: created.id });
+
+    // Optional: override hold to be already expired (test-only)
+    let result: {
+      id: number;
+      status: "PENDING" | "CONFIRMED" | "CANCELLED";
+      holdExpiresAt: Date | null;
+    } = {
+      id: created.id,
+      status: "PENDING",
+      holdExpiresAt: null,
+    };
+
+    if (expired) {
+      const holdExpiresAt = new Date(Date.now() - minutes * 60 * 1000);
+      const updated = await db.booking.update({
+        where: { id: created.id },
+        data: { status: "PENDING", holdExpiresAt },
+        select: { id: true, status: true, holdExpiresAt: true },
+      });
+      result = updated as typeof result;
+    } else {
+      const fresh = await db.booking.findUnique({
+        where: { id: created.id },
+        select: { id: true, status: true, holdExpiresAt: true },
+      });
+      if (fresh) result = fresh as typeof result;
+    }
+
+    return NextResponse.json({
+      ok: true,
+      bookingId: result.id,
+      status: result.status,
+      holdExpiresAt: result.holdExpiresAt,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ ok: false, error: message }, { status: 400 });
@@ -109,8 +160,46 @@ export async function GET(req: Request) {
         notes: url.searchParams.get("notes") ?? undefined,
       },
     });
+
+    // Read testing flags from query string: ?expired=true&minutes=10
+    const expired = coerceExpiredFlag(url.searchParams.get("expired"));
+    const minutes = coerceMinutes(url.searchParams.get("minutes"), 5);
+
     const created = await createOrReusePendingBooking(dto);
-    return NextResponse.json({ ok: true, bookingId: created.id });
+
+    // Optional: override hold to be already expired (test-only)
+    let result: {
+      id: number;
+      status: "PENDING" | "CONFIRMED" | "CANCELLED";
+      holdExpiresAt: Date | null;
+    } = {
+      id: created.id,
+      status: "PENDING",
+      holdExpiresAt: null,
+    };
+
+    if (expired) {
+      const holdExpiresAt = new Date(Date.now() - minutes * 60 * 1000);
+      const updated = await db.booking.update({
+        where: { id: created.id },
+        data: { status: "PENDING", holdExpiresAt },
+        select: { id: true, status: true, holdExpiresAt: true },
+      });
+      result = updated as typeof result;
+    } else {
+      const fresh = await db.booking.findUnique({
+        where: { id: created.id },
+        select: { id: true, status: true, holdExpiresAt: true },
+      });
+      if (fresh) result = fresh as typeof result;
+    }
+
+    return NextResponse.json({
+      ok: true,
+      bookingId: result.id,
+      status: result.status,
+      holdExpiresAt: result.holdExpiresAt,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ ok: false, error: message }, { status: 400 });
