@@ -30,6 +30,9 @@ jobs:
       NODE_ENV: test
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/amr_test
 
+      # Prisma: force a *library* client in CI (overrides any dataproxy setting)
+      PRISMA_CLIENT_ENGINE_TYPE: library
+
       # Stripe test credentials + fixed PT VAT tax rate (if referenced)
       STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
@@ -52,6 +55,12 @@ jobs:
 
       - name: Install dependencies (runs postinstall → prisma generate --no-engine)
         run: npm ci
+
+      # IMPORTANT: Re-generate Prisma Client as *library* engine for CI
+      - name: Generate Prisma Client (library engine)
+        run: npx prisma generate
+        env:
+          PRISMA_CLIENT_ENGINE_TYPE: library
 
       - name: Install Netlify CLI (Playwright webServer uses `netlify dev`)
         run: npm i -g netlify-cli
