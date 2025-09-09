@@ -17,13 +17,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  searchParams: Promise<{ session_id?: string }>;
+  // searchParams is a plain object in App Router; not a Promise.
+  searchParams: { session_id?: string };
 };
 
 export default async function SuccessPage({ searchParams }: PageProps) {
-  const { session_id } = await searchParams;
-  const sessionId = session_id;
-
+  const sessionId = searchParams?.session_id;
   if (!sessionId) redirect("/");
 
   const stripe = getStripe();
@@ -59,52 +58,39 @@ export default async function SuccessPage({ searchParams }: PageProps) {
     );
   }
 
-  // Idempotent promotion to CONFIRMED + always clear lingering hold on success page
+  // Idempotent promotion to CONFIRMED without interactive transactions.
+  // This avoids "Transaction not found" issues on serverless drivers.
   let didPromote = false;
-  await db.$transaction(async (tx) => {
-    const existing = await tx.booking.findUnique({
-      where: { id: bookingId },
-      select: {
-        id: true,
-        status: true,
-        depositPaid: true, // reuse for "paid" until we rename the column
-        stripePaymentIntentId: true,
-        holdExpiresAt: true, // clear this on success
+
+  if (paid && piId) {
+    // Promote only if we haven't recorded payment yet.
+    const promote = await db.booking.updateMany({
+      where: {
+        id: bookingId,
+        depositPaid: false,
+        stripePaymentIntentId: null,
+      },
+      data: {
+        stripePaymentIntentId: piId,
+        depositPaid: true, // TODO: rename to "paid" in a later migration
+        status: BookingStatus.CONFIRMED,
+        holdExpiresAt: null,
       },
     });
-    if (!existing) return;
+    didPromote = promote.count > 0;
+  }
 
-    // Promote if paid and not already recorded (webhook may be slow)
-    if (
-      paid &&
-      !existing.depositPaid &&
-      !existing.stripePaymentIntentId &&
-      piId
-    ) {
-      await tx.booking.update({
-        where: { id: bookingId },
-        data: {
-          stripePaymentIntentId: piId,
-          depositPaid: true, // TODO: rename to "paid" in a later migration
-          status: BookingStatus.CONFIRMED,
-          holdExpiresAt: null,
-        },
-      });
-      didPromote = true;
-      return;
-    }
-
-    // If already CONFIRMED (likely via webhook) but the hold timestamp lingers, clear it.
-    if (
-      existing.status === BookingStatus.CONFIRMED &&
-      existing.holdExpiresAt !== null
-    ) {
-      await tx.booking.update({
-        where: { id: bookingId },
-        data: { holdExpiresAt: null },
-      });
-    }
-  });
+  // If already CONFIRMED (e.g., webhook raced ahead) but hold lingers, clear it.
+  if (!didPromote) {
+    await db.booking.updateMany({
+      where: {
+        id: bookingId,
+        status: BookingStatus.CONFIRMED,
+        holdExpiresAt: { not: null },
+      },
+      data: { holdExpiresAt: null },
+    });
+  }
 
   // Best-effort revalidation via API route (allowed outside render)
   if (didPromote) {
