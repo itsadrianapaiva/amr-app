@@ -8,13 +8,37 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: amr_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     env:
-      CI: true
-      # Playwright config uses this as baseURL and to check when the server is ready
-      APP_URL: http://127.0.0.1:8888
-      # Secrets you set in repo → Settings → Secrets and variables → Actions
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/amr_test
+
+      # Stripe (test keys)
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
       STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+
+      # Cron + Mailer
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || '' }}
+
+      # Optional: flip to 1 if you add a no-op branch in your mailer
+      MAILER_DRY_RUN: "0"
 
     steps:
       - name: Checkout
@@ -26,30 +50,38 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
+      - name: Install deps
         run: npm ci
 
-      - name: Install Playwright browsers & system deps
-        run: npx playwright install --with-deps
+      - name: Install Netlify CLI (Playwright webServer uses `netlify dev`)
+        run: npm i -g netlify-cli
 
-      # No server start step here — Playwright’s webServer in playwright.config.ts
-      # runs: `npx netlify dev --port 8888` and waits for APP_URL to be ready.
+      - name: Generate Prisma Client
+        run: npx prisma generate
 
-      - name: Run Playwright tests
-        run: npx playwright test
+      - name: Wait for Postgres
+        run: |
+          for i in {1..30}; do
+            pg_isready -h 127.0.0.1 -p 5432 -U postgres && break
+            echo "waiting for postgres..."; sleep 1
+          done
 
-      - name: Upload Playwright HTML report
+      - name: Apply DB migrations
+        run: npx prisma migrate deploy
+
+      - name: Build app
+        run: npm run build
+
+      - name: Install Playwright (Chromium only)
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E
+        run: npx playwright test --reporter=line
+
+      - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report
-          retention-days: 7
-
-      - name: Upload JUnit XML
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: junit
-          path: test-results/junit.xml
           retention-days: 7
