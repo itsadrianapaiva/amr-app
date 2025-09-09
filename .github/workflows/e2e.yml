@@ -2,7 +2,7 @@ name: E2E
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
 
 jobs:
@@ -69,14 +69,14 @@ jobs:
       - name: Seed database (Machines etc.)
         run: npm run db:seed
 
-      - name: Build (no lint in CI)
-        run: npm run build:ci
+      - name: Build app
+        run: npm run build
 
       - name: Install Playwright (Chromium only)
         run: npx playwright install --with-deps chromium
 
       - name: Run Playwright E2E and create HTML report
-        run: npm run test:e2e -- --reporter=html,line
+        run: npx playwright test --reporter=line
 
       - name: Upload Playwright HTML report
         if: always()
