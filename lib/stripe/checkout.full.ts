@@ -12,7 +12,10 @@ export type BuildFullSessionArgs = {
   from: Date;
   to: Date;
   days: number;
-  /** Total amount to CHARGE now (euros, pre-tax; Stripe Tax will add VAT). */
+  /**
+   * Subtotal to charge now (euros, pre-VAT).
+   * VAT 23% will be applied via a fixed Stripe Tax Rate on the line item.
+   */
   totalEuros: number;
   customerEmail: string;
   appUrl: string;
@@ -26,7 +29,7 @@ export type BuildFullSessionArgs = {
 
 /**
  * Build a Stripe Checkout Session that charges the full rental upfront.
- * VAT is computed automatically by Stripe Tax. We collect tax IDs.
+ * VAT is applied using a fixed PT Tax Rate (23%), not Automatic Tax.
  */
 export function buildFullCheckoutSessionParams(
   args: BuildFullSessionArgs
@@ -54,6 +57,14 @@ export function buildFullCheckoutSessionParams(
     flow: "full_upfront" as const,
   };
 
+  // Require a tax rate env to avoid silent mis-taxing in prod.
+  const ptVatRateId = process.env.STRIPE_TAX_RATE_PT_STANDARD;
+  if (!ptVatRateId) {
+    throw new Error(
+      "Missing STRIPE_TAX_RATE_PT_STANDARD env var (create a PT VAT 23% Tax Rate and set its txr_… ID)."
+    );
+  }
+
   return {
     mode: "payment",
 
@@ -61,12 +72,13 @@ export function buildFullCheckoutSessionParams(
     customer_creation: "always",
     customer_email: customerEmail,
 
-    // VAT collection
-    automatic_tax: { enabled: true }, // Stripe calculates VAT
-    tax_id_collection: { enabled: true }, // Collect VAT number when applicable
+    // We use a fixed Tax Rate, so Automatic Tax and tax ID collection are disabled.
+    // This keeps Checkout minimal and avoids double data entry.
+    // automatic_tax: { enabled: true },
+    // tax_id_collection: { enabled: true },
 
-    // Collect enough address info for tax. Required works best for EU VAT.
-    billing_address_collection: "required",
+    // Keep address collection light now that tax rate is fixed.
+    billing_address_collection: "auto",
 
     // Mirror metadata into Session (PI metadata mirrored by our wrapper).
     metadata: baseMetadata,
@@ -76,17 +88,19 @@ export function buildFullCheckoutSessionParams(
     // Only set payment_method_types when caller passes an override.
     ...(paymentMethodTypes ? { payment_method_types: paymentMethodTypes } : {}),
 
-    // One line item, Stripe Tax adds VAT on top.
+    // One line item with tax-exclusive pricing; PT VAT 23% is applied via tax_rates.
     line_items: [
       {
         price_data: {
-          unit_amount: Math.round(totalEuros * 100),
+          unit_amount: Math.round(totalEuros * 100), // cents, pre-VAT
           currency: "eur",
+          tax_behavior: "exclusive",
           product_data: {
             name: `Rental — ${machine.name}`,
             description: lineDesc(startDate, endDate, days),
           },
         },
+        tax_rates: [ptVatRateId],
         quantity: 1,
       },
     ],

@@ -18,7 +18,7 @@ type PriceSummaryProps = {
   insuranceSelected?: boolean;
   operatorSelected?: boolean;
 
-  //Charges (euros)
+  // Charges (euros)
   deliveryCharge?: number | null;
   pickupCharge?: number | null;
   insuranceCharge?: number | null;
@@ -32,10 +32,9 @@ type PriceSummaryProps = {
 
 /**
  * Presentational summary of pricing.
- * Delegates all math to computeTotals for a single source of truth.
- * Keeps the component dumb and stable across client/server.
+ * Delegates all *net* math to computeTotals (ex-VAT).
+ * Locally computes VAT (PT 23%) in integer cents to guarantee Stripe parity.
  */
-
 export function PriceSummary({
   rentalDays,
   dailyRate,
@@ -50,7 +49,7 @@ export function PriceSummary({
   deposit,
   className,
 }: PriceSummaryProps) {
-  // Shapes the inputs for computeTotals while staying compatible with older callers
+  // Shape inputs for computeTotals while staying compatible with older callers
   const inputs: PriceInputs = {
     rentalDays,
     dailyRate,
@@ -64,7 +63,22 @@ export function PriceSummary({
     operatorCharge,
   };
 
+  // Net (ex-VAT) breakdown from central pricing utility
   const breakdown = computeTotals(inputs);
+
+  // --- VAT math (PT standard 23%) ------------------------------------------
+  // Use integer cents to avoid floating rounding drift.
+  const VAT_RATE = 0.23; // TODO: move to a shared constant (e.g. lib/tax.ts) if needed.
+  const netCents = Math.round(breakdown.total * 100);
+  const vatCents = Math.round(netCents * VAT_RATE);
+  const grossCents = netCents + vatCents;
+
+  const net = netCents / 100;
+  const vat = vatCents / 100;
+  const gross = grossCents / 100;
+  // -------------------------------------------------------------------------
+
+  if (rentalDays <= 0) return null;
 
   return (
     <Card className={cn(className)}>
@@ -106,24 +120,34 @@ export function PriceSummary({
             </PriceRow>
           )}
 
-          <div className="mt-3 border-t pt-3 text-sm font-semibold">
-            <PriceRow label="Total">{formatCurrency(breakdown.total)}</PriceRow>
+          {/* Subtotal (ex VAT) */}
+          <div className="mt-3 border-t pt-3 text-sm">
+            <PriceRow label="Subtotal (ex VAT)">{formatCurrency(net)}</PriceRow>
+            <PriceRow label="VAT (23%)">{formatCurrency(vat)}</PriceRow>
+          </div>
+
+          {/* Total (incl VAT) */}
+          <div className="mt-2 text-sm font-semibold">
+            <PriceRow label="Total (incl VAT)">
+              {formatCurrency(gross)}
+            </PriceRow>
           </div>
 
           {/* Deposit is shown explicitly and is NOT added to the total */}
           <div className="text-sm">
-            <PriceRow label="Deposit due today">
+            <PriceRow label="Refundable deposit at handover">
               {formatCurrency(deposit)}
             </PriceRow>
           </div>
         </div>
-        {/* Compliance + business notes */}
+
+        {/* Notes */}
         <p className="mt-3 text-xs text-muted-foreground">
-          VAT is calculated automatically at checkout.
+          VAT at 23% is included in the total above.
         </p>
-        <p className="text-xs text-muted-foreground">
-          A refundable deposit is due at handover (drop-off at your site or when
-          you&apos;re picking up at our warehouse).
+        <p className="text-xs text-muted-foreground balanced">
+          The refundable deposit is paid at handover (delivery to your site or
+          pickup at our warehouse).
         </p>
       </CardContent>
     </Card>
