@@ -1,4 +1,3 @@
-// lib/availability.ts
 // Goal: The function's job is to take a list of bookings (which might be overlapping or messy)
 // and produce a clean, minimal list of date ranges that need to be blocked in the calendar.
 

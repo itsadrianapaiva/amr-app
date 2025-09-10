@@ -7,11 +7,11 @@ import type {
   DisabledByMachine,
 } from "@/lib/ops/use-ops-booking-form";
 import { createOpsBookingAction } from "@/app/ops/actions";
-import { useFormStatus } from "react-dom";
+import { useFormStatus, useFormState } from "react-dom";
+import type { OpsActionResult } from "@/app/ops/actions";
+import ErrorSummary from "@/components/forms/error-summary";
+import { useRouter } from "next/navigation";
 
-/**
- * Props for the Ops create form.
- */
 type Props = {
   machineOptions: MachineOption[];
   minYmd: string;
@@ -20,7 +20,6 @@ type Props = {
   machineDefault?: string;
 };
 
-/** Submit button with pending state via useFormStatus (React 18+ with Next). */
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
@@ -41,25 +40,61 @@ export default function OpsCreateBookingForm({
   values,
   machineDefault,
 }: Props) {
-  /**
-   * Client wrapper matching <form action> expected type:
-   * (formData) => Promise<void>
-   * Calls the server action that has the (prev, formData) signature.
-   */
-  async function submit(formData: FormData): Promise<void> {
-    await createOpsBookingAction(undefined, formData);
-    // The server action handles redirect/success; nothing to return here.
-  }
+  const initialState: OpsActionResult = {
+    ok: false,
+    formError: undefined,
+    fieldErrors: undefined,
+    values: values ?? {},
+  };
+
+  // Bind the Server Action
+  const [state, action] = useFormState(createOpsBookingAction, initialState);
+
+  // ---- Union-narrowing: extras only exist when ok === false ----
+  const formError = state.ok ? undefined : state.formError;
+  const fieldErrors = state.ok ? undefined : state.fieldErrors;
+  const hydratedValues = state.ok ? values : (state.values ?? values);
+
+  const fe = React.useCallback(
+    (k: string) => fieldErrors?.[k]?.[0] as string | undefined,
+    [fieldErrors]
+  );
+
+  //  Refresh the RSC boundary on a FAILED submit so disabled ranges update immediately
+  const router = useRouter();
+  const submittedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!submittedRef.current) return; // only after an actual submit
+    if (!state.ok && !!formError) {
+      submittedRef.current = false; // reset the edge-trigger
+      router.refresh(); // re-fetch /ops (server data + disabled ranges)
+    }
+  }, [state.ok, formError, router]);
 
   return (
-    <form action={submit} className="space-y-8">
+    <form
+      action={action}
+      className="space-y-8"
+      onSubmit={() => {
+        submittedRef.current = true;
+      }}
+    >
       <OpsBookingFields
         machines={machineOptions}
         minYmd={minYmd}
-        values={values}
+        values={hydratedValues}
         machineDefault={machineDefault}
         disabledByMachine={disabledByMachine}
-        fe={() => undefined}
+        fe={fe}
+      />
+
+      <ErrorSummary
+        id="ops-error-summary"
+        className="mx-10"
+        kind="error"
+        show={!state.ok && !!formError}
+        message={formError ?? undefined}
       />
 
       <div className="mt-6">

@@ -1,4 +1,3 @@
-// lib/forms/date-range-errors.ts
 
 /**
  * Derive a combined user-facing error message for the booking date range.

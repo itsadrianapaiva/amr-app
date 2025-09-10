@@ -1,4 +1,3 @@
-// lib/ops/booking-service.ts
 import type { ManagerOpsInput } from "@/lib/validation/manager-booking";
 
 /** Inputs the action passes in after schema validation (no passcode here). */

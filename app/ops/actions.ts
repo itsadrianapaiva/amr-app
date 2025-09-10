@@ -1,4 +1,3 @@
-// app/ops/actions.ts
 "use server";
 
 import { notifyBookingConfirmed } from "@/lib/notifications/notify-booking-confirmed";
@@ -12,6 +11,14 @@ import {
   getPrismaBookingRepo,
   findPendingHoldExpiry,
 } from "@/lib/ops/repo-prisma";
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+
+// Tiny structured logger to make server-action flow visible in logs
+function log(step: string, detail?: Record<string, unknown>) {
+  // Avoid logging secrets; keep it high-level
+  console.info("[ops:action]", step, detail ?? {});
+}
 
 export type OpsActionResult =
   | { ok: true; bookingId: string }
@@ -22,20 +29,17 @@ export type OpsActionResult =
       values?: Record<string, string>;
     };
 
-/**
- * Server Action used by the Ops create booking form.
- * Note:
- * - Module-level `"use server"` marks this whole file as server-only (safe to import the function in a Client Component).
- * - We removed `import "server-only"` (that broke client import).
- * - Keep the `(prev, formData)` signature for Server Actions.
- */
 export async function createOpsBookingAction(
   _prev: unknown,
   formData: FormData
 ): Promise<OpsActionResult> {
-  // 1) Parse & validate
+  log("parse:start");
   const parsed = await parseOpsForm(formData);
   if (!parsed.ok) {
+    log("parse:fail", {
+      formError: parsed.formError,
+      fieldErrors: !!parsed.fieldErrors,
+    });
     return {
       ok: false,
       formError: parsed.formError,
@@ -43,11 +47,17 @@ export async function createOpsBookingAction(
       values: parsed.values,
     };
   }
-
   const { data, raw } = parsed;
+  log("parse:ok", {
+    machineId: data.machineId,
+    startYmd: raw.startYmd,
+    endYmd: raw.endYmd,
+  });
 
-  // 2) Passcode guard
-  if (data.opsPasscode !== process.env.OPS_PASSCODE) {
+  // Passcode guard
+  const passcodeOk = data.opsPasscode === process.env.OPS_PASSCODE;
+  log("passcode:check", { ok: passcodeOk });
+  if (!passcodeOk) {
     return {
       ok: false,
       formError: "Invalid passcode.",
@@ -55,13 +65,14 @@ export async function createOpsBookingAction(
     };
   }
 
-  // 3) Compute optional heavy-transport override audit note
+  // Optional heavy-transport override audit note
   const overrideNoteMaybe = leadTimeOverrideNoteIfAny(
     data.machineId,
     data.start
   );
+  if (overrideNoteMaybe) log("override:note", { override: true });
 
-  // 4) Service call via Prisma adapter
+  // Service call via Prisma adapter
   const repo = getPrismaBookingRepo();
   const svcInput: CreateManagerBookingInput = {
     machineId: data.machineId,
@@ -72,24 +83,35 @@ export async function createOpsBookingAction(
     siteAddressLine1: data.siteAddressLine1,
     siteAddressCity: data.siteAddressCity ?? undefined,
     siteAddressNotes: data.siteAddressNotes ?? undefined,
-    overrideNote: overrideNoteMaybe ?? undefined, // coerce null → undefined
+    overrideNote: overrideNoteMaybe ?? undefined,
   };
+
+  log("service:call", {
+    machineId: svcInput.machineId,
+    startYmd: svcInput.startYmd,
+    endYmd: svcInput.endYmd,
+  });
 
   const result = await createManagerBooking(svcInput, { repo });
 
   if (result.ok) {
     const bookingId = result.bookingId;
 
-    // Fire-and-forget notifications
+    // Make sure any server-rendered data used by /ops is fresh on next view
+    // If your availability is tagged (e.g., revalidateTag("availability:9")),
+    // we can switch to tag revalidation once you share that file.
+    revalidatePath("/ops");
+
     notifyBookingConfirmed(Number(bookingId), "ops").catch((err) =>
       console.error("[ops:notify:error]", err)
     );
 
-    return { ok: true, bookingId };
+    redirect(`/ops/success?bookingId=${encodeURIComponent(bookingId)}`);
   }
 
   // Friendly overlap message (pending hold)
   if (result.reason === "OVERLAP") {
+    log("overlap:detected");
     try {
       const holdExpiry = await findPendingHoldExpiry(
         data.machineId,
@@ -98,6 +120,7 @@ export async function createOpsBookingAction(
       );
       if (holdExpiry) {
         const when = formatLisbon(holdExpiry);
+        log("overlap:hold_expiry", { when });
         return {
           ok: false,
           formError:
@@ -106,8 +129,8 @@ export async function createOpsBookingAction(
           values: { ...raw, opsPasscode: "" },
         };
       }
-    } catch {
-      // ignore lookup error and fall back
+    } catch (e) {
+      log("overlap:expiry_lookup_error", { message: (e as Error).message });
     }
 
     return {
@@ -117,7 +140,7 @@ export async function createOpsBookingAction(
     };
   }
 
-  // Unknown error
+  log("service:fail", { reason: result.reason ?? "unknown" });
   return {
     ok: false,
     formError:
