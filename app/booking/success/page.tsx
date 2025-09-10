@@ -1,157 +1,42 @@
+// app/ops/success/page.tsx
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { BookingStatus } from "@prisma/client";
-import { db } from "@/lib/db";
-import { getStripe } from "@/lib/stripe";
-import ClearBookingDraft from "@/components/booking/clear-draft-on-mount";
 
-import {
-  getMetaFromCheckoutSession,
-  getPaymentIntentId,
-  isPaymentComplete,
-  type MinimalCheckoutSession,
-} from "@/lib/stripe/checkout-session";
-
-// Ensure Node runtime for Stripe
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
-type PageProps = {
-  // searchParams is a plain object in App Router; not a Promise.
-  searchParams: { session_id?: string };
-};
-
-export default async function SuccessPage({ searchParams }: PageProps) {
-  const sessionId = searchParams?.session_id;
-  if (!sessionId) redirect("/");
-
-  const stripe = getStripe();
-
-  // Retrieve the Checkout Session (expand PI so our helpers can read status/id)
-  const session = await stripe.checkout.sessions.retrieve(sessionId, {
-    expand: ["payment_intent"],
-  });
-  const s: MinimalCheckoutSession =
-    session as unknown as MinimalCheckoutSession;
-
-  // Unified “paid” check + PI id + booking-related metadata
-  const paid = isPaymentComplete(s);
-  const piId = getPaymentIntentId(s);
-  const { bookingId, machineId, startDate, endDate } =
-    getMetaFromCheckoutSession(s);
-
-  // If we lack booking id, render minimal info
-  if (!Number.isFinite(bookingId)) {
-    return (
-      <div className="mx-auto max-w-2xl space-y-6 p-6">
-        <h1 className="text-2xl font-semibold">Payment received</h1>
-        <p className="text-sm text-gray-700">
-          We could not match your booking automatically. Our team will follow
-          up.
-        </p>
-        <div className="flex items-center gap-3 pt-2">
-          <Link href="/" className="underline">
-            Back to homepage
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  // Idempotent promotion to CONFIRMED without interactive transactions.
-  // This avoids "Transaction not found" issues on serverless drivers.
-  let didPromote = false;
-
-  if (paid && piId) {
-    // Promote only if we haven't recorded payment yet.
-    const promote = await db.booking.updateMany({
-      where: {
-        id: bookingId,
-        depositPaid: false,
-        stripePaymentIntentId: null,
-      },
-      data: {
-        stripePaymentIntentId: piId,
-        depositPaid: true, // TODO: rename to "paid" in a later migration
-        status: BookingStatus.CONFIRMED,
-        holdExpiresAt: null,
-      },
-    });
-    didPromote = promote.count > 0;
-  }
-
-  // If already CONFIRMED (e.g., webhook raced ahead) but hold lingers, clear it.
-  if (!didPromote) {
-    await db.booking.updateMany({
-      where: {
-        id: bookingId,
-        status: BookingStatus.CONFIRMED,
-        holdExpiresAt: { not: null },
-      },
-      data: { holdExpiresAt: null },
-    });
-  }
-
-  // Best-effort revalidation via API route (allowed outside render)
-  if (didPromote) {
-    const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.APP_URL ||
-      "http://localhost:3000";
-    try {
-      const body = typeof machineId === "number" ? { machineId } : {};
-      await fetch(`${appUrl}/api/revalidate-after-confirm`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        cache: "no-store",
-        body: JSON.stringify(body),
-      });
-    } catch {
-      // Non-fatal: UI still renders; stale pages will update on next request.
-    }
-  }
-
-  // ——— UI
-  const title = paid ? "Booking confirmed" : "Payment pending confirmation";
-  const message = paid
-    ? "Thank you. Your payment was processed successfully. A refundable deposit is due at handover (delivery or warehouse)."
-    : "Thanks! Your payment is being confirmed. This can take a few minutes with MB WAY or IBAN. We’ll email you once it’s approved.";
+/**
+ * OpsSuccessPage
+ * - App Router passes `searchParams` as a plain object (not a Promise).
+ * - Read bookingId directly and show it if present.
+ */
+export default function OpsSuccessPage({
+  searchParams,
+}: {
+  searchParams?: { bookingId?: string };
+}) {
+  const bookingId = searchParams?.bookingId;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
-      {/* clear the per-machine draft now that we're on the success page */}
-      {typeof machineId === "number" && (
-        <ClearBookingDraft machineId={machineId} />
-      )}
+      <h1 className="text-2xl font-semibold">Booking created</h1>
 
-      <h1 className="text-2xl font-semibold">{title}</h1>
-      <p className="text-sm text-gray-700">{message}</p>
+      <p className="text-sm text-gray-700">
+        Your booking was saved successfully in the system
+        {bookingId ? ` (ID: ${bookingId})` : ""}.
+      </p>
 
       <div className="rounded-md border bg-gray-50 p-4 text-sm text-gray-800">
-        <div className="space-y-1">
-          <p>
-            Booking ID:{" "}
-            <span className="font-medium text-foreground">{bookingId}</span>
-          </p>
-          {startDate && endDate && (
-            <p>
-              Dates:{" "}
-              <span className="font-medium text-foreground">{startDate}</span>{" "}
-              to <span className="font-medium text-foreground">{endDate}</span>
-            </p>
-          )}
-        </div>
+        <p>
+          Google Calendar integration is temporarily disabled for ops bookings.
+          Records are safely stored in the database. We will re-enable calendar
+          writes later without affecting this booking.
+        </p>
       </div>
 
       <div className="flex items-center gap-3">
-        <Link href="/" className="rounded-md bg-black px-4 py-2 text-white">
-          Back to homepage
+        <Link href="/ops" className="rounded-md bg-black px-4 py-2 text-white">
+          Back to booking
         </Link>
-        {typeof machineId === "number" && (
-          <Link href={`/machine/${machineId}`} className="underline">
-            View machine
-          </Link>
-        )}
+        <Link href="/" className="underline">
+          Go to homepage
+        </Link>
       </div>
     </div>
   );
