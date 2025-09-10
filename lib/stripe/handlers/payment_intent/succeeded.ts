@@ -9,6 +9,14 @@ import {
   type LogFn,
 } from "@/lib/stripe/webhook-service";
 
+// glue to issue invoice
+import {
+  maybeIssueInvoice,
+  type BookingFacts,
+} from "@/lib/invoicing/issue-for-booking";
+
+import { db } from "@/lib/db";
+
 /**
  * onPaymentIntentSucceeded
  * Primary path for card (immediate) success.
@@ -40,6 +48,46 @@ export async function onPaymentIntentSucceeded(
   log("pi.succeeded:full_payment_promote", { bookingId, piId: pi.id });
   await promoteBookingToConfirmed({ bookingId, paymentIntentId: pi.id }, log);
 
+  // 4.1) Issue legal invoice (feature-flagged, non-fatal on error)
+  //      Kept synchronous for correctness; small external call. If needed,
+  //      we can queue this later.
+  try {
+    const facts = await fetchBookingFacts(bookingId);
+    const paidAt = new Date(
+      (pi.created ?? Math.floor(Date.now() / 1000)) * 1000
+    );
+
+    const record = await maybeIssueInvoice({
+      booking: facts,
+      stripePaymentIntentId: pi.id,
+      paidAt,
+      notes: undefined, // optional footer text
+    });
+
+    if (record) {
+      // TODO (next step): persist to Booking or an Invoice table.
+      log("invoice:issued", {
+        bookingId,
+        provider: record.provider,
+        providerInvoiceId: record.providerInvoiceId,
+        number: record.number,
+        atcud: record.atcud ?? null,
+        pdfUrl: record.pdfUrl,
+      });
+    } else {
+      log("invoice:skipped_flag", {
+        bookingId,
+        INVOICING_ENABLED: process.env.INVOICING_ENABLED,
+      });
+    }
+  } catch (err) {
+    log("invoice:error", {
+      bookingId,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    // Do not throw — Stripe webhook must continue to 200.
+  }
+
   // 5) Notify customer (best-effort; non-fatal on error)
   log("notify:start", { bookingId, SEND_EMAILS: process.env.SEND_EMAILS });
   try {
@@ -51,4 +99,64 @@ export async function onPaymentIntentSucceeded(
       err: err instanceof Error ? err.message : String(err),
     });
   }
+}
+
+// ---- Local helpers (tiny, focused) ----
+
+async function fetchBookingFacts(bookingId: number): Promise<BookingFacts> {
+  const booking = await db.booking.findUnique({
+    where: { id: bookingId },
+    include: {
+      machine: { select: { name: true, dailyRate: true } },
+    },
+  });
+
+  if (!booking) {
+    throw new Error(`Booking ${bookingId} not found`);
+  }
+  if (!booking.machine) {
+    throw new Error(`Booking ${bookingId} has no machine relation`);
+  }
+
+  const unitDailyCents = decimalToCents(booking.machine.dailyRate);
+
+  // Prefer business billing NIF if business toggle was used, otherwise fall back.
+  const nif =
+    (booking.billingIsBusiness ? booking.billingTaxId : undefined) ??
+    booking.customerNIF ??
+    undefined;
+
+  return {
+    id: booking.id,
+    startDate: booking.startDate,
+    endDate: booking.endDate,
+    machineName: booking.machine.name,
+    unitDailyCents,
+    vatPercent: 23, // PT standard; adjust per-machine if needed later
+
+    customerName: booking.customerName,
+    customerEmail: booking.customerEmail ?? undefined,
+    customerNIF: nif,
+
+    billing: booking.billingIsBusiness
+      ? {
+          line1: booking.billingAddressLine1 ?? undefined,
+          city: booking.billingCity ?? undefined,
+          postalCode: booking.billingPostalCode ?? undefined,
+          country: (booking.billingCountry as any) ?? "PT",
+        }
+      : undefined,
+  };
+}
+
+// db Decimal-safe cents conversion.
+function decimalToCents(value: unknown): number {
+  // db.Decimal has toNumber(); keep it duck-typed.
+  const n =
+    typeof value === "number"
+      ? value
+      : (value as any)?.toNumber
+        ? (value as any).toNumber()
+        : Number(value);
+  return Math.round(n * 100);
 }
