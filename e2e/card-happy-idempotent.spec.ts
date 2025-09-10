@@ -11,9 +11,26 @@ test.skip(
   !SIGNING_SECRET,
   "Missing STRIPE_WEBHOOK_SECRET env for webhook signing."
 );
+test.skip(
+  process.env.INVOICING_ENABLED === "true",
+  "Keep invoicing off for this idempotency spec."
+);
 
 function isoDay(d: Date) {
-  return d.toISOString().slice(0, 10);
+  const fmt = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Lisbon",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = fmt
+    .formatToParts(d)
+    .reduce<Record<string, string>>((acc, p) => {
+      if (p.type !== "literal") acc[p.type] = p.value;
+      return acc;
+    }, {});
+  // YYYY-MM-DD
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
 // Robust creator: POST + retries, mirrors other specs
@@ -48,17 +65,26 @@ async function createBookingWithRetry(request: APIRequestContext) {
 
     const status = res.status();
     const text = await res.text();
-    if (status === 400 && text.includes("Selected dates are no longer available")) continue;
+    if (
+      status === 400 &&
+      text.includes("Selected dates are no longer available")
+    )
+      continue;
     throw new Error(`create-booking failed: HTTP ${status} — ${text}`);
   }
 
-  throw new Error("create-booking failed after retries due to overlapping dates.");
+  throw new Error(
+    "create-booking failed after retries due to overlapping dates."
+  );
 }
 
 test.describe("Card paid path — idempotency", () => {
-  test("replaying checkout.session.completed does not double-promote", async ({ request }) => {
+  test("replaying checkout.session.completed does not double-promote", async ({
+    request,
+  }) => {
     // 1) Arrange: create a fresh PENDING booking
-    const { bookingId, machineId, start, end } = await createBookingWithRetry(request);
+    const { bookingId, machineId, start, end } =
+      await createBookingWithRetry(request);
     const startDate = isoDay(start);
     const endDate = isoDay(end);
 
@@ -88,7 +114,11 @@ test.describe("Card paid path — idempotency", () => {
             flow: "full_upfront",
             pm_type: "card",
           },
-          payment_intent: { id: piId, object: "payment_intent", status: "succeeded" },
+          payment_intent: {
+            id: piId,
+            object: "payment_intent",
+            status: "succeeded",
+          },
           amount_total: 12345,
         },
       },
@@ -110,14 +140,18 @@ test.describe("Card paid path — idempotency", () => {
     let depositPaid = false;
     let stripePaymentIntentId: string | null = null;
     for (let i = 0; i < 10; i++) {
-      const res = await request.get(`${BASE_URL}/api/dev/inspect-booking?id=${bookingId}`, {
-        headers: { "cache-control": "no-store" },
-      });
+      const res = await request.get(
+        `${BASE_URL}/api/dev/inspect-booking?id=${bookingId}`,
+        {
+          headers: { "cache-control": "no-store" },
+        }
+      );
       expect(res.ok()).toBeTruthy();
       const json = await res.json();
       status = json?.status ?? status;
       depositPaid = json?.depositPaid ?? depositPaid;
-      stripePaymentIntentId = json?.stripePaymentIntentId ?? stripePaymentIntentId;
+      stripePaymentIntentId =
+        json?.stripePaymentIntentId ?? stripePaymentIntentId;
       if (status === "CONFIRMED" && depositPaid && stripePaymentIntentId) break;
       await new Promise((r) => setTimeout(r, 300));
     }
@@ -137,9 +171,12 @@ test.describe("Card paid path — idempotency", () => {
     expect(hook2.ok(), `webhook(2) failed: ${await hook2.text()}`).toBeTruthy();
 
     // 5) Assert still CONFIRMED and PI unchanged
-    const final = await request.get(`${BASE_URL}/api/dev/inspect-booking?id=${bookingId}`, {
-      headers: { "cache-control": "no-store" },
-    });
+    const final = await request.get(
+      `${BASE_URL}/api/dev/inspect-booking?id=${bookingId}`,
+      {
+        headers: { "cache-control": "no-store" },
+      }
+    );
     expect(final.ok()).toBeTruthy();
     const json = await final.json();
     expect(json?.status).toBe("CONFIRMED");
