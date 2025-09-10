@@ -83,6 +83,20 @@ model Booking {
   
   createdAt                  DateTime                @default(now())
   updatedAt                  DateTime                @updatedAt
+  
+ // Invoicing persistence (MVP) 
+  /// e.g., "vendus" for now; keeps door open to swap providers later.
+  invoiceProvider            String?
+  /// Provider’s internal document ID (stringified); paired with provider for uniqueness.
+  invoiceProviderId          String?
+  /// Human-facing document number (e.g., "FT 2025/123").
+  invoiceNumber              String?
+  /// Public HTTPS link to the PDF (as returned by provider).
+  invoicePdfUrl              String?
+  /// ATCUD (if the series has a validation code configured).
+  invoiceAtcud               String?
+
+  @@unique([invoiceProvider, invoiceProviderId])
 }
 
 enum BookingStatus {
