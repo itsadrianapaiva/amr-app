@@ -12,7 +12,10 @@ import {
 } from "@/lib/stripe/webhook-service";
 
 // glue to issue invoice (decoupled, feature-flagged)
-import { maybeIssueInvoice, type BookingFacts } from "@/lib/invoicing/issue-for-booking";
+import {
+  maybeIssueInvoice,
+  type BookingFacts,
+} from "@/lib/invoicing/issue-for-booking";
 
 // Use your Prisma singleton
 import { db } from "@/lib/db";
@@ -60,14 +63,19 @@ export async function onCheckoutSessionAsyncPaymentSucceeded(
   });
 
   // 5) Idempotent promotion to CONFIRMED + attach PI.
-  await promoteBookingToConfirmed({ bookingId, paymentIntentId: piId ?? null }, log);
+  await promoteBookingToConfirmed(
+    { bookingId, paymentIntentId: piId ?? null },
+    log
+  );
 
-   // 5.1) Issue legal invoice (feature-flagged, non-fatal on error).
+  // 5.1) Issue legal invoice (feature-flagged, non-fatal on error).
   //      If we couldn't resolve a PI id, we skip issuing (and log) to keep invariants tight.
   try {
     if (piId) {
       const facts = await fetchBookingFacts(bookingId);
-      const paidAt = new Date((session.created ?? Math.floor(Date.now() / 1000)) * 1000);
+      const paidAt = new Date(
+        (session.created ?? Math.floor(Date.now() / 1000)) * 1000
+      );
 
       const record = await maybeIssueInvoice({
         booking: facts,
@@ -77,7 +85,18 @@ export async function onCheckoutSessionAsyncPaymentSucceeded(
       });
 
       if (record) {
-        // TODO (next step): persist to Booking or an Invoice table.
+        // Persist invoice fields on Booking (MVP)
+        await db.booking.update({
+          where: { id: bookingId },
+          data: {
+            invoiceProvider: record.provider, // "vendus"
+            invoiceProviderId: record.providerInvoiceId, // provider doc ID
+            invoiceNumber: record.number, // e.g., "FT 2025/123"
+            invoicePdfUrl: record.pdfUrl, // public PDF URL
+            invoiceAtcud: record.atcud ?? null, // ATCUD if series validated
+          },
+        });
+        // Keep structured log for Ops/diagnostics
         log("invoice:issued", {
           bookingId,
           provider: record.provider,
@@ -93,7 +112,10 @@ export async function onCheckoutSessionAsyncPaymentSucceeded(
         });
       }
     } else {
-      log("invoice:skipped_no_pi", { bookingId, reason: "missing_payment_intent_id" });
+      log("invoice:skipped_no_pi", {
+        bookingId,
+        reason: "missing_payment_intent_id",
+      });
     }
   } catch (err) {
     log("invoice:error", {
@@ -128,7 +150,8 @@ async function fetchBookingFacts(bookingId: number): Promise<BookingFacts> {
   });
 
   if (!booking) throw new Error(`Booking ${bookingId} not found`);
-  if (!booking.machine) throw new Error(`Booking ${bookingId} has no machine relation`);
+  if (!booking.machine)
+    throw new Error(`Booking ${bookingId} has no machine relation`);
 
   const unitDailyCents = decimalToCents(booking.machine.dailyRate);
 
@@ -166,7 +189,7 @@ function decimalToCents(value: unknown): number {
     typeof value === "number"
       ? value
       : (value as any)?.toNumber
-      ? (value as any).toNumber()
-      : Number(value);
+        ? (value as any).toNumber()
+        : Number(value);
   return Math.round(n * 100);
 }

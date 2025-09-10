@@ -1,4 +1,3 @@
-// File: e2e/card-happy-idempotent.spec.ts
 import { test, expect, APIRequestContext } from "@playwright/test";
 import Stripe from "stripe";
 
