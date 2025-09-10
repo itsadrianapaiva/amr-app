@@ -1,4 +1,4 @@
-// tests/helpers/stripe-3ds.ts
+// tests/helpers/stripe-3ds.ts — fix popup/redirect handling + TS types
 import { Page, Frame, Locator } from "@playwright/test";
 
 export async function complete3DSChallenge(
@@ -11,25 +11,25 @@ export async function complete3DSChallenge(
   const log = (m: string) => { if (debug) console.info(`[3DS] ${m}`); };
   const isChallengeUrl = (u: string) => /3d[_-]?secure|challenge|acs|authenticate/i.test(u);
 
-  // 1) First, wait for either a popup page or a same-page redirect to a challenge URL.
+  // ── 1) Prefer page-based challenge (popup or same-page redirect)
   const popupPromise = page.context()
-    .waitForEvent("page", p => isChallengeUrl(p.url()), { timeout: 8000 })
-    .catch(() => null);
-  const navPromise = page.waitForURL(isChallengeUrl, { timeout: 8000 })
-    .then(() => page)
+    .waitForEvent("page", { timeout: 8000 })                           // ✅ only 2 args
+    .then((p: Page) => (isChallengeUrl(p.url()) ? p : null))
     .catch(() => null);
 
-  let targetPage: Page | null = await Promise.race([popupPromise, navPromise]) as Page | null;
+  const navPromise = page
+    .waitForURL((url: URL) => isChallengeUrl(url.toString()), { timeout: 8000 }) // ✅ URL predicate
+    .then((): Page => page)
+    .catch(() => null);
 
-  // 2) If we got a page-based challenge, act on it.
+  const targetPage = (await Promise.race([popupPromise, navPromise])) as Page | null;
   if (targetPage) {
-    log(`challenge page detected: ${targetPage.url()}`);
-    await actOnChallengeSurface(targetPage, deadline, log);
-    await waitForReturn(page, deadline - Date.now(), log);
+    await actOnChallengeSurface(targetPage);
+    await waitForReturn(page, deadline - Date.now());
     return;
   }
 
-  // 3) Otherwise, poll frames on the original page (iframe-based challenge).
+  // ── 2) Fallback: iframe-based challenge on the current page
   while (Date.now() < deadline) {
     for (const f of page.frames()) {
       const url = safe(() => f.url()) ?? "";
@@ -39,10 +39,8 @@ export async function complete3DSChallenge(
         /__privateStripeFrame|challenge/i.test(name);
       if (!looksIssuer) continue;
 
-      log(`iframe challenge detected: name="${name}" url="${url}"`);
-      const handled = await tryCompleteInTarget(f, log);
-      if (handled) {
-        await waitForReturn(page, deadline - Date.now(), log);
+      if (await tryCompleteInTarget(f)) {
+        await waitForReturn(page, deadline - Date.now());
         return;
       }
     }
@@ -51,17 +49,16 @@ export async function complete3DSChallenge(
 
   throw new Error("Could not complete 3DS challenge automatically");
 
-  // ── internals ──────────────────────────────────────────────────────────────
-  async function actOnChallengeSurface(target: Page | Frame, until: number, dbg: (m: string) => void) {
+  // ── internals (tiny, SRP) ────────────────────────────────────────────────
+  async function actOnChallengeSurface(target: Page | Frame) {
     // Single action button
     const single = target.getByRole("button", { name: buttonRegex }).first();
-    if (await isVisible(single)) { dbg("single action"); await single.click(); return; }
+    if (await isVisible(single)) { await single.click(); return; }
 
     // Radio “Complete” + submit
     const radio = target.getByRole("radio", { name: /complete/i }).first()
       .or(target.locator('label:has-text("Complete"), input[type="radio"]').first());
     if (await isVisible(radio)) {
-      dbg("radio complete");
       await radio.click().catch(() => {});
       const submit = target.getByRole("button", { name: submitRegex }).first()
         .or(target.locator('input[type="submit"]').first());
@@ -72,7 +69,6 @@ export async function complete3DSChallenge(
     const otp = target.getByRole("textbox", { name: /code|one[-\s]?time|otp/i }).first()
       .or(target.locator('input[autocomplete="one-time-code"], input[name*="code"], input[type="tel"]').first());
     if (await isVisible(otp)) {
-      dbg("otp");
       await otp.fill("1234");
       const submit = target.getByRole("button", { name: submitRegex }).first()
         .or(target.locator('input[type="submit"]').first());
@@ -81,27 +77,20 @@ export async function complete3DSChallenge(
 
     // Legacy test button
     const legacy = target.locator("#test-source-authorize-3ds").first();
-    if (await isVisible(legacy)) { dbg("legacy"); await legacy.click(); return; }
+    if (await isVisible(legacy)) { await legacy.click(); return; }
 
-    // If nothing matched on a page popup, give the iframe path a chance.
-    if ("frames" in target && typeof (target as any).frames === "function") {
-      for (const f of (target as any as Page).frames()) {
-        if (await tryCompleteInTarget(f, dbg)) return;
-      }
-    }
-    // As a last resort, wait briefly for any of the above to appear.
+    // Last resort: brief wait and retry once
     await target.waitForTimeout(500);
-    if (Date.now() < until) await actOnChallengeSurface(target, until, dbg);
+    await actOnChallengeSurface(target);
   }
 
-  async function tryCompleteInTarget(target: Page | Frame, dbg: (m: string) => void) {
+  async function tryCompleteInTarget(target: Page | Frame) {
     const btn = target.getByRole("button", { name: buttonRegex }).first();
-    if (await isVisible(btn)) { dbg("iframe/button"); await btn.click(); return true; }
+    if (await isVisible(btn)) { await btn.click(); return true; }
 
     const otp = target.getByRole("textbox", { name: /code|one[-\s]?time|otp/i }).first()
       .or(target.locator('input[autocomplete="one-time-code"], input[name*="code"], input[type="tel"]').first());
     if (await isVisible(otp)) {
-      dbg("iframe/otp");
       await otp.fill("1234");
       const submit = target.getByRole("button", { name: submitRegex }).first()
         .or(target.locator('input[type="submit"]').first());
@@ -109,18 +98,17 @@ export async function complete3DSChallenge(
     }
 
     const legacy = target.locator("#test-source-authorize-3ds").first();
-    if (await isVisible(legacy)) { dbg("iframe/legacy"); await legacy.click(); return true; }
+    if (await isVisible(legacy)) { await legacy.click(); return true; }
     return false;
   }
 
   function safe<T>(fn: () => T): T | null { try { return fn(); } catch { return null; } }
   async function isVisible(locator: Locator) { try { return await locator.isVisible({ timeout: 800 }); } catch { return false; } }
-  async function waitForReturn(p: Page, remainingMs: number, dbg: (m: string) => void) {
-    const ms = Math.max(2000, remainingMs);
-    await p.waitForLoadState("domcontentloaded", { timeout: ms }).catch(() => {});
-    await p.waitForLoadState("networkidle", { timeout: ms }).catch(() => {});
-    await p.waitForURL(/\/booking\/success|success|return_url=|session_id=/, { timeout: ms }).catch(() => {});
-    dbg("returned");
+  async function waitForReturn(p: Page, ms: number) {
+    const t = Math.max(2000, ms);
+    await p.waitForLoadState("domcontentloaded", { timeout: t }).catch(() => {});
+    await p.waitForLoadState("networkidle", { timeout: t }).catch(() => {});
+    await p.waitForURL(/\/booking\/success|success|return_url=|session_id=/, { timeout: t }).catch(() => {});
   }
 }
 
