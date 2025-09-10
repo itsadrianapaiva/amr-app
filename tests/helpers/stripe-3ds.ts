@@ -1,4 +1,3 @@
-// tests/helpers/stripe-3ds.ts — fix popup/redirect handling + TS types
 import { Page, Frame, Locator } from "@playwright/test";
 
 export async function complete3DSChallenge(
