@@ -41,15 +41,34 @@ function extractBookingIdFromParams(
   return undefined;
 }
 
-/** Ensure bookingId lives in both session and payment_intent metadata (without using `any`). */
+/** Pull only `startDate` / `endDate` (if present & string) from a metadata bag. */
+function pickDateMetadata(meta?: Metadata): Metadata {
+  const out: Record<string, string> = {};
+  const s = meta?.["startDate"];
+  const e = meta?.["endDate"];
+  if (typeof s === "string") out.startDate = s;
+  if (typeof e === "string") out.endDate = e;
+  return out;
+}
+
+/** Ensure bookingId (and date keys when present) live in both session and payment_intent metadata. */
 function withBookingMetadata(params: CheckoutParams): CheckoutParams {
   const bookingId = extractBookingIdFromParams(params);
   if (!bookingId) return params;
 
-  const sessionMeta: Metadata = { ...(params.metadata ?? {}), bookingId };
+  // Carry dates only if the builder supplied them on the Session metadata.
+  const dateMeta = pickDateMetadata(params.metadata);
+
+  const sessionMeta: Metadata = {
+    ...(params.metadata ?? {}),
+    bookingId,
+    ...dateMeta,
+  };
+
   const piMeta: Metadata = {
     ...(params.payment_intent_data?.metadata ?? {}),
     bookingId,
+    ...dateMeta, // <— mirror start/end dates into PI metadata too
   };
 
   return {
@@ -63,7 +82,7 @@ function withBookingMetadata(params: CheckoutParams): CheckoutParams {
 }
 
 /**
- * NEW: Stripe now enforces that `customer_update` can only be used when a `customer` is attached.
+ * Stripe now enforces that `customer_update` can only be used when a `customer` is attached.
  * If callers don't attach a Customer, silently drop `customer_update` to avoid 400s.
  * (We keep this behavior here so all call sites get the guard automatically.)
  */
