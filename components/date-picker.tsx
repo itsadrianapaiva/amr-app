@@ -37,7 +37,7 @@ export function DatePicker({
         <PopoverTrigger asChild>
           <Button
             id="date"
-            data-testid="date-range-trigger"
+            data-testid="date-range-trigger" // For testing
             variant="outline"
             className={cn(
               "justify-start text-left font-normal",
@@ -64,7 +64,7 @@ export function DatePicker({
           align="start"
         >
           <Calendar
-            data-testid="booking-calendar"
+            data-testid="booking-calendar" // For testing
             mode="range"
             defaultMonth={date?.from}
             selected={date}
@@ -72,6 +72,10 @@ export function DatePicker({
             numberOfMonths={2}
             disabled={disabledDays}
             className="rounded-md border bg-card"
+            /* Accessibility & testability: force ISO ARIA labels for each day */
+            formatters={{
+              formatDay: (day) => format(day, "yyyy-MM-dd"),
+            }}
             /* Best-practice UX for range pickers */
             modifiersClassNames={{
               // Today: bordered, no fill. When selected, the selected styles below win.

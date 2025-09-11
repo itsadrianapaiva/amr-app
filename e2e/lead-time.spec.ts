@@ -1,127 +1,86 @@
 // e2e/lead-time.spec.ts
 import { test, expect, Page, Locator } from "@playwright/test";
-import { addDaysYmd, computeEarliestStartYmd, parseYmd } from "./utils/dates";
+import { addDaysYmd, computeEarliestStartYmd } from "./utils/dates";
 
 // Gate this UI test behind an env flag.
 // Enable with: RUN_UI_CALENDAR=1 npx playwright test e2e/lead-time.spec.ts
 const RUN_UI = process.env.RUN_UI_CALENDAR === "1";
-test.skip(
-  !RUN_UI,
-  "UI calendar test disabled by default; enable with RUN_UI_CALENDAR=1"
-);
+test.skip(!RUN_UI, "UI calendar test disabled by default; enable with RUN_UI_CALENDAR=1");
 
-// ----- Config -----
+// ---- Config ----
 const APP_URL =
   process.env.APP_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
-  "http://127.0.0.1:3000"; // if using netlify dev, set to 8888
+  "http://127.0.0.1:3000";
 
-const HEAVY_MACHINE_PATH = process.env.TEST_HEAVY_MACHINE_PATH || "/machine/7";
+const HEAVY_MACHINE_PATH =
+  process.env.TEST_HEAVY_MACHINE_PATH || "/machine/7";
 
-// ----- Helpers using stable test hooks -----
+// ---- Helpers (stable test hooks + ISO aria-label) ----
 async function openCalendar(page: Page): Promise<Locator> {
-  // Click the known trigger test id (added in components/date-picker.tsx)
+  await page.goto(`${APP_URL}${HEAVY_MACHINE_PATH}`, { waitUntil: "networkidle" });
   await page.getByTestId("date-range-trigger").click();
-  // Wait for the calendar root test id (added in components/date-picker.tsx)
-  const calendarRoot = page.getByTestId("booking-calendar");
-  await expect(calendarRoot).toBeVisible();
-  return calendarRoot;
+  const root = page.getByTestId("booking-calendar");
+  await expect(root).toBeVisible();
+  return root;
 }
 
-// Build robust labels for a YMD (Lisbon TZ) to match react-day-picker ARIA
-function labelsForYmdLisbon(ymd: string): string[] {
-  const { y, m, d } = parseYmd(ymd);
-  const dt = new Date(Date.UTC(y, m - 1, d));
-
-  const us = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Europe/Lisbon",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  }).format(dt); // "September 13, 2025"
-
-  const gb = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/Lisbon",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(dt); // "13 September 2025"
-
-  const ptFull = new Intl.DateTimeFormat("pt-PT", {
-    timeZone: "Europe/Lisbon",
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(dt); // "sábado, 13 de setembro de 2025"
-
-  const ptNoWeekday = ptFull.replace(/^[^,]*,\s*/, ""); // "13 de setembro de 2025"
-
-  const ptSimple = new Intl.DateTimeFormat("pt-PT", {
-    timeZone: "Europe/Lisbon",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(dt);
-
-  return [us, gb, ptFull, ptNoWeekday, ptSimple];
+/** react-day-picker (via our formatters) sets aria-label="YYYY-MM-DD" on each day button */
+async function findDayByYmd(root: Locator, ymd: string): Promise<Locator | null> {
+  const btn = root.locator(`button[aria-label="${ymd}"]`).first();
+  return (await btn.count()) ? btn : null;
 }
 
-async function getCalendarCellByYmd(
-  calendarRoot: Locator,
-  ymd: string
-): Promise<Locator | null> {
-  for (const name of labelsForYmdLisbon(ymd)) {
-    const byRole = calendarRoot.getByRole("button", { name }).first();
-    if (await byRole.count()) return byRole;
+/** Click the calendar's "next month" (supports EN/PT accessible names) */
+async function clickNextMonth(root: Locator) {
+  const next = root.getByRole("button", {
+    name: /(go to next month|next month|próximo mês)/i,
+  }).first();
+  if (await next.count()) await next.click();
+}
 
-    const byLabel = calendarRoot.getByLabel(name).first();
-    if (await byLabel.count()) return byLabel;
+/** Page forward until the requested day is visible (up to 6 months) */
+async function ensureDayVisible(root: Locator, ymd: string): Promise<Locator | null> {
+  let btn = await findDayByYmd(root, ymd);
+  for (let i = 0; !btn && i < 6; i++) {
+    await clickNextMonth(root);
+    btn = await findDayByYmd(root, ymd);
   }
-
-  // Fallback: numeric day in the visible months
-  const { d } = parseYmd(ymd);
-  const numeric = calendarRoot
-    .getByRole("button", { name: new RegExp(`^${d}$`) })
-    .first();
-  if (await numeric.count()) return numeric;
-
-  return null;
+  return btn;
 }
 
-// ----- Test -----
 test.describe("Heavy-machine lead time (2 days) with 15:00 Lisbon cutoff — UI", () => {
-  test("pre-earliest disabled; earliest enabled (calendar popover)", async ({
-    page,
-  }) => {
+  test("pre-earliest disabled; earliest enabled (calendar popover)", async ({ page }) => {
     const earliest = computeEarliestStartYmd(new Date(), 2, 15);
     const preEarliest = addDaysYmd(earliest, -1);
 
-    await page.goto(`${APP_URL}${HEAVY_MACHINE_PATH}`, {
-      waitUntil: "networkidle",
-    });
+    const calendar = await openCalendar(page);
 
-    const calendarRoot = await openCalendar(page);
-
-    const preCell = await getCalendarCellByYmd(calendarRoot, preEarliest);
-    expect
-      .soft(preCell, `Missing pre-earliest cell ${preEarliest}`)
-      .toBeTruthy();
-    if (preCell) {
+    const preCell = await ensureDayVisible(calendar, preEarliest);
+    expect.soft(preCell, `Missing pre-earliest cell ${preEarliest}`).toBeTruthy();
+    if (!preCell) {
+      // Attach calendar HTML for debugging when missing
+      await test.info().attach("calendar-html", {
+        body: await calendar.innerHTML(),
+        contentType: "text/html",
+      });
+    } else {
       await expect
         .soft(preCell, `Expected ${preEarliest} to be disabled`)
         .toHaveAttribute("aria-disabled", /true/i);
     }
 
-    const earliestCell = await getCalendarCellByYmd(calendarRoot, earliest);
+    const earliestCell = await ensureDayVisible(calendar, earliest);
     expect.soft(earliestCell, `Missing earliest cell ${earliest}`).toBeTruthy();
-    if (earliestCell) {
+    if (!earliestCell) {
+      await test.info().attach("calendar-html-earliest", {
+        body: await calendar.innerHTML(),
+        contentType: "text/html",
+      });
+    } else {
       const attr = await earliestCell.getAttribute("aria-disabled");
       expect
-        .soft(
-          attr === null || String(attr).toLowerCase() !== "true",
-          `Expected ${earliest} enabled`
-        )
+        .soft(attr === null || String(attr).toLowerCase() !== "true", `Expected ${earliest} enabled`)
         .toBe(true);
     }
   });
