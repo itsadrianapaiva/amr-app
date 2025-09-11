@@ -24,6 +24,12 @@ export type BookingInternalEmailProps = {
   siteAddress?: string | null;
   addonsList?: string | null;
 
+  // explicit fulfilment flags (optional so existing callers don't break)
+  /** Delivery = AMR delivers to customer at START */
+  deliverySelected?: boolean;
+  /** Pickup = AMR collects from customer at END */
+  pickupSelected?: boolean;
+
   heavyLeadTimeApplies: boolean;
   geofenceStatus: "inside" | "outside" | "edge";
 
@@ -118,6 +124,9 @@ export default function BookingInternalEmail(
     customerPhone,
     siteAddress,
     addonsList,
+    // NEW flags
+    deliverySelected,
+    pickupSelected,
     heavyLeadTimeApplies,
     geofenceStatus,
     subtotalExVat,
@@ -134,6 +143,21 @@ export default function BookingInternalEmail(
   } = props;
 
   const dateRange = fmtRangeLisbon(startYmd, endYmd);
+
+  // Derive human strings for fulfilment (fallback to "—" if unknown)
+  const startLogistics =
+    deliverySelected === true
+      ? "Deliver to site"
+      : deliverySelected === false
+        ? "Customer collects at warehouse"
+        : "—";
+
+  const endLogistics =
+    pickupSelected === true
+      ? "Pickup from site"
+      : pickupSelected === false
+        ? "Customer returns to warehouse"
+        : "—";
 
   return (
     <html>
@@ -162,6 +186,10 @@ export default function BookingInternalEmail(
 
             <Row k="Address:" v={siteAddress || "—"} />
             <Row k="Add-ons:" v={addonsList || "None"} />
+
+            {/* NEW: explicit logistics for start and end of rental */}
+            <Row k="Start logistics:" v={startLogistics} />
+            <Row k="End logistics:" v={endLogistics} />
 
             <Row k="Lead-time:" v={heavyLeadTimeApplies ? "Applies" : "N/A"} />
             <Row k="Geofence:" v={geofenceStatus} />

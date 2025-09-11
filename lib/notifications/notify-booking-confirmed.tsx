@@ -16,7 +16,8 @@ const COMPANY_EMAIL =
   process.env.SUPPORT_EMAIL ||
   "support@amr-rentals.com";
 const SUPPORT_PHONE = process.env.SUPPORT_PHONE || "351000000000";
-const COMPANY_WEBSITE = process.env.COMPANY_SITE || "https://amr.example";
+const COMPANY_WEBSITE =
+  process.env.COMPANY_WEBSITE || "https://amr-rentals.com";
 
 /** Admin recipients (comma-separated) for internal notifications. */
 const ADMIN_TO = (
