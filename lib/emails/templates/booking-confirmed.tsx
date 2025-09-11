@@ -1,4 +1,3 @@
-// lib/emails/booking-confirmed.tsx
 import "server-only";
 import type { ReactElement } from "react";
 
