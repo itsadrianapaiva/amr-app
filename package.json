@@ -14,7 +14,10 @@
     "test": "vitest",
     "test:unit": "vitest",
     "test:ci": "vitest run",
-    "test:e2e": "playwright test --project=chromium"
+    "test:e2e": "playwright test --project=chromium",
+    "dev:netlify": "APP_URL=http://127.0.0.1:8888 netlify dev --port 8888 --live=false",
+    "dev:next": "next dev -p 3000",
+    "dev:all": "run-p dev:netlify"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",

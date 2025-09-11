@@ -1,4 +1,3 @@
-// lib/geo/service-area.ts
 // Service area: Algarve (Faro→Sagres) + Alentejo Litoral (BUFFERED) — placeholder geometry.
 // NOTE: Replace with final pre-buffered MultiPolygon before launch.
 
