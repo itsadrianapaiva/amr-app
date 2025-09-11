@@ -37,6 +37,7 @@ export function DatePicker({
         <PopoverTrigger asChild>
           <Button
             id="date"
+            data-testid="date-range-trigger"
             variant="outline"
             className={cn(
               "justify-start text-left font-normal",
@@ -63,6 +64,7 @@ export function DatePicker({
           align="start"
         >
           <Calendar
+            data-testid="booking-calendar"
             mode="range"
             defaultMonth={date?.from}
             selected={date}

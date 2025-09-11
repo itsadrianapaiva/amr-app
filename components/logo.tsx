@@ -7,14 +7,14 @@ type LogoProps = {
   href?: string;
   alt?: string;
   src?: string;
+  className?: string;
 };
 
 /**
  * Logo
- * Minimal, LCP-friendly branded logo wrapper.
- * - Uses next/image with explicit width & height for stable layout.
- * - Keeps link + alt text accessible.
- * - `src` is customizable, defaulting to the confirmed yellow asset path.
+ * - Keeps explicit intrinsic width/height for stable layout.
+ * - Forces CSS `width:auto` & `height:auto` to avoid Next.js "one dimension modified" warning,
+ *   which can be triggered by Tailwind's img reset (height:auto).
  */
 export default function Logo({
   width = 120,
@@ -22,7 +22,10 @@ export default function Logo({
   href = "/#home",
   alt = "AMR logo",
   src = "/assets/logo-yellow.png",
+  className,
 }: LogoProps) {
+  const classes = ["block select-none", className].filter(Boolean).join(" ");
+
   return (
     <Link
       href={href}
@@ -36,9 +39,11 @@ export default function Logo({
         height={height}
         alt={alt}
         priority
-        className="block select-none"
+        className={classes}
         draggable={false}
-        sizes={`${width}px`}
+        // Critical: ensure both dimensions are "auto" at CSS level
+        // so Tailwind's img reset doesn't trip Next's warning.
+        style={{ width: "auto", height: "auto" }}
       />
     </Link>
   );
