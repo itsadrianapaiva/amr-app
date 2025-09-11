@@ -1,14 +1,14 @@
-// Netlify Scheduled Function: runs every 5 minutes to expire stale holds.
-// This calls your existing Next API route so all expiry logic stays DRY.
+// netlify/functions/expire-holds.ts
+// Scheduled every 5 minutes (UTC). Calls the Next API route to expire holds.
 
-import type { Handler } from "@netlify/functions";
+import type { Config, Context } from "@netlify/functions";
 
-export const config = {
-  // Every 5 minutes
-  schedule: "*/5 * * * *",
+// 1) Declare schedule inline, as per docs
+export const config: Config = {
+  schedule: "*/5 * * * *", // every 5 minutes
 };
 
-// Small fetch with timeout to avoid silent hangs
+// 2) Small timeout helper to avoid silent hangs
 async function fetchWithTimeout(input: RequestInfo, init: RequestInit = {}, ms = 25000) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), ms);
@@ -19,42 +19,29 @@ async function fetchWithTimeout(input: RequestInfo, init: RequestInit = {}, ms =
   }
 }
 
-export const handler: Handler = async () => {
-  // Prefer production URL, fall back to deploy URL, then APP_URL, then local dev.
+// 3) Default export handler (modern Netlify Functions contract)
+export default async (_req: Request, _ctx: Context): Promise<Response> => {
   const base =
-    process.env.URL ||
+    process.env.URL || // production published URL
+    process.env.DEPLOY_PRIME_URL || // preview deploy URL (won't schedule, but safe)
     process.env.DEPLOY_URL ||
     process.env.APP_URL ||
     "http://localhost:8888";
 
   const endpoint = `${base.replace(/\/$/, "")}/api/cron/expire-holds`;
 
-  const headers: Record<string, string> = {
-    "user-agent": "amr-cron/expire-holds",
-  };
+  const headers: Record<string, string> = { "user-agent": "amr-cron/expire-holds" };
   if (process.env.CRON_SECRET) headers["x-cron-secret"] = process.env.CRON_SECRET;
 
   try {
     const res = await fetchWithTimeout(endpoint, { method: "GET", headers }, 25000);
-    const text = await res.text(); // capture once
+    const text = await res.text(); // capture once for logs
 
     if (!res.ok) {
-      // Surface details in Netlify logs for quick diagnosis
-      return {
-        statusCode: 500,
-        body: `expire-holds failed: ${res.status} ${text}`,
-      };
+      return new Response(`expire-holds failed: ${res.status} ${text}`, { status: 500 });
     }
-
-    // Pass through the API response so logs show cancelled counts
-    return {
-      statusCode: 200,
-      body: `expire-holds OK: ${text}`,
-    };
-  } catch (err) {
-    return {
-      statusCode: 500,
-      body: `expire-holds error: ${(err as Error).message}`,
-    };
+    return new Response(`expire-holds OK: ${text}`, { status: 200 });
+  } catch (err: any) {
+    return new Response(`expire-holds error: ${err?.message ?? String(err)}`, { status: 500 });
   }
 };
