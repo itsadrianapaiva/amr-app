@@ -129,7 +129,7 @@ export default async function CustomerSuccessPage({
 
       <div className="flex items-center gap-3">
         <Link
-          href="/catalog"
+          href="/#catalog"
           className="rounded-md bg-black px-4 py-2 text-white"
         >
           Back to catalog
