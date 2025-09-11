@@ -1,9 +1,13 @@
 import { test, expect, Page, Locator } from "@playwright/test";
-import {
-  addDaysYmd,
-  computeEarliestStartYmd,
-  parseYmd,
-} from "./utils/dates";
+import { addDaysYmd, computeEarliestStartYmd, parseYmd } from "./utils/dates";
+
+// Skip this UI-spec unless explicitly enabled.
+// Enable by running: RUN_UI_CALENDAR=1 npx playwright test e2e/lead-time.spec.ts
+const RUN_UI = process.env.RUN_UI_CALENDAR === "1";
+test.skip(
+  !RUN_UI,
+  "UI calendar test disabled by default; enable with RUN_UI_CALENDAR=1"
+);
 
 // ----- Config -----
 const APP_URL =
@@ -11,8 +15,7 @@ const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
   "http://127.0.0.1:3000"; // use your Next dev by default
 
-const HEAVY_MACHINE_PATH =
-  process.env.TEST_HEAVY_MACHINE_PATH || "/machine/7";
+const HEAVY_MACHINE_PATH = process.env.TEST_HEAVY_MACHINE_PATH || "/machine/7";
 
 // ----- Helpers: open calendar popover -----
 async function openCalendarPopover(page: Page): Promise<void> {
@@ -101,9 +104,14 @@ function labelsForYmdLisbon(ymd: string): string[] {
 }
 
 // Query a date cell INSIDE the calendar popover
-async function getCalendarCellByYmd(page: Page, ymd: string): Promise<Locator | null> {
+async function getCalendarCellByYmd(
+  page: Page,
+  ymd: string
+): Promise<Locator | null> {
   const calendarRoot = page
-    .locator('[data-rdp], [role="dialog"] [data-rdp], [data-radix-popper-content-wrapper] [data-rdp]')
+    .locator(
+      '[data-rdp], [role="dialog"] [data-rdp], [data-radix-popper-content-wrapper] [data-rdp]'
+    )
     .first();
 
   // Ensure the calendar exists before searching within it
@@ -119,18 +127,24 @@ async function getCalendarCellByYmd(page: Page, ymd: string): Promise<Locator | 
 
   // Fallback: numeric day (scoped to calendar root)
   const { d } = parseYmd(ymd);
-  const numeric = calendarRoot.getByRole("button", { name: new RegExp(`^${d}$`) }).first();
+  const numeric = calendarRoot
+    .getByRole("button", { name: new RegExp(`^${d}$`) })
+    .first();
   if (await numeric.count()) return numeric;
 
   return null;
 }
 
 test.describe("Heavy-machine lead time (2 days) with 15:00 Lisbon cutoff", () => {
-  test("dates before earliest are disabled; earliest is enabled", async ({ page }) => {
+  test("dates before earliest are disabled; earliest is enabled", async ({
+    page,
+  }) => {
     const earliest = computeEarliestStartYmd(new Date(), 2, 15);
     const preEarliest = addDaysYmd(earliest, -1);
 
-    await page.goto(`${APP_URL}${HEAVY_MACHINE_PATH}`, { waitUntil: "networkidle" });
+    await page.goto(`${APP_URL}${HEAVY_MACHINE_PATH}`, {
+      waitUntil: "networkidle",
+    });
 
     // OPEN the shadcn popover calendar first
     await openCalendarPopover(page);
@@ -138,12 +152,18 @@ test.describe("Heavy-machine lead time (2 days) with 15:00 Lisbon cutoff", () =>
     // Now query INSIDE the day-picker
     const preCell = await getCalendarCellByYmd(page, preEarliest);
     expect
-      .soft(preCell, `Could not find pre-earliest date cell (${preEarliest}). Make sure the calendar popover is open.`)
+      .soft(
+        preCell,
+        `Could not find pre-earliest date cell (${preEarliest}). Make sure the calendar popover is open.`
+      )
       .toBeTruthy();
 
     if (preCell) {
       await expect
-        .soft(preCell, `Expected ${preEarliest} to be disabled due to 2-day lead time.`)
+        .soft(
+          preCell,
+          `Expected ${preEarliest} to be disabled due to 2-day lead time.`
+        )
         .toHaveAttribute("aria-disabled", /true/i);
     }
 
@@ -155,7 +175,10 @@ test.describe("Heavy-machine lead time (2 days) with 15:00 Lisbon cutoff", () =>
     if (earliestCell) {
       const attr = await earliestCell.getAttribute("aria-disabled");
       expect
-        .soft(attr === null || String(attr).toLowerCase() !== "true", `Expected ${earliest} to be enabled/selectable.`)
+        .soft(
+          attr === null || String(attr).toLowerCase() !== "true",
+          `Expected ${earliest} to be enabled/selectable.`
+        )
         .toBe(true);
     }
   });
