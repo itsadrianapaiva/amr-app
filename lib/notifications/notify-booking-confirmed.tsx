@@ -1,4 +1,3 @@
-// lib/notifications/notify-booking-confirmed.tsx
 "use server";
 import "server-only";
 import type { ReactElement } from "react";
@@ -77,6 +76,21 @@ function splitVatFromTotal(totalIncl: number) {
   };
 }
 
+/** Build a human-readable add-ons string from booking flags */
+function makeAddonsList(input: {
+  operatorSelected: boolean;
+  insuranceSelected: boolean;
+  deliverySelected: boolean;
+  pickupSelected: boolean;
+}): string {
+  const items: string[] = [];
+  if (input.operatorSelected) items.push("Operator");
+  if (input.insuranceSelected) items.push("Insurance");
+  if (input.deliverySelected) items.push("Delivery");
+  if (input.pickupSelected) items.push("Pickup");
+  return items.length ? items.join(" · ") : "None";
+}
+
 /**
  * notifyBookingConfirmed
  * Loads the booking and sends two emails:
@@ -105,6 +119,12 @@ export async function notifyBookingConfirmed(
       siteAddressLine1: true,
       siteAddressCity: true,
 
+      // add-on and fulfilment flags
+      insuranceSelected: true,
+      deliverySelected: true,
+      pickupSelected: true,
+      operatorSelected: true,
+
       totalCost: true, // assumed VAT-inclusive
       depositPaid: true, // operational flag
 
@@ -131,6 +151,13 @@ export async function notifyBookingConfirmed(
     .filter(Boolean)
     .join(", ");
 
+  const addonsList = makeAddonsList({
+    operatorSelected: b.operatorSelected,
+    insuranceSelected: b.insuranceSelected,
+    deliverySelected: b.deliverySelected,
+    pickupSelected: b.pickupSelected,
+  });
+
   // 3) Customer email (optional) — SKIP for ops-created bookings and internal placeholders
   const isInternalPlaceholder = (b.customerEmail || "")
     .toLowerCase()
@@ -150,9 +177,9 @@ export async function notifyBookingConfirmed(
         startYmd={startYmd}
         endYmd={endYmd}
         rentalDays={days}
-        addonsList={null}
-        deliverySelected={false}
-        pickupSelected={false}
+        addonsList={addonsList}
+        deliverySelected={b.deliverySelected}
+        pickupSelected={b.pickupSelected}
         siteAddress={siteAddress || null}
         subtotalExVat={money.subtotalExVat}
         vatAmount={money.vatAmount}
@@ -189,9 +216,9 @@ export async function notifyBookingConfirmed(
       customerEmail={b.customerEmail || undefined}
       customerPhone={b.customerPhone || undefined}
       siteAddress={siteAddress || undefined}
-      addonsList={null}
+      addonsList={addonsList}
       heavyLeadTimeApplies={[5, 6, 7].includes(b.machineId)}
-      geofenceStatus={"inside"} // unknown here; can be improved when geo check is available
+      geofenceStatus={"inside"} // TODO: plug real check when available
       subtotalExVat={money.subtotalExVat}
       vatAmount={money.vatAmount}
       totalInclVat={money.totalInclVat}
