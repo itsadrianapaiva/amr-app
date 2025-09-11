@@ -43,6 +43,10 @@ jobs:
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
 
+      # Vendus
+      VENDUS_API_KEY: ${{ secrets.VENDUS_API_KEY }}
+      VENDUS_URL: ${{ secrets.VENDUS_URL }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
