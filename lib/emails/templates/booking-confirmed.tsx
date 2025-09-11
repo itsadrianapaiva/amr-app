@@ -1,27 +1,46 @@
+// lib/emails/booking-confirmed.tsx
 import "server-only";
 import type { ReactElement } from "react";
 
-/** Props kept minimal so we can call this from both webhook and ops flows */
-export type BookingConfirmedProps = {
-  companyName: string; // "Algarve Machinery Rental"
-  supportEmail: string; // "amr.business.pt@gmail.com"
-  customerName?: string | null; // Optional personalization
+/** Props aligned to our customer-facing data contract. Money as strings "123.45". */
+export type CustomerBookingEmailProps = {
+  companyName: string;
+  companyEmail: string; // shown in footer
+  supportPhone: string; // "Need help?" section
+  companySite: string; // e.g., https://amr.pt
+
+  customerName?: string | null;
   bookingId: number;
-  machineTitle?: string | null; // e.g. "Mini Excavator CAT 301.7"
+
+  machineName: string;
   startYmd: string; // "YYYY-MM-DD"
   endYmd: string; // "YYYY-MM-DD"
-  depositPaidEuros?: number | null; // Optional for customer clarity
-  siteAddressLine1?: string | null;
-  siteAddressCity?: string | null;
+  rentalDays: number;
+  addonsList?: string | null;
+
+  deliverySelected: boolean;
+  pickupSelected: boolean;
+
+  siteAddress?: string | null; // single-line address for simplicity
+
+  subtotalExVat: string; // "123.45"
+  vatAmount: string; // "28.34"
+  totalInclVat: string; // "151.79"
+  depositAmount: string; // "350.00"
+
+  invoicePdfUrl?: string | null;
+
+  warehouseAddress: string;
+  warehouseHours: string; // "Mon–Fri 09:00–18:00"
+  callByDateTimeLocal?: string | null; // "Sep 13, 18:00 Lisbon"
+  machineAccessNote?: string | null; // "3.5-ton truck"
 };
 
-/** Convert YYYY-MM-DD to Date at midnight UTC */
+/** Helpers */
 function ymdToUtc(ymd: string): Date {
   const [y, m, d] = ymd.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d));
 }
-
-/** Format a Date in Lisbon as "26 Sep 2025" */
 function fmtLisbon(d: Date): string {
   return new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Lisbon",
@@ -30,18 +49,15 @@ function fmtLisbon(d: Date): string {
     year: "numeric",
   }).format(d);
 }
-
-/** Join a date range, collapsing when start == end */
-function fmtRangeLisbon(startYmd: string, endYmd: string): string {
-  const a = ymdToUtc(startYmd);
-  const b = ymdToUtc(endYmd);
-  const aStr = fmtLisbon(a);
-  const bStr = fmtLisbon(b);
-  return aStr === bStr ? aStr : `${aStr} to ${bStr}`;
+function fmtRangeLisbon(aYmd: string, bYmd: string): string {
+  const a = fmtLisbon(ymdToUtc(aYmd));
+  const b = fmtLisbon(ymdToUtc(bYmd));
+  return a === b ? a : `${a} to ${b}`;
 }
+const euro = (n: string) => `€${n}`;
 
-/** Inline styles for broad client support */
-const styles = {
+/** Minimal inline styles for wide email client support */
+const S = {
   body: {
     fontFamily:
       "ui-sans-serif, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
@@ -50,46 +66,65 @@ const styles = {
     backgroundColor: "#f6f7f9",
     color: "#111827",
   },
-  container: {
-    maxWidth: "560px",
-    margin: "0 auto",
-    padding: "24px 16px",
-  },
+  container: { maxWidth: "560px", margin: "0 auto", padding: "24px 16px" },
   card: {
     backgroundColor: "#ffffff",
     borderRadius: "12px",
-    padding: "24px",
+    padding: "20px",
     border: "1px solid #e5e7eb",
   },
   h1: { fontSize: "18px", margin: "0 0 12px 0" },
   p: { margin: "8px 0" },
-  hr: { border: 0, borderTop: "1px solid #e5e7eb", margin: "16px 0" },
+  k: { color: "#374151", minWidth: "132px", display: "inline-block" },
+  v: { color: "#111827" },
+  hr: { border: 0, borderTop: "1px solid #e5e7eb", margin: "14px 0" },
   small: { color: "#6b7280", fontSize: "12px" },
-  strong: { fontWeight: 600 },
-  btn: {
-    display: "inline-block",
-    padding: "10px 16px",
-    borderRadius: "8px",
-    textDecoration: "none",
-    backgroundColor: "#111827",
-    color: "#ffffff",
-  },
+  link: { color: "#111827" },
 } as const;
 
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <p style={S.p}>
+      <span style={S.k}>{k}</span>
+      <span style={S.v}>{v}</span>
+    </p>
+  );
+}
+
 export default function BookingConfirmedEmail(
-  props: BookingConfirmedProps
+  props: CustomerBookingEmailProps
 ): ReactElement {
   const {
     companyName,
-    supportEmail,
-    bookingId,
+    companyEmail,
+    supportPhone,
+    companySite,
+
     customerName,
-    machineTitle,
+    bookingId,
+
+    machineName,
     startYmd,
     endYmd,
-    depositPaidEuros,
-    siteAddressLine1,
-    siteAddressCity,
+    rentalDays,
+    addonsList,
+
+    deliverySelected,
+    pickupSelected,
+
+    siteAddress,
+
+    subtotalExVat,
+    vatAmount,
+    totalInclVat,
+    depositAmount,
+
+    invoicePdfUrl,
+
+    warehouseAddress,
+    warehouseHours,
+    callByDateTimeLocal,
+    machineAccessNote,
   } = props;
 
   const dateRange = fmtRangeLisbon(startYmd, endYmd);
@@ -97,55 +132,95 @@ export default function BookingConfirmedEmail(
 
   return (
     <html>
-      <body style={styles.body}>
-        <div style={styles.container}>
-          <div style={styles.card}>
-            <h1 style={styles.h1}>Your booking is confirmed</h1>
-            <p style={styles.p}>{greeting}</p>
-            <p style={styles.p}>
-              We have received your payment and confirmed your booking.
+      <body style={S.body}>
+        <div style={S.container}>
+          <div style={S.card}>
+            <h1 style={S.h1}>Your AMR booking is confirmed</h1>
+            <p style={S.p}>{greeting}</p>
+            <p style={S.p}>
+              We have received your payment. Here is a quick summary and what
+              happens next.
             </p>
 
-            <hr style={styles.hr} />
+            <hr style={S.hr} />
 
-            <p style={styles.p}>
-              <span style={styles.strong}>Booking ID:</span> #{bookingId}
-            </p>
-            {machineTitle ? (
-              <p style={styles.p}>
-                <span style={styles.strong}>Machine:</span> {machineTitle}
+            <Row k="Booking #:" v={`#${bookingId}`} />
+            <Row k="Machine:" v={machineName} />
+            <Row k="Dates:" v={`${dateRange} (Lisbon)`} />
+            <Row
+              k="Days:"
+              v={`${rentalDays} day${rentalDays === 1 ? "" : "s"}`}
+            />
+            <Row k="Add-ons:" v={addonsList || "None"} />
+            {siteAddress ? <Row k="Service address:" v={siteAddress} /> : null}
+
+            <hr style={S.hr} />
+
+            <Row k="Subtotal (ex VAT):" v={euro(subtotalExVat)} />
+            <Row k="VAT 23%:" v={euro(vatAmount)} />
+            <Row k="Total paid today:" v={euro(totalInclVat)} />
+            <Row k="Refundable deposit at handover:" v={euro(depositAmount)} />
+
+            <hr style={S.hr} />
+
+            {/* What happens next */}
+            {deliverySelected ? (
+              <>
+                <p style={S.p}>
+                  <strong>Delivery:</strong> We will call you
+                  {callByDateTimeLocal ? ` by ${callByDateTimeLocal}` : ""} to
+                  confirm the delivery window for your start date. Please ensure
+                  access is clear
+                  {machineAccessNote ? ` for a ${machineAccessNote}` : ""}.
+                </p>
+              </>
+            ) : null}
+
+            {pickupSelected ? (
+              <p style={S.p}>
+                <strong>Warehouse pickup:</strong> Come to{" "}
+                <span style={S.v}>{warehouseAddress}</span>. Hours:{" "}
+                <span style={S.v}>{warehouseHours}</span>. Bring a valid ID and
+                this email.
               </p>
             ) : null}
-            <p style={styles.p}>
-              <span style={styles.strong}>Dates:</span> {dateRange} (Lisbon)
-            </p>
-            {typeof depositPaidEuros === "number" ? (
-              <p style={styles.p}>
-                <span style={styles.strong}>Deposit paid:</span> €
-                {depositPaidEuros.toFixed(2)}
-              </p>
-            ) : null}
-            {siteAddressLine1 ? (
-              <p style={styles.p}>
-                <span style={styles.strong}>Site address:</span>{" "}
-                {siteAddressLine1}
-                {siteAddressCity ? `, ${siteAddressCity}` : ""}
+
+            {!deliverySelected && !pickupSelected ? (
+              <p style={S.p}>
+                You did not choose delivery or pickup. Reply to this email to
+                schedule delivery or to arrange a pickup slot.
               </p>
             ) : null}
 
-            <p style={{ ...styles.p, marginTop: "16px" }}>
-              We will contact you to confirm drop-off or pickup details. If you
-              have any questions, reply to this email and our team will help.
+            <p style={S.p}>
+              <strong>On handover:</strong> We collect the refundable deposit,
+              do a short equipment check on return, and release the deposit
+              after inspection.
             </p>
 
-            <hr style={styles.hr} />
+            <hr style={S.hr} />
 
-            <p style={styles.small}>
-              {companyName}. For support contact {supportEmail}.
-            </p>
-            <p style={styles.small}>
-              This message was sent automatically. Please keep your booking ID
-              for reference.
+            {invoicePdfUrl ? (
+              <p style={S.p}>
+                <strong>Invoice:</strong>{" "}
+                <a href={invoicePdfUrl} style={S.link}>
+                  Download PDF
+                </a>
+              </p>
+            ) : (
+              <p style={S.p}>
+                <strong>Invoice:</strong> It will arrive shortly after payment
+                is fully settled.
+              </p>
+            )}
+
+            <p style={S.small}>
+              Need help? Call {supportPhone} or reply to this email.{" "}
+              {companyName} ·{" "}
+              <a href={companySite} style={S.link}>
+                {companySite}
+              </a>{" "}
+              · {companyEmail}
             </p>
           </div>
         </div>

@@ -1,29 +1,53 @@
 import "server-only";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 
-export type BookingInternalProps = {
-  companyName: string; // "Algarve Machinery Rental"
-  adminEmail: string; // "amr.business.pt@gmail.com"
+/** Ops-facing fast-facts template. Money as strings "123.45". */
+export type BookingInternalEmailProps = {
+  companyName: string;
+  adminEmail: string; // replies go here
+
+  source: "customer" | "ops"; // who created it
+
   bookingId: number;
-  source: "customer" | "ops"; // Who triggered this email
-  machineTitle?: string | null;
+
+  machineId: number;
+  machineName: string;
+
   startYmd: string; // "YYYY-MM-DD"
-  endYmd: string; // "YYYY-MM-DD"
+  endYmd: string;   // "YYYY-MM-DD"
+  rentalDays: number;
+
   customerName?: string | null;
   customerEmail?: string | null;
-  siteAddressLine1?: string | null;
-  siteAddressCity?: string | null;
-  depositPaid?: boolean; // true for customer checkout confirmations
-  opsUrl?: string | null; // e.g. `${APP_URL}/ops` or a deep link
+  customerPhone?: string | null;
+
+  siteAddress?: string | null;
+  addonsList?: string | null;
+
+  heavyLeadTimeApplies: boolean;
+  geofenceStatus: "inside" | "outside" | "edge";
+
+  subtotalExVat: string;
+  vatAmount: string;
+  totalInclVat: string;
+  depositAmount: string;
+
+  opsUrlForBooking: string;
+  stripePiId?: string | null;
+  stripePiUrl?: string | null;
+
+  invoiceNumber?: string | null;
+  invoicePdfUrl?: string | null;
+
+  googleCalendarEventId?: string | null;
+  googleHtmlLink?: string | null;
 };
 
-/** Convert YYYY-MM-DD to Date at midnight UTC */
+/** Helpers */
 function ymdToUtc(ymd: string): Date {
   const [y, m, d] = ymd.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d));
 }
-
-/** Format a Date in Lisbon as "26 Sep 2025" */
 function fmtLisbon(d: Date): string {
   return new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Lisbon",
@@ -32,18 +56,15 @@ function fmtLisbon(d: Date): string {
     year: "numeric",
   }).format(d);
 }
-
-/** Join a date range, collapsing when start == end */
-function fmtRangeLisbon(startYmd: string, endYmd: string): string {
-  const a = ymdToUtc(startYmd);
-  const b = ymdToUtc(endYmd);
-  const aStr = fmtLisbon(a);
-  const bStr = fmtLisbon(b);
-  return aStr === bStr ? aStr : `${aStr} to ${bStr}`;
+function fmtRangeLisbon(aYmd: string, bYmd: string): string {
+  const a = fmtLisbon(ymdToUtc(aYmd));
+  const b = fmtLisbon(ymdToUtc(bYmd));
+  return a === b ? a : `${a} to ${b}`;
 }
+const euro = (n: string) => `€${n}`;
 
-/** Minimal inline styles for broad client support */
-const styles = {
+/** Inline styles: robust across mail clients */
+const S = {
   body: {
     fontFamily:
       "ui-sans-serif, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
@@ -52,104 +73,169 @@ const styles = {
     backgroundColor: "#f6f7f9",
     color: "#111827",
   },
-  container: {
-    maxWidth: "560px",
-    margin: "0 auto",
-    padding: "24px 16px",
-  },
+  container: { maxWidth: "560px", margin: "0 auto", padding: "24px 16px" },
   card: {
     backgroundColor: "#ffffff",
     borderRadius: "12px",
     padding: "20px",
-    border: "1px solid #e5e7eb",
+    border: "1px solid "#e5e7eb",
   },
   h1: { fontSize: "16px", margin: "0 0 12px 0" },
   p: { margin: "8px 0" },
+  k: { color: "#374151", minWidth: "132px", display: "inline-block" },
+  v: { color: "#111827" },
   hr: { border: 0, borderTop: "1px solid #e5e7eb", margin: "14px 0" },
   small: { color: "#6b7280", fontSize: "12px" },
-  k: { color: "#374151", minWidth: "120px", display: "inline-block" },
-  v: { color: "#111827" },
   link: { color: "#111827" },
 } as const;
 
+/** Accept ReactNode so we can pass strings OR <a> links without casts. */
+function Row({ k, v }: { k: string; v: ReactNode }) {
+  return (
+    <p style={S.p}>
+      <span style={S.k}>{k}</span>
+      <span style={S.v}>{v}</span>
+    </p>
+  );
+}
+
 export default function BookingInternalEmail(
-  props: BookingInternalProps
+  props: BookingInternalEmailProps
 ): ReactElement {
   const {
     companyName,
     adminEmail,
-    bookingId,
     source,
-    machineTitle,
+    bookingId,
+    machineId,
+    machineName,
     startYmd,
     endYmd,
+    rentalDays,
     customerName,
     customerEmail,
-    siteAddressLine1,
-    siteAddressCity,
-    depositPaid,
+    customerPhone,
+    siteAddress,
+    addonsList,
+    heavyLeadTimeApplies,
+    geofenceStatus,
+    subtotalExVat,
+    vatAmount,
+    totalInclVat,
+    depositAmount,
+    opsUrlForBooking,
+    stripePiId,
+    stripePiUrl,
+    invoiceNumber,
+    invoicePdfUrl,
+    googleCalendarEventId,
+    googleHtmlLink,
   } = props;
 
   const dateRange = fmtRangeLisbon(startYmd, endYmd);
 
   return (
     <html>
-      <body style={styles.body}>
-        <div style={styles.container}>
-          <div style={styles.card}>
-            <h1 style={styles.h1}>{companyName}: new booking</h1>
-            <p style={styles.p}>
-              <span style={styles.k}>Booking ID:</span>
-              <span style={styles.v}>#{bookingId}</span>
-            </p>
-            <p style={styles.p}>
-              <span style={styles.k}>Source:</span>
-              <span style={styles.v}>
-                {source === "customer" ? "Customer checkout" : "Ops console"}
-              </span>
-            </p>
-            {machineTitle ? (
-              <p style={styles.p}>
-                <span style={styles.k}>Machine:</span>
-                <span style={styles.v}>{machineTitle}</span>
-              </p>
-            ) : null}
-            <p style={styles.p}>
-              <span style={styles.k}>Dates:</span>
-              <span style={styles.v}>{dateRange} (Lisbon)</span>
-            </p>
-            {typeof depositPaid === "boolean" ? (
-              <p style={styles.p}>
-                <span style={styles.k}>Deposit paid:</span>
-                <span style={styles.v}>{depositPaid ? "Yes" : "No"}</span>
-              </p>
-            ) : null}
-            {customerName ? (
-              <p style={styles.p}>
-                <span style={styles.k}>Customer:</span>
-                <span style={styles.v}>{customerName}</span>
-              </p>
-            ) : null}
-            {customerEmail ? (
-              <p style={styles.p}>
-                <span style={styles.k}>Email:</span>
-                <span style={styles.v}>{customerEmail}</span>
-              </p>
-            ) : null}
-            {siteAddressLine1 ? (
-              <p style={styles.p}>
-                <span style={styles.k}>Site address:</span>
-                <span style={styles.v}>
-                  {siteAddressLine1}
-                  {siteAddressCity ? `, ${siteAddressCity}` : ""}
-                </span>
-              </p>
+      <body style={S.body}>
+        <div style={S.container}>
+          <div style={S.card}>
+            <h1 style={S.h1}>New confirmed booking</h1>
+
+            <Row k="Booking #:" v={`#${bookingId}`} />
+            <Row
+              k="Source:"
+              v={source === "customer" ? "Customer checkout" : "Ops console"}
+            />
+
+            <Row k="Machine:" v={`${machineName} (id ${machineId})`} />
+            <Row k="Dates:" v={`${dateRange} (Lisbon) • ${rentalDays}d`} />
+
+            <Row
+              k="Customer:"
+              v={[
+                customerName || "—",
+                customerPhone ? ` · ${customerPhone}` : "",
+                customerEmail ? ` · ${customerEmail}` : "",
+              ].join("")}
+            />
+
+            <Row k="Address:" v={siteAddress || "—"} />
+            <Row k="Add-ons:" v={addonsList || "None"} />
+
+            <Row
+              k="Lead-time:"
+              v={heavyLeadTimeApplies ? "Applies" : "N/A"}
+            />
+            <Row k="Geofence:" v={geofenceStatus} />
+
+            <hr style={S.hr} />
+
+            <Row k="Subtotal ex VAT:" v={euro(subtotalExVat)} />
+            <Row k="VAT 23%:" v={euro(vatAmount)} />
+            <Row k="Total paid:" v={euro(totalInclVat)} />
+            <Row k="Deposit at handover:" v={euro(depositAmount)} />
+
+            <hr style={S.hr} />
+
+            {invoiceNumber ? (
+              <Row
+                k="Invoice:"
+                v={
+                  invoicePdfUrl ? (
+                    <a href={invoicePdfUrl} style={S.link}>
+                      {invoiceNumber} · PDF
+                    </a>
+                  ) : (
+                    invoiceNumber
+                  )
+                }
+              />
+            ) : (
+              <Row k="Invoice:" v="No invoice yet (async or retry pending)" />
+            )}
+
+            <Row
+              k="Ops:"
+              v={
+                <a href={opsUrlForBooking} style={S.link}>
+                  Open booking
+                </a>
+              }
+            />
+
+            {stripePiUrl || stripePiId ? (
+              <Row
+                k="Stripe:"
+                v={
+                  stripePiUrl ? (
+                    <a href={stripePiUrl} style={S.link}>
+                      PaymentIntent
+                    </a>
+                  ) : (
+                    `PI ${stripePiId}`
+                  )
+                }
+              />
             ) : null}
 
-            <hr style={styles.hr} />
-            <p style={styles.small}>
-              Internal notification for {companyName}. Replies go to{" "}
-              {adminEmail}.
+            {googleCalendarEventId ? (
+              <Row
+                k="Calendar:"
+                v={
+                  googleHtmlLink ? (
+                    <a href={googleHtmlLink} style={S.link}>
+                      Event
+                    </a>
+                  ) : (
+                    googleCalendarEventId
+                  )
+                }
+              />
+            ) : null}
+
+            <hr style={S.hr} />
+            <p style={S.small}>
+              Internal notification for {companyName}. Replies go to {adminEmail}.
             </p>
           </div>
         </div>
