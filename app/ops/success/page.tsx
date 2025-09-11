@@ -1,14 +1,21 @@
 import Link from "next/link";
 
-export default async function OpsSuccessPage({
+/**
+ * OpsSuccessPage
+ * - App Router passes `searchParams` as a plain object (not a Promise).
+ * - Read bookingId directly and show it if present.
+ */
+export default function OpsSuccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ bookingId?: string }>;
+  searchParams?: { bookingId?: string };
 }) {
-  const { bookingId } = await searchParams;
+  const bookingId = searchParams?.bookingId;
+
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
       <h1 className="text-2xl font-semibold">Booking created</h1>
+
       <p className="text-sm text-gray-700">
         Your booking was saved successfully in the system
         {bookingId ? ` (ID: ${bookingId})` : ""}.
@@ -23,10 +30,7 @@ export default async function OpsSuccessPage({
       </div>
 
       <div className="flex items-center gap-3">
-        <Link
-          href="/ops"
-          className="rounded-md bg-black px-4 py-2 text-white"
-        >
+        <Link href="/ops" className="rounded-md bg-black px-4 py-2 text-white">
           Back to booking
         </Link>
         <Link href="/" className="underline">

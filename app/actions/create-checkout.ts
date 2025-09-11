@@ -24,6 +24,9 @@ import {
 // Typed domain errors for UX mapping
 import { OverlapError, LeadTimeError } from "@/lib/repos/booking-repo";
 
+// Key changes when any relevant selection changes; identical requests reuse it.
+import { createHash } from "node:crypto";
+
 // Return shape supports form-level errors
 type CheckoutResult =
   | { ok: true; url: string }
@@ -36,6 +39,41 @@ function appBaseUrl(): string {
     process.env.APP_URL ||
     "http://localhost:3000"
   );
+}
+
+/** Return YYYY-MM-DD without timezone drift. */
+function ymdLisbon(d: Date): string {
+  return d.toLocaleDateString("en-GB", {
+    timeZone: "Europe/Lisbon",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
+/** Small, stable hash so idempotency keys stay short and deterministic. */
+function shortHash(input: unknown): string {
+  const s = typeof input === "string" ? input : JSON.stringify(input);
+  return createHash("sha1").update(s).digest("hex").slice(0, 16);
+}
+
+/**
+ * Build an idempotency key that varies with booking selections.
+ * - Same selections → same key (safe re-submit).
+ * - Changed add-ons/dates/total → different key (new session allowed).
+ */
+function makeCheckoutIdempotencyKey(args: {
+  bookingId: number;
+  startYmd: string;
+  endYmd: string;
+  total: number;
+  delivery: boolean;
+  pickup: boolean;
+  insurance: boolean;
+  operator: boolean;
+}) {
+  const fp = shortHash(args);
+  return `booking-${args.bookingId}-full-v3-${fp}`;
 }
 
 export async function createCheckoutAction(
@@ -128,8 +166,20 @@ export async function createCheckoutAction(
       appUrl,
     });
 
+    // idempotency key that reflects the current selections.
+    const idemKey = makeCheckoutIdempotencyKey({
+      bookingId: booking.id,
+      startYmd: ymdLisbon(from),
+      endYmd: ymdLisbon(to),
+      total: Number(totals.total),
+      delivery: !!payload.deliverySelected,
+      pickup: !!payload.pickupSelected,
+      insurance: !!payload.insuranceSelected,
+      operator: !!payload.operatorSelected,
+    });
+
     const session = await createCheckoutSessionWithGuards(sessionParams, {
-      idempotencyKey: `booking-${booking.id}-full-v2`,
+      idempotencyKey: idemKey,
       log: (event, data) => console.debug(`[stripe] ${event}`, data),
     });
 
@@ -165,8 +215,16 @@ export async function createCheckoutAction(
       };
     }
 
-    if (e?.name === "ZodError" && e?.issues?.length) {
-      return { ok: false, formError: e.issues[0]?.message ?? "Invalid input." };
+    // Stripe idempotency-specific UX (e.g., user changed add-ons after opening Checkout)
+    if (
+      e?.rawType === "idempotency_error" ||
+      e?.type === "StripeIdempotencyError"
+    ) {
+      return {
+        ok: false,
+        formError:
+          "Your selections changed after opening Checkout. Please submit again to create a fresh payment session.",
+      };
     }
 
     console.error("createCheckoutAction failed:", e);

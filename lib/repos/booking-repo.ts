@@ -94,16 +94,9 @@ export class OverlapError extends Error {
 // later we can migrate this to DB flags.
 const HEAVY_MACHINE_IDS = new Set<number>([5, 6, 7]); // medium excavator, large excavator, telehandler
 
-/**
- * Create a PENDING booking row.
- * Single responsibility: map a DTO to the Prisma shape and write it.
- * Returns the created booking row.
- */
-export async function createPendingBooking(dto: PendingBookingDTO) {
+/** Map DTO fields into a Booking update payload (keeps create/update in sync). */
+function mapDtoToBookingUpdate(dto: PendingBookingDTO) {
   const {
-    machineId,
-    startDate,
-    endDate,
     insuranceSelected,
     deliverySelected,
     pickupSelected,
@@ -114,39 +107,61 @@ export async function createPendingBooking(dto: PendingBookingDTO) {
     totals,
   } = dto;
 
+  return {
+    // Add-ons
+    insuranceSelected,
+    deliverySelected,
+    pickupSelected,
+    operatorSelected,
+
+    // Contact
+    customerName: customer.name,
+    customerEmail: customer.email,
+    customerPhone: customer.phone,
+    customerNIF: toNull(customer.nif ?? null),
+
+    // Site address (ops)
+    siteAddressLine1: toNull(siteAddress?.line1 ?? null),
+    siteAddressPostalCode: toNull(siteAddress?.postalCode ?? null),
+    siteAddressCity: toNull(siteAddress?.city ?? null),
+    siteAddressNotes: toNull(siteAddress?.notes ?? null),
+
+    // Billing (invoicing)
+    billingIsBusiness: billing.isBusiness,
+    billingCompanyName: toNull(billing.companyName ?? null),
+    billingTaxId: toNull(billing.taxId ?? null),
+    billingAddressLine1: toNull(billing.addressLine1 ?? null),
+    billingPostalCode: toNull(billing.postalCode ?? null),
+    billingCity: toNull(billing.city ?? null),
+    billingCountry: toNull(billing.country ?? null),
+
+    // Money (authoritative pre-VAT total)
+    totalCost: totals.total,
+  };
+}
+
+/**
+ * Create a PENDING booking row.
+ * Single responsibility: map a DTO to the Prisma shape and write it.
+ * Returns the created booking row.
+ */
+export async function createPendingBooking(dto: PendingBookingDTO) {
+  // Reuse the same field mapping as updates, plus the create-only fields
+  const mapped = mapDtoToBookingUpdate(dto);
+
   return db.booking.create({
     data: {
-      machineId,
-      startDate,
-      endDate,
+      machineId: dto.machineId,
+      startDate: dto.startDate,
+      endDate: dto.endDate,
 
-      insuranceSelected,
-      deliverySelected,
-      pickupSelected,
-      operatorSelected,
+      ...mapped, // add-ons, contact, site/billing, totalCost
 
-      customerName: customer.name,
-      customerEmail: customer.email,
-      customerPhone: customer.phone,
-      customerNIF: toNull(customer.nif ?? null),
-
-      siteAddressLine1: toNull(siteAddress?.line1 ?? null),
-      siteAddressPostalCode: toNull(siteAddress?.postalCode ?? null),
-      siteAddressCity: toNull(siteAddress?.city ?? null),
-      siteAddressNotes: toNull(siteAddress?.notes ?? null),
-
-      billingIsBusiness: billing.isBusiness,
-      billingCompanyName: toNull(billing.companyName ?? null),
-      billingTaxId: toNull(billing.taxId ?? null),
-      billingAddressLine1: toNull(billing.addressLine1 ?? null),
-      billingPostalCode: toNull(billing.postalCode ?? null),
-      billingCity: toNull(billing.city ?? null),
-      billingCountry: toNull(billing.country ?? null),
-
-      totalCost: totals.total, // authoritative grand total in euros
-      depositPaid: false,
+      depositPaid: false, // still our “paid” flag in the pivoted model
       status: BookingStatus.PENDING,
+      // holdExpiresAt is set by the caller where needed (e.g., reuse/create flow)
     },
+    select: { id: true },
   });
 }
 
@@ -227,16 +242,25 @@ export async function createOrReusePendingBooking(
       });
 
       if (existing) {
-        if (!existing.holdExpiresAt || existing.holdExpiresAt < newExpiry) {
-          await tx.booking.update({
-            where: { id: existing.id },
-            data: { holdExpiresAt: newExpiry },
-            select: { id: true },
-          });
-        }
+        // Update add-ons, contact, site/billing, totals AND extend hold
+        const updateData = {
+          ...mapDtoToBookingUpdate(dto),
+          holdExpiresAt:
+            existing.holdExpiresAt && existing.holdExpiresAt > newExpiry
+              ? existing.holdExpiresAt
+              : newExpiry,
+        };
+
+        await tx.booking.update({
+          where: { id: existing.id },
+          data: updateData,
+          select: { id: true },
+        });
+
         return { id: existing.id };
       }
 
+      // (4) Create fresh PENDING; keep overlap guard
       try {
         return await tx.booking.create({
           data: {
