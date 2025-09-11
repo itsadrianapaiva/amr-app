@@ -131,10 +131,13 @@ export async function notifyBookingConfirmed(
     .filter(Boolean)
     .join(", ");
 
-  // 3) Customer email (optional). We avoid assuming delivery/pickup flags here.
-  //    The template will show a neutral “reply to arrange” paragraph if neither is set.
+  // 3) Customer email (optional) — SKIP for ops-created bookings and internal placeholders
+  const isInternalPlaceholder = (b.customerEmail || "")
+    .toLowerCase()
+    .endsWith("@internal.local");
   let customerPromise: Promise<unknown> = Promise.resolve();
-  if (b.customerEmail) {
+
+  if (source !== "ops" && b.customerEmail && !isInternalPlaceholder) {
     const react: ReactElement = (
       <BookingConfirmedEmail
         companyName={COMPANY_NAME}
