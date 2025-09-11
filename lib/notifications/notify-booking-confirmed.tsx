@@ -218,6 +218,8 @@ export async function notifyBookingConfirmed(
       customerPhone={b.customerPhone || undefined}
       siteAddress={siteAddress || undefined}
       addonsList={addonsList}
+      deliverySelected={b.deliverySelected}
+      pickupSelected={b.pickupSelected}
       heavyLeadTimeApplies={[5, 6, 7].includes(b.machineId)}
       geofenceStatus={"inside"} // TODO: plug real check when available
       subtotalExVat={money.subtotalExVat}
