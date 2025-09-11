@@ -1,0 +1,405 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - banner [ref=e3]:
+    - generic [ref=e5]:
+      - link "Go to home" [ref=e6] [cursor=pointer]:
+        - /url: /#home
+        - img "AMR logo" [ref=e7] [cursor=pointer]
+      - navigation [ref=e8]:
+        - list [ref=e9]:
+          - listitem [ref=e10]:
+            - link "Home" [ref=e11] [cursor=pointer]:
+              - /url: /#home
+          - listitem [ref=e12]:
+            - link "Catalog" [ref=e13] [cursor=pointer]:
+              - /url: /#catalog
+          - listitem [ref=e14]:
+            - link "About" [ref=e15] [cursor=pointer]:
+              - /url: /#about
+          - listitem [ref=e16]:
+            - link "FAQ" [ref=e17] [cursor=pointer]:
+              - /url: /#faq
+          - listitem [ref=e18]:
+            - link "Contact" [ref=e19] [cursor=pointer]:
+              - /url: /#contact
+        - generic [ref=e20]: Instant booking in the Algarve
+        - link "Book now" [ref=e21] [cursor=pointer]:
+          - /url: /#catalog
+  - generic [ref=e24]:
+    - paragraph [ref=e27]: Machine Details
+    - img "Telescopic handler lifting materials" [ref=e30]
+    - generic [ref=e31]:
+      - heading "Telehandler" [level=1] [ref=e32]
+      - paragraph [ref=e33]: Heavy Equipment
+      - paragraph [ref=e34]: An incredibly versatile machine that combines the capabilities of a forklift and a crane. With its telescopic boom, it can lift and place heavy materials with precision at significant heights and distances, making it essential for multi-story construction and industrial applications.
+      - generic [ref=e35]:
+        - generic [ref=e36]:
+          - img [ref=e37]
+          - generic [ref=e39]:
+            - paragraph [ref=e40]: €375.00
+            - paragraph [ref=e41]: Daily Rate
+        - generic [ref=e42]:
+          - img [ref=e43]
+          - generic [ref=e45]:
+            - paragraph [ref=e46]: 7 days
+            - paragraph [ref=e47]: Minimum Rental
+        - generic [ref=e48]:
+          - img [ref=e49]
+          - generic [ref=e52]:
+            - paragraph [ref=e53]: 8 tons
+            - paragraph [ref=e54]: Weight
+        - generic [ref=e55]:
+          - img [ref=e56]
+          - generic [ref=e59]:
+            - paragraph [ref=e60]: €2,000.00
+            - paragraph [ref=e61]: Deposit
+        - generic [ref=e62]:
+          - img [ref=e63]
+          - generic [ref=e68]:
+            - paragraph [ref=e69]: €400.00
+            - paragraph [ref=e70]: Delivery Charge
+        - generic [ref=e71]:
+          - img [ref=e72]
+          - generic [ref=e77]:
+            - paragraph [ref=e78]: €400.00
+            - paragraph [ref=e79]: Pickup Charge
+      - generic [ref=e81]:
+        - generic [ref=e83]: Book this Machine
+        - generic [ref=e86]:
+          - generic [ref=e87]:
+            - generic [ref=e88]: Rental Dates
+            - generic [ref=e90]:
+              - button "Pick a date" [expanded] [ref=e92]:
+                - img [ref=e93]
+                - generic [ref=e95]: Pick a date
+              - paragraph [ref=e96]: Earliest start is 13/09/2025 for heavy-transport machines.
+          - generic [ref=e97]:
+            - generic [ref=e98]:
+              - generic [ref=e99]:
+                - paragraph [ref=e100]: Delivery
+                - paragraph [ref=e101]: Save time - we will bring the machine to your site.
+              - checkbox [checked] [ref=e102]:
+                - generic:
+                  - img
+              - checkbox [checked]
+            - generic [ref=e103]:
+              - generic [ref=e104]:
+                - paragraph [ref=e105]: Pickup
+                - paragraph [ref=e106]: We collect it when you are done - no hassle.
+              - checkbox [checked] [ref=e107]:
+                - generic:
+                  - img
+              - checkbox [checked]
+            - generic [ref=e108]:
+              - generic [ref=e109]:
+                - paragraph [ref=e110]:
+                  - text: Insurance
+                  - generic [ref=e111]: Recommended
+                - paragraph [ref=e112]: Covers accidental damage. Without insurance, you are responsible for repair costs.
+              - checkbox [checked] [ref=e113]:
+                - generic:
+                  - img
+              - checkbox [checked]
+            - generic [ref=e114]:
+              - generic [ref=e115]:
+                - paragraph [ref=e116]: Driver / Operator
+                - paragraph [ref=e117]: Certified operator to run the machine safely - charged per day.
+              - checkbox [ref=e118]
+              - checkbox
+            - paragraph [ref=e119]: "Minimum rental: 7 days."
+          - generic [ref=e120]:
+            - generic [ref=e121]:
+              - generic [ref=e122]: Full Name
+              - textbox "Full Name" [ref=e123]
+            - generic [ref=e124]:
+              - generic [ref=e125]: Email
+              - textbox "Email" [ref=e126]
+            - generic [ref=e127]:
+              - generic [ref=e128]: Phone Number
+              - textbox "Phone Number" [ref=e129]
+            - generic [ref=e130]:
+              - generic [ref=e131]: NIF (optional)
+              - textbox "NIF (optional)" [ref=e132]
+          - generic [ref=e133]:
+            - generic [ref=e134]:
+              - generic [ref=e135]: Site address
+              - textbox "Site address" [ref=e136]
+            - generic [ref=e137]:
+              - generic [ref=e138]: Postal code
+              - textbox "Postal code" [ref=e139]
+            - generic [ref=e140]:
+              - generic [ref=e141]: City
+              - textbox "City" [ref=e142]
+            - generic [ref=e143]:
+              - generic [ref=e144]: Notes for driver (optional)
+              - textbox "Notes for driver (optional)" [ref=e145]
+          - generic [ref=e146]:
+            - heading "Billing information" [level=3] [ref=e147]
+            - generic [ref=e148]:
+              - generic [ref=e149]:
+                - paragraph [ref=e150]: Booking for a company?
+                - paragraph [ref=e151]: If yes, we will use these details to issue an invoice.
+              - checkbox [ref=e152]
+          - generic [ref=e153]:
+            - button "Book Now" [disabled]
+  - contentinfo [ref=e154]:
+    - generic [ref=e156]:
+      - link "Go to home" [ref=e158] [cursor=pointer]:
+        - /url: /#home
+        - img "Algarve Machinery Rentals" [ref=e159] [cursor=pointer]
+      - generic [ref=e160]:
+        - heading "Contact" [level=4] [ref=e161]
+        - list [ref=e162]:
+          - listitem [ref=e163]:
+            - img [ref=e164]
+            - paragraph [ref=e168]: Algarve, Portugal
+          - listitem [ref=e169]:
+            - img [ref=e170]
+            - generic [ref=e172]: 000 000 000
+          - listitem [ref=e173]:
+            - img [ref=e174]
+            - link "support@amr-rentals.com" [ref=e177] [cursor=pointer]:
+              - /url: mailto:support@amr-rentals.com
+        - link "Book now" [ref=e179] [cursor=pointer]:
+          - /url: /#catalog
+      - generic [ref=e180]:
+        - heading "Categories" [level=4] [ref=e181]
+        - list [ref=e182]:
+          - listitem [ref=e183]:
+            - link "Excavators" [ref=e184] [cursor=pointer]:
+              - /url: /?category=Excavators#catalog
+          - listitem [ref=e185]:
+            - link "Heavy Equipment" [ref=e186] [cursor=pointer]:
+              - /url: /?category=Heavy%20Equipment#catalog
+          - listitem [ref=e187]:
+            - link "Light Machinery & Tools" [ref=e188] [cursor=pointer]:
+              - /url: /?category=Light%20Machinery%20%26%20Tools#catalog
+          - listitem [ref=e189]:
+            - link "Skid Steer Loaders" [ref=e190] [cursor=pointer]:
+              - /url: /?category=Skid%20Steer%20Loaders#catalog
+      - generic [ref=e191]:
+        - heading "Pages" [level=4] [ref=e192]
+        - list [ref=e193]:
+          - listitem [ref=e194]:
+            - link "Home" [ref=e195] [cursor=pointer]:
+              - /url: /#home
+          - listitem [ref=e196]:
+            - link "Catalog" [ref=e197] [cursor=pointer]:
+              - /url: /#catalog
+          - listitem [ref=e198]:
+            - link "Contact" [ref=e199] [cursor=pointer]:
+              - /url: /#contact
+          - listitem [ref=e200]:
+            - link "FAQ" [ref=e201] [cursor=pointer]:
+              - /url: /#faq
+          - listitem [ref=e202]:
+            - link "Privacy" [ref=e203] [cursor=pointer]:
+              - /url: /legal/privacy
+          - listitem [ref=e204]:
+            - link "Terms" [ref=e205] [cursor=pointer]:
+              - /url: /legal/terms
+          - listitem [ref=e206]:
+            - link "Cookies" [ref=e207] [cursor=pointer]:
+              - /url: /legal/cookies
+          - listitem [ref=e208]:
+            - link "General Rental Conditions" [ref=e209] [cursor=pointer]:
+              - /url: /legal/general-conditions
+          - listitem [ref=e210]:
+            - link "Livro de Reclamações" [ref=e211] [cursor=pointer]:
+              - /url: https://www.livroreclamacoes.pt/inicio/
+    - generic [ref=e213]:
+      - paragraph [ref=e214]: © 2025 AMR Rentals. All rights reserved.
+      - paragraph [ref=e215]:
+        - text: Designed by
+        - link "Adriana Paiva" [ref=e216] [cursor=pointer]:
+          - /url: https://itsadrianapaiva.com
+  - link "Contact us on WhatsApp" [ref=e217] [cursor=pointer]:
+    - /url: https://wa.me/351900000000/?text=Hello%20AMR%2C%20I%20need%20help%20with%20something%20else.
+    - img "WhatsApp" [ref=e219] [cursor=pointer]
+  - alert [ref=e220]
+  - dialog [ref=e222]:
+    - generic [ref=e224]:
+      - navigation [ref=e225]:
+        - button "Go to the Previous Month" [active] [ref=e226]:
+          - img [ref=e227]
+        - button "Go to the Next Month" [ref=e229]:
+          - img [ref=e230]
+      - generic [ref=e232]:
+        - status [ref=e234]: September 2025
+        - grid "September 2025" [ref=e235]:
+          - rowgroup [ref=e236]:
+            - row [ref=e237]:
+              - columnheader [ref=e238]: Su
+              - columnheader [ref=e239]: Mo
+              - columnheader [ref=e240]: Tu
+              - columnheader [ref=e241]: We
+              - columnheader [ref=e242]: Th
+              - columnheader [ref=e243]: Fr
+              - columnheader [ref=e244]: Sa
+          - rowgroup [ref=e245]:
+            - row "Sunday, August 31st, 2025 Monday, September 1st, 2025 Tuesday, September 2nd, 2025 Wednesday, September 3rd, 2025 Thursday, September 4th, 2025 Friday, September 5th, 2025 Saturday, September 6th, 2025" [ref=e246]:
+              - gridcell "Sunday, August 31st, 2025":
+                - button "Sunday, August 31st, 2025" [disabled]: "31"
+              - gridcell "Monday, September 1st, 2025":
+                - button "Monday, September 1st, 2025" [disabled]: "1"
+              - gridcell "Tuesday, September 2nd, 2025":
+                - button "Tuesday, September 2nd, 2025" [disabled]: "2"
+              - gridcell "Wednesday, September 3rd, 2025":
+                - button "Wednesday, September 3rd, 2025" [disabled]: "3"
+              - gridcell "Thursday, September 4th, 2025":
+                - button "Thursday, September 4th, 2025" [disabled]: "4"
+              - gridcell "Friday, September 5th, 2025":
+                - button "Friday, September 5th, 2025" [disabled]: "5"
+              - gridcell "Saturday, September 6th, 2025":
+                - button "Saturday, September 6th, 2025" [disabled]: "6"
+            - row "Sunday, September 7th, 2025 Monday, September 8th, 2025 Tuesday, September 9th, 2025 Wednesday, September 10th, 2025 Today, Thursday, September 11th, 2025 Friday, September 12th, 2025 Saturday, September 13th, 2025" [ref=e247]:
+              - gridcell "Sunday, September 7th, 2025":
+                - button "Sunday, September 7th, 2025" [disabled]: "7"
+              - gridcell "Monday, September 8th, 2025":
+                - button "Monday, September 8th, 2025" [disabled]: "8"
+              - gridcell "Tuesday, September 9th, 2025":
+                - button "Tuesday, September 9th, 2025" [disabled]: "9"
+              - gridcell "Wednesday, September 10th, 2025":
+                - button "Wednesday, September 10th, 2025" [disabled]: "10"
+              - gridcell "Today, Thursday, September 11th, 2025":
+                - button "Today, Thursday, September 11th, 2025" [disabled]: "11"
+              - gridcell "Friday, September 12th, 2025":
+                - button "Friday, September 12th, 2025" [disabled]: "12"
+              - gridcell "Saturday, September 13th, 2025" [ref=e248]:
+                - button "Saturday, September 13th, 2025" [ref=e249]: "13"
+            - row "Sunday, September 14th, 2025 Monday, September 15th, 2025 Tuesday, September 16th, 2025 Wednesday, September 17th, 2025 Thursday, September 18th, 2025 Friday, September 19th, 2025 Saturday, September 20th, 2025" [ref=e250]:
+              - gridcell "Sunday, September 14th, 2025" [ref=e251]:
+                - button "Sunday, September 14th, 2025" [ref=e252]: "14"
+              - gridcell "Monday, September 15th, 2025" [ref=e253]:
+                - button "Monday, September 15th, 2025" [ref=e254]: "15"
+              - gridcell "Tuesday, September 16th, 2025" [ref=e255]:
+                - button "Tuesday, September 16th, 2025" [ref=e256]: "16"
+              - gridcell "Wednesday, September 17th, 2025" [ref=e257]:
+                - button "Wednesday, September 17th, 2025" [ref=e258]: "17"
+              - gridcell "Thursday, September 18th, 2025" [ref=e259]:
+                - button "Thursday, September 18th, 2025" [ref=e260]: "18"
+              - gridcell "Friday, September 19th, 2025" [ref=e261]:
+                - button "Friday, September 19th, 2025" [ref=e262]: "19"
+              - gridcell "Saturday, September 20th, 2025" [ref=e263]:
+                - button "Saturday, September 20th, 2025" [ref=e264]: "20"
+            - row "Sunday, September 21st, 2025 Monday, September 22nd, 2025 Tuesday, September 23rd, 2025 Wednesday, September 24th, 2025 Thursday, September 25th, 2025 Friday, September 26th, 2025 Saturday, September 27th, 2025" [ref=e265]:
+              - gridcell "Sunday, September 21st, 2025" [ref=e266]:
+                - button "Sunday, September 21st, 2025" [ref=e267]: "21"
+              - gridcell "Monday, September 22nd, 2025" [ref=e268]:
+                - button "Monday, September 22nd, 2025" [ref=e269]: "22"
+              - gridcell "Tuesday, September 23rd, 2025" [ref=e270]:
+                - button "Tuesday, September 23rd, 2025" [ref=e271]: "23"
+              - gridcell "Wednesday, September 24th, 2025" [ref=e272]:
+                - button "Wednesday, September 24th, 2025" [ref=e273]: "24"
+              - gridcell "Thursday, September 25th, 2025" [ref=e274]:
+                - button "Thursday, September 25th, 2025" [ref=e275]: "25"
+              - gridcell "Friday, September 26th, 2025" [ref=e276]:
+                - button "Friday, September 26th, 2025" [ref=e277]: "26"
+              - gridcell "Saturday, September 27th, 2025" [ref=e278]:
+                - button "Saturday, September 27th, 2025" [ref=e279]: "27"
+            - row "Sunday, September 28th, 2025 Monday, September 29th, 2025 Tuesday, September 30th, 2025 Wednesday, October 1st, 2025 Thursday, October 2nd, 2025 Friday, October 3rd, 2025 Saturday, October 4th, 2025" [ref=e280]:
+              - gridcell "Sunday, September 28th, 2025" [ref=e281]:
+                - button "Sunday, September 28th, 2025" [ref=e282]: "28"
+              - gridcell "Monday, September 29th, 2025" [ref=e283]:
+                - button "Monday, September 29th, 2025" [ref=e284]: "29"
+              - gridcell "Tuesday, September 30th, 2025" [ref=e285]:
+                - button "Tuesday, September 30th, 2025" [ref=e286]: "30"
+              - gridcell "Wednesday, October 1st, 2025" [ref=e287]:
+                - button "Wednesday, October 1st, 2025" [ref=e288]: "1"
+              - gridcell "Thursday, October 2nd, 2025" [ref=e289]:
+                - button "Thursday, October 2nd, 2025" [ref=e290]: "2"
+              - gridcell "Friday, October 3rd, 2025" [ref=e291]:
+                - button "Friday, October 3rd, 2025" [ref=e292]: "3"
+              - gridcell "Saturday, October 4th, 2025" [ref=e293]:
+                - button "Saturday, October 4th, 2025" [ref=e294]: "4"
+      - generic [ref=e295]:
+        - status [ref=e297]: October 2025
+        - grid "October 2025" [ref=e298]:
+          - rowgroup [ref=e299]:
+            - row [ref=e300]:
+              - columnheader [ref=e301]: Su
+              - columnheader [ref=e302]: Mo
+              - columnheader [ref=e303]: Tu
+              - columnheader [ref=e304]: We
+              - columnheader [ref=e305]: Th
+              - columnheader [ref=e306]: Fr
+              - columnheader [ref=e307]: Sa
+          - rowgroup [ref=e308]:
+            - row "Sunday, September 28th, 2025 Monday, September 29th, 2025 Tuesday, September 30th, 2025 Wednesday, October 1st, 2025 Thursday, October 2nd, 2025 Friday, October 3rd, 2025 Saturday, October 4th, 2025" [ref=e309]:
+              - gridcell "Sunday, September 28th, 2025" [ref=e310]:
+                - button "Sunday, September 28th, 2025" [ref=e311]: "28"
+              - gridcell "Monday, September 29th, 2025" [ref=e312]:
+                - button "Monday, September 29th, 2025" [ref=e313]: "29"
+              - gridcell "Tuesday, September 30th, 2025" [ref=e314]:
+                - button "Tuesday, September 30th, 2025" [ref=e315]: "30"
+              - gridcell "Wednesday, October 1st, 2025" [ref=e316]:
+                - button "Wednesday, October 1st, 2025" [ref=e317]: "1"
+              - gridcell "Thursday, October 2nd, 2025" [ref=e318]:
+                - button "Thursday, October 2nd, 2025" [ref=e319]: "2"
+              - gridcell "Friday, October 3rd, 2025" [ref=e320]:
+                - button "Friday, October 3rd, 2025" [ref=e321]: "3"
+              - gridcell "Saturday, October 4th, 2025" [ref=e322]:
+                - button "Saturday, October 4th, 2025" [ref=e323]: "4"
+            - row "Sunday, October 5th, 2025 Monday, October 6th, 2025 Tuesday, October 7th, 2025 Wednesday, October 8th, 2025 Thursday, October 9th, 2025 Friday, October 10th, 2025 Saturday, October 11th, 2025" [ref=e324]:
+              - gridcell "Sunday, October 5th, 2025" [ref=e325]:
+                - button "Sunday, October 5th, 2025" [ref=e326]: "5"
+              - gridcell "Monday, October 6th, 2025" [ref=e327]:
+                - button "Monday, October 6th, 2025" [ref=e328]: "6"
+              - gridcell "Tuesday, October 7th, 2025" [ref=e329]:
+                - button "Tuesday, October 7th, 2025" [ref=e330]: "7"
+              - gridcell "Wednesday, October 8th, 2025" [ref=e331]:
+                - button "Wednesday, October 8th, 2025" [ref=e332]: "8"
+              - gridcell "Thursday, October 9th, 2025" [ref=e333]:
+                - button "Thursday, October 9th, 2025" [ref=e334]: "9"
+              - gridcell "Friday, October 10th, 2025" [ref=e335]:
+                - button "Friday, October 10th, 2025" [ref=e336]: "10"
+              - gridcell "Saturday, October 11th, 2025" [ref=e337]:
+                - button "Saturday, October 11th, 2025" [ref=e338]: "11"
+            - row "Sunday, October 12th, 2025 Monday, October 13th, 2025 Tuesday, October 14th, 2025 Wednesday, October 15th, 2025 Thursday, October 16th, 2025 Friday, October 17th, 2025 Saturday, October 18th, 2025" [ref=e339]:
+              - gridcell "Sunday, October 12th, 2025" [ref=e340]:
+                - button "Sunday, October 12th, 2025" [ref=e341]: "12"
+              - gridcell "Monday, October 13th, 2025" [ref=e342]:
+                - button "Monday, October 13th, 2025" [ref=e343]: "13"
+              - gridcell "Tuesday, October 14th, 2025" [ref=e344]:
+                - button "Tuesday, October 14th, 2025" [ref=e345]: "14"
+              - gridcell "Wednesday, October 15th, 2025" [ref=e346]:
+                - button "Wednesday, October 15th, 2025" [ref=e347]: "15"
+              - gridcell "Thursday, October 16th, 2025" [ref=e348]:
+                - button "Thursday, October 16th, 2025" [ref=e349]: "16"
+              - gridcell "Friday, October 17th, 2025" [ref=e350]:
+                - button "Friday, October 17th, 2025" [ref=e351]: "17"
+              - gridcell "Saturday, October 18th, 2025" [ref=e352]:
+                - button "Saturday, October 18th, 2025" [ref=e353]: "18"
+            - row "Sunday, October 19th, 2025 Monday, October 20th, 2025 Tuesday, October 21st, 2025 Wednesday, October 22nd, 2025 Thursday, October 23rd, 2025 Friday, October 24th, 2025 Saturday, October 25th, 2025" [ref=e354]:
+              - gridcell "Sunday, October 19th, 2025" [ref=e355]:
+                - button "Sunday, October 19th, 2025" [ref=e356]: "19"
+              - gridcell "Monday, October 20th, 2025" [ref=e357]:
+                - button "Monday, October 20th, 2025" [ref=e358]: "20"
+              - gridcell "Tuesday, October 21st, 2025" [ref=e359]:
+                - button "Tuesday, October 21st, 2025" [ref=e360]: "21"
+              - gridcell "Wednesday, October 22nd, 2025" [ref=e361]:
+                - button "Wednesday, October 22nd, 2025" [ref=e362]: "22"
+              - gridcell "Thursday, October 23rd, 2025" [ref=e363]:
+                - button "Thursday, October 23rd, 2025" [ref=e364]: "23"
+              - gridcell "Friday, October 24th, 2025" [ref=e365]:
+                - button "Friday, October 24th, 2025" [ref=e366]: "24"
+              - gridcell "Saturday, October 25th, 2025" [ref=e367]:
+                - button "Saturday, October 25th, 2025" [ref=e368]: "25"
+            - row "Sunday, October 26th, 2025 Monday, October 27th, 2025 Tuesday, October 28th, 2025 Wednesday, October 29th, 2025 Thursday, October 30th, 2025 Friday, October 31st, 2025 Saturday, November 1st, 2025" [ref=e369]:
+              - gridcell "Sunday, October 26th, 2025" [ref=e370]:
+                - button "Sunday, October 26th, 2025" [ref=e371]: "26"
+              - gridcell "Monday, October 27th, 2025" [ref=e372]:
+                - button "Monday, October 27th, 2025" [ref=e373]: "27"
+              - gridcell "Tuesday, October 28th, 2025" [ref=e374]:
+                - button "Tuesday, October 28th, 2025" [ref=e375]: "28"
+              - gridcell "Wednesday, October 29th, 2025" [ref=e376]:
+                - button "Wednesday, October 29th, 2025" [ref=e377]: "29"
+              - gridcell "Thursday, October 30th, 2025" [ref=e378]:
+                - button "Thursday, October 30th, 2025" [ref=e379]: "30"
+              - gridcell "Friday, October 31st, 2025" [ref=e380]:
+                - button "Friday, October 31st, 2025" [ref=e381]: "31"
+              - gridcell "Saturday, November 1st, 2025" [ref=e382]:
+                - button "Saturday, November 1st, 2025" [ref=e383]: "1"
+```
