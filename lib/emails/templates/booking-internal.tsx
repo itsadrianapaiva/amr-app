@@ -14,7 +14,7 @@ export type BookingInternalEmailProps = {
   machineName: string;
 
   startYmd: string; // "YYYY-MM-DD"
-  endYmd: string;   // "YYYY-MM-DD"
+  endYmd: string; // "YYYY-MM-DD"
   rentalDays: number;
 
   customerName?: string | null;
@@ -63,11 +63,12 @@ function fmtRangeLisbon(aYmd: string, bYmd: string): string {
 }
 const euro = (n: string) => `€${n}`;
 
-/** Inline styles: robust across mail clients */
+/** Inline styles: robust across mail clients (ASCII-only to avoid parser issues) */
 const S = {
   body: {
+    // Single-line ASCII string; quote Segoe UI explicitly for safety
     fontFamily:
-      "ui-sans-serif, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+      'ui-sans-serif, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
     margin: 0,
     padding: 0,
     backgroundColor: "#f6f7f9",
@@ -78,7 +79,7 @@ const S = {
     backgroundColor: "#ffffff",
     borderRadius: "12px",
     padding: "20px",
-    border: "1px solid "#e5e7eb",
+    border: "1px solid #e5e7eb",
   },
   h1: { fontSize: "16px", margin: "0 0 12px 0" },
   p: { margin: "8px 0" },
@@ -162,10 +163,7 @@ export default function BookingInternalEmail(
             <Row k="Address:" v={siteAddress || "—"} />
             <Row k="Add-ons:" v={addonsList || "None"} />
 
-            <Row
-              k="Lead-time:"
-              v={heavyLeadTimeApplies ? "Applies" : "N/A"}
-            />
+            <Row k="Lead-time:" v={heavyLeadTimeApplies ? "Applies" : "N/A"} />
             <Row k="Geofence:" v={geofenceStatus} />
 
             <hr style={S.hr} />
@@ -235,7 +233,8 @@ export default function BookingInternalEmail(
 
             <hr style={S.hr} />
             <p style={S.small}>
-              Internal notification for {companyName}. Replies go to {adminEmail}.
+              Internal notification for {companyName}. Replies go to{" "}
+              {adminEmail}.
             </p>
           </div>
         </div>
