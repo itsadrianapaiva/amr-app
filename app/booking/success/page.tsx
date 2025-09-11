@@ -86,7 +86,7 @@ export default async function CustomerSuccessPage({
           <Link href="/" className="rounded-md bg-black px-4 py-2 text-white">
             Go to homepage
           </Link>
-          <Link href="/catalog" className="underline">
+          <Link href="/#catalog" className="underline">
             Browse machines
           </Link>
         </div>

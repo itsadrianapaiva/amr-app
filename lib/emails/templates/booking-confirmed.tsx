@@ -162,39 +162,45 @@ export default function BookingConfirmedEmail(
 
             <hr style={S.hr} />
 
-            {/* What happens next */}
-            {deliverySelected ? (
-              <>
-                <p style={S.p}>
-                  <strong>Delivery:</strong> We will call you
-                  {callByDateTimeLocal ? ` by ${callByDateTimeLocal}` : ""} to
-                  confirm the delivery window for your start date. Please ensure
-                  access is clear
+           {/* Clear logistics: start vs end of rental */}
+           <p style={S.p}>
+              <strong>Start of rental:</strong>{" "}
+              {deliverySelected ? (
+                <>
+                  We will deliver the machine to your site.
+                  {callByDateTimeLocal ? ` We will call you by ${callByDateTimeLocal}` : " We will call you"}{" "}
+                  to confirm the delivery window. Please ensure access is clear
                   {machineAccessNote ? ` for a ${machineAccessNote}` : ""}.
-                </p>
-              </>
-            ) : null}
-
-            {pickupSelected ? (
-              <p style={S.p}>
-                <strong>Warehouse pickup:</strong> Come to{" "}
-                <span style={S.v}>{warehouseAddress}</span>. Hours:{" "}
-                <span style={S.v}>{warehouseHours}</span>. Bring a valid ID and
-                this email.
-              </p>
-            ) : null}
-
-            {!deliverySelected && !pickupSelected ? (
-              <p style={S.p}>
-                You did not choose delivery or pickup. Reply to this email to
-                schedule delivery or to arrange a pickup slot.
-              </p>
-            ) : null}
+                </>
+              ) : (
+                <>
+                  Please collect the machine at <span style={S.v}>{warehouseAddress}</span>. Hours:{" "}
+                  <span style={S.v}>{warehouseHours}</span>. Bring a valid ID and
+                  this email.
+                </>
+              )}
+            </p>
 
             <p style={S.p}>
-              <strong>On handover:</strong> We collect the refundable deposit,
-              do a short equipment check on return, and release the deposit
-              after inspection.
+              <strong>End of rental:</strong>{" "}
+              {pickupSelected ? (
+                <>
+                  We will pick up the machine from your site on your end date.
+                  We will contact you to schedule the pickup window.
+                </>
+              ) : (
+                <>
+                  Please return the machine to <span style={S.v}>{warehouseAddress}</span>. Hours:{" "}
+                  <span style={S.v}>{warehouseHours}</span>. If you prefer a pickup,
+                  reply to this email and we will arrange it.
+                </>
+              )}
+            </p>
+
+            <p style={S.p}>
+              <strong>On handover:</strong> We collect the refundable deposit, do
+              a short equipment check on return, and release the deposit after
+              inspection.
             </p>
 
             <hr style={S.hr} />
@@ -208,14 +214,13 @@ export default function BookingConfirmedEmail(
               </p>
             ) : (
               <p style={S.p}>
-                <strong>Invoice:</strong> It will arrive shortly after payment
-                is fully settled.
+                <strong>Invoice:</strong> It will arrive shortly after payment is
+                fully settled.
               </p>
             )}
 
             <p style={S.small}>
-              Need help? Call {supportPhone} or reply to this email.{" "}
-              {companyName} ·{" "}
+              Need help? Call {supportPhone} or reply to this email. {companyName} ·{" "}
               <a href={companySite} style={S.link}>
                 {companySite}
               </a>{" "}
