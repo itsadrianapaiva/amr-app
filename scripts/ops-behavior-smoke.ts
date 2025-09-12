@@ -1,4 +1,3 @@
-// scripts/ops-behavior-smoke.ts
 /**
  * Dev-only smoke tests for Ops/Customer booking behavior.
  *
