@@ -34,3 +34,17 @@
 [context.deploy-preview.environment]
   APP_URL = "https://$DEPLOY_PRIME_URL"
   NEXT_PUBLIC_APP_URL = "https://$DEPLOY_PRIME_URL"
+
+[context.production]
+  # Ensure prod DB schema is up to date before building
+  command = "npx prisma migrate deploy && next build"
+
+[context.branch-deploy]
+  # Same guarantee for staging branch deploys
+  command = "npx prisma migrate deploy && next build"
+
+[context.deploy-preview]
+  # Keep previews simple. Optionally switch to:
+  # command = "npx prisma migrate deploy && next build"
+  # if you need previews to apply migrations to the staging DB too.
+  command = "next build"
