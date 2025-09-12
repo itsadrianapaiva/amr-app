@@ -15,3 +15,36 @@
   framework = "next"
   port = 8888
   autoLaunch = false
+
+# ---- Context-specific environment (safe, non-secret values) ----
+# Production: use your canonical domain
+[context.production.environment]
+  APP_URL = "https://amr-rentals.com"
+  NEXT_PUBLIC_APP_URL = "https://amr-rentals.com"
+
+# Branch deploys (e.g. 'staging' branch): use the branch's primary URL
+# $DEPLOY_PRIME_URL resolves to something like:
+# https://staging--amr-rentals.com
+[context.branch-deploy.environment]
+  APP_URL = "https://$DEPLOY_PRIME_URL"
+  NEXT_PUBLIC_APP_URL = "https://$DEPLOY_PRIME_URL"
+
+# Deploy Previews (per PR): also use the preview's primary URL
+# e.g. https://deploy-preview-17--amr-rentals.com
+[context.deploy-preview.environment]
+  APP_URL = "https://$DEPLOY_PRIME_URL"
+  NEXT_PUBLIC_APP_URL = "https://$DEPLOY_PRIME_URL"
+
+[context.production]
+  # Ensure prod DB schema is up to date before building
+  command = "npx prisma migrate deploy && next build"
+
+[context.branch-deploy]
+  # Same guarantee for staging branch deploys
+  command = "npx prisma migrate deploy && next build"
+
+[context.deploy-preview]
+  # Keep previews simple. Optionally switch to:
+  # command = "npx prisma migrate deploy && next build"
+  # if you need previews to apply migrations to the staging DB too.
+  command = "next build"
