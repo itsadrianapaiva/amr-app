@@ -21,7 +21,22 @@ function requireEnv(name: string): string {
   return v;
 }
 
+/** Debug toggle (staging-only) */
+function dbg() {
+  return process.env["LOG_WEBHOOK_DEBUG"] === "1";
+}
+
 export async function POST(req: NextRequest) {
+  // Basic request metadata (no payload, no secrets)
+  if (dbg()) {
+    log("req_meta", {
+      ct: req.headers.get("content-type"),
+      len: req.headers.get("content-length"),
+      hasSig: !!req.headers.get("stripe-signature"),
+      nfReqId: req.headers.get("x-nf-request-id"),
+    });
+  }
+
   // 1) Read RAW body for signature verification
   const payload = await req.text();
   const sig = req.headers.get("stripe-signature");
