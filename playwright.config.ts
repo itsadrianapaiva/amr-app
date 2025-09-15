@@ -16,8 +16,8 @@ const WEB_SERVER_CMD =
 /*  remote env + secret header  */
 const IS_REMOTE = APP_URL.startsWith("https://");
 const E2E_SECRET = process.env.E2E_SECRET || "";
-const EXTRA_HTTP_HEADERS =
-  IS_REMOTE && E2E_SECRET ? { "x-e2e-secret": E2E_SECRET } : {};
+const EXTRA_HTTP_HEADERS: Record<string, string> | undefined =
+  IS_REMOTE && E2E_SECRET ? { "x-e2e-secret": E2E_SECRET } : undefined;
 
 export default defineConfig({
   // Look only in our E2E folder
