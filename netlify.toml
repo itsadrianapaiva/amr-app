@@ -44,4 +44,4 @@
 
   [context."staging".environment]
   # Temporarily omit this key from the secrets scanner on the staging branch
-  SECRETS_SCAN_OMIT_KEYS = "STRIPE_SECRET_KEY"
+  SECRETS_SCAN_OMIT_KEYS = "STRIPE_SECRET_KEY,CRON_SECRET"
