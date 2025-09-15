@@ -5,7 +5,6 @@ export const dynamic = "force-dynamic";
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { BookingStatus } from "@prisma/client";
-import { getCronSecret } from "@/lib/cron/secret";
 
 /**
  * Auth matrix:
@@ -17,7 +16,7 @@ function isAuthorized(req: NextRequest): boolean {
   // Accept Vercel's built-in cron header (if ever used)
   if (req.headers.get("x-vercel-cron") === "1") return true;
 
-  const secret = getCronSecret();
+  const secret = process.env.CRON_SECRET;
   // If no secret configured, leave the route open (dev convenience)
   if (!secret) return true;
 

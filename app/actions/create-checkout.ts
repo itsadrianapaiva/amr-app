@@ -32,13 +32,50 @@ type CheckoutResult =
   | { ok: true; url: string }
   | { ok: false; formError: string };
 
-/** Tiny helper to read our base URL consistently. */
+/** Tiny helper to read our base URL consistently (strict in prod). */
 function appBaseUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.APP_URL ||
-    "http://localhost:3000"
-  );
+  // Prefer server-only var; fall back to the public one
+  const raw =
+    process.env.APP_URL?.trim() ||
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    "";
+
+  // In production, never fall back to localhost — fail fast and loudly
+  if (!raw) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "APP_URL (or NEXT_PUBLIC_APP_URL) is missing on this deploy."
+      );
+    }
+    return "http://localhost:3000";
+  }
+
+  // Validate it's a proper absolute URL
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    throw new Error(
+      `APP_URL/NEXT_PUBLIC_APP_URL is not a valid absolute URL: "${raw}"`
+    );
+  }
+
+  // Enforce https in production to keep Stripe happy and redirects safe
+  if (process.env.NODE_ENV === "production" && u.protocol !== "https:") {
+    throw new Error(
+      `Base URL must be https in production; got "${u.protocol}".`
+    );
+  }
+
+  // Return just the origin (no path, no trailing slash)
+  const origin = u.origin;
+
+  if (process.env.LOG_CHECKOUT_DEBUG === "1") {
+    // Non-secret breadcrumb to correlate logs
+    console.log("[checkout] base_url_resolved", { origin });
+  }
+
+  return origin;
 }
 
 /** Return YYYY-MM-DD without timezone drift. */

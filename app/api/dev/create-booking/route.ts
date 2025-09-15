@@ -67,8 +67,15 @@ function toDto(input: {
   };
 }
 
-function forbidProd() {
-  if (process.env.NODE_ENV === "production") {
+function allowE2E(req: Request): boolean {
+  const secret = process.env["E2E_SECRET"];
+  if (!secret) return false;
+  const header = req.headers.get("x-e2e-secret");
+  return header === secret;
+}
+
+function forbidProd(req: Request) {
+  if (process.env.NODE_ENV === "production" && !allowE2E(req)) {
     return new NextResponse("Forbidden", { status: 403 });
   }
   return null;
@@ -85,7 +92,7 @@ function coerceMinutes(v: unknown, fallback = 5) {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
 }
 
-/* ────────────── NEW: ensure a valid machineId in non-production ───────────── */
+/* ────────────── ensure a valid machineId in non-production ───────────── */
 
 async function resolveMachineIdForEnv(machineId: number): Promise<number> {
   // If the machine exists, keep it.
@@ -156,7 +163,7 @@ async function createWithOptionalExpired(
 /* ────────────────────────────────── routes ────────────────────────────────── */
 
 export async function POST(req: Request) {
-  const deny = forbidProd();
+  const deny = forbidProd(req);
   if (deny) return deny;
 
   try {
@@ -185,7 +192,7 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
-  const deny = forbidProd();
+  const deny = forbidProd(req);
   if (deny) return deny;
 
   try {
