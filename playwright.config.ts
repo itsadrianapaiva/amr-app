@@ -13,6 +13,12 @@ const USE_EXTERNAL = !!process.env.USE_EXTERNAL_SERVER;
 const WEB_SERVER_CMD =
   process.env.PLAYWRIGHT_WEB_SERVER_CMD || "npx netlify dev --port 8888";
 
+/*  remote env + secret header  */
+const IS_REMOTE = APP_URL.startsWith("https://");
+const E2E_SECRET = process.env.E2E_SECRET || "";
+const EXTRA_HTTP_HEADERS: Record<string, string> | undefined =
+  IS_REMOTE && E2E_SECRET ? { "x-e2e-secret": E2E_SECRET } : undefined;
+
 export default defineConfig({
   // Look only in our E2E folder
   testDir: "e2e",
@@ -38,7 +44,10 @@ export default defineConfig({
   // Base URL used by request and page.goto
   use: {
     baseURL: APP_URL,
-  },
+
+  /* send x-e2e-secret automatically for remote targets (staging/prod) */
+  extraHTTPHeaders: EXTRA_HTTP_HEADERS,
+},
 
   // Auto-start only if we're NOT reusing an external server
   webServer: USE_EXTERNAL

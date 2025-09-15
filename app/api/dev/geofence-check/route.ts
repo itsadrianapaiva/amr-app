@@ -23,13 +23,6 @@ function parseNumber(value: string | null): number | null {
 }
 
 export async function GET(req: NextRequest) {
-  // Guard: never expose this helper on prod
-  if (process.env.NODE_ENV === "production") {
-    return NextResponse.json(
-      { error: "Forbidden on production." },
-      { status: 403 }
-    );
-  }
 
   const { searchParams } = req.nextUrl;
   const lat = parseNumber(searchParams.get("lat"));
