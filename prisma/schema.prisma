@@ -4,8 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url       = env("DATABASE_URL")   // runtime (Accelerate ok)
-  directUrl = env("DIRECT_URL")     // migrations use direct Postgres
+  url       = env("DATABASE_URL")
 }
 
 model Machine {
