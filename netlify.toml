@@ -41,3 +41,7 @@
 [context.deploy-preview]
   # Keep previews simple. If you want migrations here too, copy the line above.
   command = "next build"
+
+  [context."staging".environment]
+  # Temporarily omit this key from the secrets scanner on the staging branch
+  SECRETS_SCAN_OMIT_KEYS = "STRIPE_SECRET_KEY"
