@@ -16,14 +16,12 @@
   port = 8888
   autoLaunch = false
 
-# ---- Context-specific environment (safe, non-secret values) ----
+# ---- Non-secret env per context (let Netlify provide full URLs) ----
 [context.production.environment]
-  # TIP: DEPLOY_PRIME_URL already includes https:// — don't prefix it.
   APP_URL = "$URL"
   NEXT_PUBLIC_APP_URL = "$URL"
 
 [context.branch-deploy.environment]
-  # Use Netlify's computed URL for branch deploys (already includes https://)
   APP_URL = "$DEPLOY_PRIME_URL"
   NEXT_PUBLIC_APP_URL = "$DEPLOY_PRIME_URL"
 
@@ -31,13 +29,15 @@
   APP_URL = "$DEPLOY_PRIME_URL"
   NEXT_PUBLIC_APP_URL = "$DEPLOY_PRIME_URL"
 
-# --- Build commands per context (with sanity check) ---
+# ---- Build commands per context ----
 [context.production]
-  command = '''node -e "try{const u=new URL(process.env.DATABASE_URL||'');const d=process.env.DIRECT_URL?new URL(process.env.DIRECT_URL):{protocol:'(missing)'};console.log('Sanity ▶ DB:',u.protocol,'DIRECT:',d.protocol)}catch(e){console.log('Sanity ▶',e.message)}" && npx prisma migrate deploy && next build'''
+  # Ensure DB is migrated before building
+  command = "npx prisma migrate deploy && next build"
 
 [context.branch-deploy]
-  command = '''node -e "try{const u=new URL(process.env.DATABASE_URL||'');const d=process.env.DIRECT_URL?new URL(process.env.DIRECT_URL):{protocol:'(missing)'};console.log('Sanity ▶ DB:',u.protocol,'DIRECT:',d.protocol)}catch(e){console.log('Sanity ▶',e.message)}" && npx prisma migrate deploy && next build'''
+  # Same for staging branch deploys
+  command = "npx prisma migrate deploy && next build"
 
 [context.deploy-preview]
-  # Keep previews simple (build only). If you want migrations here too, use the same command as above.
+  # Keep previews simple. If you want migrations here too, copy the line above.
   command = "next build"
