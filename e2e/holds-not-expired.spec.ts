@@ -77,7 +77,7 @@ test("fresh holds are NOT cancelled by cron", async ({ request }) => {
 
   // Act: run cron
   const headers: Record<string, string> = { "Cache-Control": "no-store" };
-  const secret = process.env.CRON_SECRET;
+  const secret = process.env["CRON_SECRET"];
   if (secret) headers["x-cron-secret"] = secret;
 
   const cronRes = await request.get(`${BASE_URL}/api/cron/expire-holds`, { headers });

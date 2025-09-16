@@ -50,7 +50,7 @@ test("expired holds get cancelled by cron", async ({ request }) => {
 
   // --- Act: trigger the cron route to expire stale holds
   const cronHeaders: Record<string, string> = { "Cache-Control": "no-store" };
-  const secret = process.env.CRON_SECRET;
+  const secret = process.env["CRON_SECRET"];
   if (secret) cronHeaders["x-cron-secret"] = secret;
 
   const cronRes = await request.get(`/api/cron/expire-holds`, {

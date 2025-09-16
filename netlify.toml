@@ -9,9 +9,53 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
   external_node_modules = ["@prisma/client"]
-  included_files = ["prisma/schema.prisma"]
+  included_files = [
+    "prisma/schema.prisma",
+    "node_modules/.prisma/client/**"
+  ]
 
 [dev]
   framework = "next"
   port = 8888
   autoLaunch = false
+
+# ---------- URLs per context ----------
+[context.production.environment]
+  APP_URL = "$URL"
+  NEXT_PUBLIC_APP_URL = "$URL"
+  RUN_MIGRATIONS = "1"
+
+# Applies to any branch deploy (feature/*, bugfix/*, etc.)
+[context.branch-deploy.environment]
+  APP_URL = "$DEPLOY_PRIME_URL"
+  NEXT_PUBLIC_APP_URL = "$DEPLOY_PRIME_URL"
+  RUN_MIGRATIONS = "0"
+
+# Specific branch-only override: staging
+# This is the correct syntax for a single branch context
+[context."branch:staging".environment]
+  RUN_MIGRATIONS = "1"
+  # Example: temporarily omit a key from scanner on this one branch
+  SECRETS_SCAN_OMIT_KEYS = "STRIPE_SECRET_KEY"
+
+[context.deploy-preview.environment]
+  APP_URL = "$DEPLOY_PRIME_URL"
+  NEXT_PUBLIC_APP_URL = "$DEPLOY_PRIME_URL"
+  RUN_MIGRATIONS = "0"
+
+# ---------- Build commands per context ----------
+# Production: run migrations, then build
+[context.production]
+  command = "node scripts/netlify-build.js"
+
+# Staging branch: run migrations, then build
+[context."branch:staging"]
+  command = "node scripts/netlify-build.js"
+
+# All other branch deploys: build only
+[context.branch-deploy]
+  command = "next build"
+
+# Deploy previews: build only
+[context.deploy-preview]
+  command = "next build"
