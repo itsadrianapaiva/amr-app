@@ -13,6 +13,7 @@ import { onPaymentIntentSucceeded } from "@/lib/stripe/handlers/payment_intent/s
 import { onPaymentIntentFailed } from "@/lib/stripe/handlers/payment_intent/failed";
 
 import { onChargeRefunded } from "@/lib/stripe/handlers/charge/refunded";
+import { onChargeRefundUpdated } from "@/lib/stripe/handlers/charge/refund-updated";
 
 // Uniform handler signature
 type EventHandler = (event: Stripe.Event, log: LogFn) => Promise<void>;
@@ -33,6 +34,7 @@ const HANDLERS: Record<string, EventHandler> = {
 
   // charge.*
   "charge.refunded": onChargeRefunded,
+  "charge.refund.updated": onChargeRefundUpdated,
 };
 
 // Entry point used by app/api/stripe/webhook/route.ts
