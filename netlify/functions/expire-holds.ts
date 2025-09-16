@@ -1,4 +1,3 @@
-// netlify/functions/expire-holds.ts
 // Scheduled every 5 minutes (UTC). Calls the Next API route to expire holds.
 
 import type { Config, Context } from "@netlify/functions";
@@ -9,7 +8,11 @@ export const config: Config = {
 };
 
 // 2) Small timeout helper to avoid silent hangs
-async function fetchWithTimeout(input: RequestInfo, init: RequestInit = {}, ms = 25000) {
+async function fetchWithTimeout(
+  input: RequestInfo,
+  init: RequestInit = {},
+  ms = 25000
+) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), ms);
   try {
@@ -30,18 +33,29 @@ export default async (_req: Request, _ctx: Context): Promise<Response> => {
 
   const endpoint = `${base.replace(/\/$/, "")}/api/cron/expire-holds`;
 
-  const headers: Record<string, string> = { "user-agent": "amr-cron/expire-holds" };
-  if (process.env.CRON_SECRET) headers["x-cron-secret"] = process.env.CRON_SECRET;
+  const headers: Record<string, string> = {
+    "user-agent": "amr-cron/expire-holds",
+  };
+  if (process.env["CRON_SECRET"])
+    headers["x-cron-secret"] = process.env["CRON_SECRET"];
 
   try {
-    const res = await fetchWithTimeout(endpoint, { method: "GET", headers }, 25000);
+    const res = await fetchWithTimeout(
+      endpoint,
+      { method: "GET", headers },
+      25000
+    );
     const text = await res.text(); // capture once for logs
 
     if (!res.ok) {
-      return new Response(`expire-holds failed: ${res.status} ${text}`, { status: 500 });
+      return new Response(`expire-holds failed: ${res.status} ${text}`, {
+        status: 500,
+      });
     }
     return new Response(`expire-holds OK: ${text}`, { status: 200 });
   } catch (err: any) {
-    return new Response(`expire-holds error: ${err?.message ?? String(err)}`, { status: 500 });
+    return new Response(`expire-holds error: ${err?.message ?? String(err)}`, {
+      status: 500,
+    });
   }
 };

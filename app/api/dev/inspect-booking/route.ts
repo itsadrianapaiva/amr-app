@@ -8,10 +8,6 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET(req: Request) {
-  // Disable in production
-  if (process.env.NODE_ENV === "production") {
-    return new NextResponse("Forbidden", { status: 403 });
-  }
 
   const url = new URL(req.url);
   const id = Number(url.searchParams.get("id"));

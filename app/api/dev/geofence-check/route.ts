@@ -9,7 +9,6 @@ import { isInsideServiceArea, SERVICE_AREA_NAME } from "@/lib/geo/service-area";
 /**
  * GET /api/dev/geofence-check?lat=<number>&lng=<number>
  * Dev-only helper: returns { inside: boolean, serviceArea: string }.
- * Hard-forbidden on production environments.
  *
  * Examples:
  *   /api/dev/geofence-check?lat=37.02&lng=-7.92   // Faro-ish → IN
@@ -23,13 +22,6 @@ function parseNumber(value: string | null): number | null {
 }
 
 export async function GET(req: NextRequest) {
-  // Guard: never expose this helper on prod
-  if (process.env.NODE_ENV === "production") {
-    return NextResponse.json(
-      { error: "Forbidden on production." },
-      { status: 403 }
-    );
-  }
 
   const { searchParams } = req.nextUrl;
   const lat = parseNumber(searchParams.get("lat"));
