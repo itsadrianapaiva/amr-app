@@ -8,8 +8,11 @@ import { onCheckoutSessionCompleted } from "@/lib/stripe/handlers/checkout/compl
 import { onCheckoutSessionAsyncPaymentSucceeded } from "@/lib/stripe/handlers/checkout/async-payment-succeeded";
 import { onCheckoutSessionAsyncPaymentFailed } from "@/lib/stripe/handlers/checkout/async-payment-failed"; // 🆕 new import
 import { onCheckoutSessionExpired } from "@/lib/stripe/handlers/checkout/expired";
+
 import { onPaymentIntentSucceeded } from "@/lib/stripe/handlers/payment_intent/succeeded";
 import { onPaymentIntentFailed } from "@/lib/stripe/handlers/payment_intent/failed";
+
+import { onChargeRefunded } from "@/lib/stripe/handlers/charge/refunded";
 
 // Uniform handler signature
 type EventHandler = (event: Stripe.Event, log: LogFn) => Promise<void>;
@@ -27,6 +30,9 @@ const HANDLERS: Record<string, EventHandler> = {
   // payment_intent.* (immediate outcomes / failures)
   "payment_intent.succeeded": onPaymentIntentSucceeded,
   "payment_intent.payment_failed": onPaymentIntentFailed,
+
+  // charge.*
+  "charge.refunded": onChargeRefunded,
 };
 
 // Entry point used by app/api/stripe/webhook/route.ts
