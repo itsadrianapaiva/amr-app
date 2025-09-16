@@ -4,6 +4,7 @@ import SiteNav from "@/components/site-nav";
 import SiteFooter from "@/components/site-footer";
 import WhatsAppFab from "@/components/whatsapp-fab";
 import { getFooterCategories } from "@/lib/data/footer-categories";
+import CookieConsentBanner from "@/components/cookie-consent";
 
 export const metadata: Metadata = {
   title: "AMR — Machinery Rentals in the Algarve",
@@ -36,6 +37,9 @@ export default async function RootLayout({
           iconSrc="/assets/whatsapp.png"
           ariaLabel="Contact us on WhatsApp"
         />
+
+        {/* Cookie consent banner (client component) */}
+        <CookieConsentBanner policyHref="/legal/privacy" />
       </body>
     </html>
   );
