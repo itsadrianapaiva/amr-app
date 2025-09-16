@@ -11,6 +11,7 @@ import { toTitleCase } from "@/lib/utils";
 import { MACHINE_DETAIL_COPY } from "@/lib/content/machine-detail";
 import { MACHINE_CARD_COPY } from "@/lib/content/machines";
 import { resolveMachineImage } from "@/lib/content/images";
+import { buildMachineDescription } from "@/lib/content/machine-description";
 
 /** Safe reader for either 'category' (new) or 'type' (legacy) without using 'any'. */
 function getCategoryOrType(m: unknown): string {
@@ -109,7 +110,9 @@ export default async function MachineDetailPage({
                 {displayType}
               </p>
             )}
-            <p className="mb-6 text-muted-foreground">{machine.description}</p>
+            <p className="mb-6 text-muted-foreground">
+              {buildMachineDescription(machine)}
+            </p>
 
             <MachineSpecs machine={machine} />
 
