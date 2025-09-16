@@ -16,6 +16,8 @@ import { onChargeRefunded } from "@/lib/stripe/handlers/charge/refunded";
 import { onChargeRefundUpdated } from "@/lib/stripe/handlers/charge/refund-updated";
 
 import { onChargeDisputeCreated } from "@/lib/stripe/handlers/charge/dispute-created";
+import { onChargeDisputeClosed } from "@/lib/stripe/handlers/charge/dispute-closed";
+
 
 // Uniform handler signature
 type EventHandler = (event: Stripe.Event, log: LogFn) => Promise<void>;
@@ -39,6 +41,7 @@ const HANDLERS: Record<string, EventHandler> = {
   "charge.refund.updated": onChargeRefundUpdated,
   // charge.* disputes
   "charge.dispute.created": onChargeDisputeCreated,
+  "charge.dispute.closed": onChargeDisputeClosed,
 };
 
 // Entry point used by app/api/stripe/webhook/route.ts
