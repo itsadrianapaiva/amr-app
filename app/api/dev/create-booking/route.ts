@@ -67,31 +67,6 @@ function toDto(input: {
   };
 }
 
-function allowE2E(req: Request): boolean {
-  const secret = process.env["E2E_SECRET"];
-  if (!secret) return false;
-  const header = req.headers.get("x-e2e-secret");
-  return header === secret;
-}
-
-function forbidProd(req: Request) {
-  if (process.env.NODE_ENV === "production" && !allowE2E(req)) {
-    return new NextResponse("Forbidden", { status: 403 });
-  }
-  return null;
-}
-
-function coerceExpiredFlag(v: unknown) {
-  if (typeof v === "boolean") return v;
-  if (typeof v === "string") return v.toLowerCase() === "true";
-  return false;
-}
-
-function coerceMinutes(v: unknown, fallback = 5) {
-  const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
-}
-
 /* ────────────── ensure a valid machineId in non-production ───────────── */
 
 async function resolveMachineIdForEnv(machineId: number): Promise<number> {
@@ -163,8 +138,6 @@ async function createWithOptionalExpired(
 /* ────────────────────────────────── routes ────────────────────────────────── */
 
 export async function POST(req: Request) {
-  const deny = forbidProd(req);
-  if (deny) return deny;
 
   try {
     const body = await req.json();
@@ -192,8 +165,6 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
-  const deny = forbidProd(req);
-  if (deny) return deny;
 
   try {
     const url = new URL(req.url);
@@ -213,7 +184,7 @@ export async function GET(req: Request) {
       },
     });
 
-    // NEW: ensure a valid machineId in non-prod environments
+    // ensure a valid machineId in non-prod environments
     const machineId = await resolveMachineIdForEnv(base.machineId);
     const dto: PendingBookingDTO = { ...base, machineId };
 
@@ -232,4 +203,17 @@ export async function GET(req: Request) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ ok: false, error: message }, { status: 400 });
   }
+}
+
+/* ───────────────────────── small coercion helpers ───────────────────────── */
+
+function coerceExpiredFlag(v: unknown) {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "string") return v.toLowerCase() === "true";
+  return false;
+}
+
+function coerceMinutes(v: unknown, fallback = 5) {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
 }

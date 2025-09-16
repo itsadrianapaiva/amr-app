@@ -39,12 +39,6 @@ function inclusiveDays(start: Date, end: Date): number {
  * coupling to pricing internals. If omitted, we fall back to machine.dailyRate * days.
  */
 export async function POST(req: NextRequest) {
-  if (process.env.NODE_ENV === "production") {
-    return NextResponse.json(
-      { error: "Not available in production." },
-      { status: 403 }
-    );
-  }
 
   let body: unknown;
   try {

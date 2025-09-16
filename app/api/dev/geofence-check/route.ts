@@ -9,7 +9,6 @@ import { isInsideServiceArea, SERVICE_AREA_NAME } from "@/lib/geo/service-area";
 /**
  * GET /api/dev/geofence-check?lat=<number>&lng=<number>
  * Dev-only helper: returns { inside: boolean, serviceArea: string }.
- * Hard-forbidden on production environments.
  *
  * Examples:
  *   /api/dev/geofence-check?lat=37.02&lng=-7.92   // Faro-ish → IN
