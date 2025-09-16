@@ -96,11 +96,50 @@ model Booking {
   /// ATCUD (if the series has a validation code configured).
   invoiceAtcud               String?
 
+   /// Aggregated refund info (Stripe amounts are in cents).
+  refundStatus         RefundStatus   @default(NONE)
+  refundedAmountCents  Int            @default(0)
+  /// Collected refund IDs from Stripe (e.g., ["re_123", "re_456"])
+  refundIds            String[]
+
+  /// Latest dispute snapshot (if any).
+  disputeId            String?
+  disputeStatus        DisputeStatus  @default(NONE)
+  disputeReason        String?
+  disputeClosedAt      DateTime?
+
+  /// Optional Stripe charge id for reconciliation.
+  stripeChargeId       String?
+
   @@unique([invoiceProvider, invoiceProviderId])
+}
+
+/// Idempotency guard for webhook processing.
+model StripeEvent {
+  id        Int      @id @default(autoincrement())
+  eventId   String   @unique
+  type      String
+  bookingId Int?
+  createdAt DateTime @default(now())
 }
 
 enum BookingStatus {
   PENDING
   CONFIRMED
   CANCELLED
+}
+
+/// Refund state for a booking-level view.
+enum RefundStatus {
+  NONE
+  PARTIAL
+  FULL
+}
+
+/// Dispute lifecycle for a simplified MVP.
+enum DisputeStatus {
+  NONE
+  OPEN
+  WON
+  LOST
 }
