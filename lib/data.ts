@@ -1,12 +1,12 @@
 import { db } from "./db";
 import { unstable_noStore as noStore } from "next/cache";
-import { hideInternalForCatalog } from "./visibility";
+import { filterInternalIfEnabled } from "./visibility";
 
 export async function getMachines() {
   noStore();
   try {
     const machines = await db.machine.findMany();
-    return hideInternalForCatalog(machines); // ➌ remove “ZZZ / TEST / Do Not Rent”
+    return filterInternalIfEnabled(machines); // only hide ZZZ test product when HIDE_INTERNAL_LIST=1
   } catch (error) {
     console.error("Database Error:", error);
     throw new Error("Failed to fetch machine data.");
