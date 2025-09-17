@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
+// Create a virtual stub for Next.js' "server-only"
+(vi as any).mock("server-only", () => ({}), { virtual: true });
+
 describe("vendusProvider.createInvoice", () => {
   const OLD_ENV = process.env;
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -108,7 +111,8 @@ describe("vendusProvider.createInvoice", () => {
 
     // Ensure endpoint correctness
     const calledUrlArg = fetchMock.mock.calls[0][0];
-    const calledUrl = typeof calledUrlArg === "string" ? calledUrlArg : String(calledUrlArg);
+    const calledUrl =
+      typeof calledUrlArg === "string" ? calledUrlArg : String(calledUrlArg);
     expect(calledUrl).toMatch(/\/v1\.1\/documents\/$/);
   });
 });
