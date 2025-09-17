@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import type { BookingFormValues } from "@/lib/validation/booking";
+import PhoneInput from "@/components/forms/phone-input";
 
 type ContactSectionProps = {
   control: Control<BookingFormValues>;
@@ -67,21 +68,23 @@ export function ContactSection({ control }: ContactSectionProps) {
         )}
       />
 
-      {/* Phone */}
+      {/* Phone (E.164) */}
       <FormField
         control={control}
         name="phone"
         render={({ field }) => (
           <FormItem>
             <FormLabel htmlFor="phone">Phone Number</FormLabel>
-            <FormControl>
-              <Input
+            {/* onBlur here captures blur from the select/input inside PhoneInput so RHF marks as touched */}
+            <FormControl onBlur={field.onBlur}>
+              <PhoneInput
                 id="phone"
-                type="tel"
-                placeholder="Contact phone number"
-                autoComplete="tel"
+                name={field.name}
+                value={field.value ?? ""} // keep controlled; never undefined
+                onChange={(e164) => field.onChange(e164)} // store E.164 like "+351912345678"
+                defaultCountry="PT" // change to "US" if you prefer
+                placeholder="123 456 789"
                 required
-                {...field}
               />
             </FormControl>
             <FormMessage />
