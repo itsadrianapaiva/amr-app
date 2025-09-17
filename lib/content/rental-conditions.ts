@@ -1,6 +1,5 @@
-//Needs careful review
-// General Rental Conditions — structured to mirror competitor clauses (1–14)
-// Content is original and AMR-specific; FILL_ME_* placeholders flag items you must confirm before launch.
+// General Rental Conditions — production-safe, aligned with AMR business rules.
+// Content is original and AMR-specific. Placeholders removed, wording matches LEGAL_TERMS.
 
 import type { LegalLink, LegalSection } from "@/lib/content/legal";
 import { LEGAL_LINKS } from "@/lib/content/legal";
@@ -17,7 +16,7 @@ export type RentalConditionsDoc = {
 export const RENTAL_CONDITIONS: RentalConditionsDoc = {
   id: "rental-conditions",
   title: "General Rental Conditions",
-  lastUpdated: "2025-09-02",
+  lastUpdated: "2025-09-17",
   intro:
     "These conditions govern the rental of equipment and accessories. By confirming a booking, you agree to these terms.",
   sections: [
@@ -52,25 +51,23 @@ export const RENTAL_CONDITIONS: RentalConditionsDoc = {
         "Use the equipment at the agreed site and notify AMR in writing before changing the site or the nature of work.",
         "Do not sublet or transfer the equipment to third parties unless expressly authorized.",
         "Ensure operation by competent and properly trained personnel and comply with safety rules at all times.",
-        "Collect and return equipment at AMR’s premises unless otherwise agreed; transport is at Customer’s cost and risk unless specified.",
-        "Protect the equipment outside working hours against theft, vandalism, adverse weather, fire/explosion risk, flooding or terrain hazards.",
+        "Collect and return equipment at AMR’s premises unless otherwise agreed; transport is at the Customer’s cost and risk unless specified.",
+        "Protect the equipment outside working hours against theft, vandalism, adverse weather, fire or explosion risk, flooding, or terrain hazards.",
         "Bear any fines or penalties arising from use and notify AMR within 24 hours if they occur.",
-        "Accept the use of GPS/telematics on the equipment for security and fleet management (where installed).",
+        "Accept the use of GPS or telematics on the equipment for security and fleet management where installed.",
         "Ensure timely and safe handover for delivery and collection.",
         "Do not add non-approved accessories without AMR’s written consent.",
       ],
     },
 
-    // Clause 4 — Proposal and award
+    // Clause 4 — Bookings and confirmation
     {
-      id: "clause-4-proposal-award",
-      title: "Clause 4 — Proposal and Award",
+      id: "clause-4-bookings-confirmation",
+      title: "Clause 4 — Bookings and Confirmation",
       body: [
-        "Awarding a proposal implies reading and accepting these General Conditions.",
-        "AMR will provide relevant information during negotiation, including a quotation.",
-        "The Customer will provide relevant information (e.g., if road-registered equipment is required for public-road use).",
-        "Proposal award must be received by FILL_ME_CUTOFF_TIME on the business day prior to start, unless otherwise agreed.",
-        "Availability is confirmed only after award; delivery on the agreed date may be affected by force majeure or sudden unavailability.",
+        "Bookings are made online, subject to availability. A booking is confirmed when the full rental amount is successfully paid at checkout.",
+        "During checkout we may place a short hold on selected dates. If payment is not completed within the stated window, the hold expires and dates may become available to others.",
+        "The Customer must provide the job site address and access notes when delivery or pickup is selected.",
       ],
     },
 
@@ -79,12 +76,11 @@ export const RENTAL_CONDITIONS: RentalConditionsDoc = {
       id: "clause-5-term",
       title: "Clause 5 — Term",
       body: [
-        "The rental period stated in the Particular Conditions is essential; equipment must be returned on expiry.",
-        "The period is counted in consecutive days, including delivery and return days.",
-        "Extensions must be requested by the Customer before the end date (cutoff: FILL_ME_EXTENSION_CUTOFF) and require AMR’s acceptance.",
-        "Early return is possible; fees may apply according to the price list or agreed rate (e.g., FILL_ME_EARLY_RETURN_FEE%).",
-        "Lack of return does not imply automatic extension; obligations remain, including safekeeping duties.",
-        "In case of incident/fault attributable to the Customer, the contract may remain open until investigations/repairs or settlement.",
+        "The rental period stated in the Particular Conditions is essential. Equipment must be returned on expiry.",
+        "The period is counted in consecutive calendar days, including delivery and return days.",
+        "Extensions must be requested before the end date and require AMR’s acceptance. Rates for the extended period may differ.",
+        "Early return is possible. Fees may apply according to the agreed rate or price list.",
+        "Lack of return does not imply automatic extension. Obligations remain, including safekeeping duties.",
       ],
     },
 
@@ -94,9 +90,9 @@ export const RENTAL_CONDITIONS: RentalConditionsDoc = {
       title: "Clause 6 — Price",
       body: [
         "Price depends on equipment type, rental period, site, and work profile.",
-        "Base price excludes: operator, tires/punctures, fuel/energy, consumables, cleaning, preservation, and transport (unless agreed).",
-        "AMR may require a security deposit to cover additional charges (e.g., tolls, fines, extra days, unplanned transport, fuel).",
-        "Operator, if contracted, is billed at €350/day (MVP rule).",
+        "Base price excludes operator, tires or punctures, fuel or energy, consumables, cleaning, preservation, and transport unless otherwise agreed.",
+        "AMR may require a refundable security deposit to cover additional charges such as tolls, fines, extra days, unplanned transport, or fuel.",
+        "If an operator is contracted, it is billed at €350 per day.",
       ],
     },
 
@@ -105,11 +101,11 @@ export const RENTAL_CONDITIONS: RentalConditionsDoc = {
       id: "clause-7-billing-payment",
       title: "Clause 7 — Billing and Payment",
       body: [
-        "Payment terms are as stated in the Particular Conditions or at proposal award; deposit is due to confirm the booking.",
-        "Failure to pay may lead to immediate termination and interest at the legal rate from due date until full payment.",
-        "If the Customer requires purchase order references on invoices, those must be provided at award and accepted by AMR.",
-        "Additional Customer conditions are only valid if confirmed in writing by AMR.",
-        "Place of payment: FILL_ME_PAYMENT_LOCATION (e.g., AMR’s registered office).",
+        "The full rental amount plus VAT is paid online at checkout via Stripe. The price summary shows amounts before VAT and the total with VAT.",
+        "A refundable security deposit is collected at handover, either when you collect from our warehouse or when we deliver to your site. The deposit can be paid by card or cash.",
+        "The deposit is refunded after the machine is returned and a quick inspection confirms no damage, loss, or extra charges. If paid by card we initiate the refund promptly; timing depends on your bank or card issuer.",
+        "Additional charges that arise during or after the rental (for example, extra days, cleaning, refuelling, damage, or transport adjustments) are invoiced and payable upon receipt. Late payment may accrue interest at the legal rate from due date until full payment.",
+        "If the Customer requires purchase order references on invoices, those must be provided at booking and accepted by AMR. Any additional Customer terms are only valid if confirmed in writing by AMR.",
       ],
     },
 
@@ -119,15 +115,13 @@ export const RENTAL_CONDITIONS: RentalConditionsDoc = {
       title: "Clause 8 — Delivery, Return, and Transport",
       body: [
         "Transport, delivery, and return are the Customer’s responsibility and cost unless otherwise agreed.",
-        "Customer (or representative) must be present at delivery and return.",
-        "Any public-road operations requiring permits/police presence are the Customer’s responsibility and cost.",
-        "AMR may refuse transport if the Customer’s vehicle is inadequate.",
-        "Return at AMR’s site by FILL_ME_RETURN_TIME on the last contracted day unless otherwise agreed; delays may incur charges.",
-        "If the contract ends on a non-business day, return occurs by FILL_ME_NEXT_BUSINESS_TIME on the next business day.",
-        "AMR may offer transport services on request; scheduling is the Customer’s responsibility.",
-        "When AMR transport is contracted, pickup must be requested in writing by FILL_ME_TRANSPORT_REQUEST_CUTOFF to schedule.",
-        "For each day of delay in return or pickup due to Customer reasons, the daily rental rate may be charged plus a surcharge (e.g., FILL_ME_DELAY_SURCHARGE%).",
-        "The Customer must ensure access conditions for loading/unloading; additional costs may apply if conditions are not met.",
+        "The Customer or an authorised representative must be present at delivery and return.",
+        "Any public-road operations requiring permits or police presence are the Customer’s responsibility and cost.",
+        "AMR may refuse transport if the Customer’s vehicle is inadequate or unsafe.",
+        "Return at AMR’s warehouse must occur by the agreed time on the last contracted day unless otherwise agreed. If the end date falls on a non-business day, return occurs on the next business day at opening time.",
+        "When AMR transport is contracted, pickup must be requested with reasonable notice so scheduling can be arranged.",
+        "For each day of delay in return or in enabling pickup for reasons attributable to the Customer, the daily rental rate may be charged for the additional day, together with any associated costs.",
+        "The Customer must ensure safe access conditions for loading and unloading. Additional costs may apply if conditions are not met.",
       ],
     },
 
@@ -136,9 +130,9 @@ export const RENTAL_CONDITIONS: RentalConditionsDoc = {
       id: "clause-9-fuel-batteries",
       title: "Clause 9 — Fuel and Batteries",
       body: [
-        "Unless agreed, equipment is delivered with sufficient fuel/charge for loading/unloading and must be returned equivalently.",
-        "If not returned accordingly, AMR may charge refueling/recharging per the current service table.",
-        "The Customer must use suitable fuel/energy and bears costs for decontamination due to misuse.",
+        "Unless agreed, equipment is delivered with sufficient fuel or charge for loading and unloading and must be returned equivalently.",
+        "If not returned accordingly, AMR may charge refuelling or recharging per the current service table.",
+        "The Customer must use suitable fuel or energy and bears costs for decontamination due to misuse.",
       ],
     },
 
@@ -147,8 +141,8 @@ export const RENTAL_CONDITIONS: RentalConditionsDoc = {
       id: "clause-10-work-periods",
       title: "Clause 10 — Work Periods",
       body: [
-        "Rental assumes an average use of 8 hours/day unless otherwise agreed; excess usage may be charged per tariff.",
-        "For road-mounted platforms or similar, daily travel distances may be limited; excess may be charged per tariff.",
+        "Rental assumes an average use of 8 hours per day unless otherwise agreed. Excess usage may be charged per tariff.",
+        "For road-mounted platforms or similar, daily travel distances may be limited. Excess may be charged per tariff.",
       ],
     },
 
@@ -158,12 +152,12 @@ export const RENTAL_CONDITIONS: RentalConditionsDoc = {
       title: "Clause 11 — Maintenance, Breakdowns, and Repairs",
       body: [
         "Customer responsibilities include consequences of accidents with Customer responsibility, irregular use, and abnormal wear.",
-        "Customer bears costs of repairs, call-outs, and downtime when attributable to Customer misuse or negligence.",
-        "Customer must perform daily checks per manufacturer/AMR instructions and allow access for scheduled maintenance (minimum windows may apply).",
-        "In case of fault, stop the equipment immediately and notify AMR; unjustified assistance requests may be charged.",
-        "Customer must immediately report incidents and cooperate with authorities/insurers; administrative handling fees may apply where AMR’s automotive liability policy is engaged.",
+        "Customer bears costs of repairs, call-outs, and downtime when attributable to misuse or negligence.",
+        "Customer must perform daily checks per manufacturer or AMR instructions and allow access for scheduled maintenance.",
+        "In case of fault, stop the equipment immediately and notify AMR. Unjustified assistance requests may be charged.",
+        "Customer must report incidents promptly and cooperate with authorities or insurers. Administrative handling fees may apply where AMR’s automotive liability policy is engaged.",
         "Repairs or alterations require AMR’s prior written authorization.",
-        "AMR will perform scheduled maintenance and provide assistance during normal hours; if repair is not possible within a reasonable time (e.g., 24h), AMR will attempt replacement where feasible.",
+        "AMR will perform scheduled maintenance and provide assistance during normal hours. If repair is not possible within a reasonable time, AMR will attempt replacement where feasible.",
         "AMR is not liable for lost profit or consequential damage due to equipment downtime.",
       ],
     },
@@ -173,13 +167,11 @@ export const RENTAL_CONDITIONS: RentalConditionsDoc = {
       id: "clause-12-insurance",
       title: "Clause 12 — Insurance",
       body: [
-        "AMR maintains legally required third-party liability where applicable; details provided upon request.",
-        "Customer must maintain coverage for damage to the equipment during the rental or may request AMR-managed coverage if available.",
-        "Optional coverages may be offered (e.g., hull/damage cover, road-use cover) with premiums stated in writing.",
-        "Deductibles/excess and minimum charges apply and will be stated in writing (e.g., FILL_ME_EXCESS_% with minimum FILL_ME_EXCESS_MIN).",
+        "AMR maintains legally required third-party liability where applicable. Details are available on request.",
+        "The Customer must maintain coverage for damage to the equipment during the rental or may request AMR-managed coverage if available.",
+        "Optional coverages, deductibles, and minimum charges are stated in writing when contracted.",
         "If optional coverage is not contracted or conditions are not met, the Customer is responsible for damage under Clause 11.",
-        "Customer must comply with insurer obligations; otherwise, the Customer bears resulting losses to AMR.",
-        "Customer must maintain operational liability cover for work performed using the equipment and is liable for third-party damage during operation.",
+        "The Customer must maintain operational liability cover for work performed using the equipment and is liable for third-party damage during operation.",
       ],
     },
 
@@ -188,10 +180,10 @@ export const RENTAL_CONDITIONS: RentalConditionsDoc = {
       id: "clause-13-breach-termination",
       title: "Clause 13 — Breach and Termination",
       body: [
-        "AMR may terminate for breach (e.g., non-payment, failure to request pickup/return, misuse, or safety issues).",
+        "AMR may terminate for breach, including non-payment, failure to request pickup or return, misuse, or safety issues.",
         "Amounts due for the remaining initial term may still be payable depending on the reason for termination.",
-        "Upon termination, AMR may immobilize and recover the equipment without formalities; the Customer bears related costs.",
-        "AMR is not liable for indirect or consequential damages arising from termination per this clause.",
+        "Upon termination, AMR may immobilize and recover the equipment. The Customer bears related costs.",
+        "AMR is not liable for indirect or consequential damages arising from termination under this clause.",
         "If the Customer cancels within the last 24 hours before effectiveness, AMR may charge cancellation fees.",
       ],
     },
@@ -202,7 +194,7 @@ export const RENTAL_CONDITIONS: RentalConditionsDoc = {
       title: "Clause 14 — Domicile and Disputes",
       body: [
         "The addresses stated in the Particular Conditions are chosen domiciles for service in case of dispute.",
-        "Portuguese law governs these conditions. The competent courts or arbitration centers will be those indicated in the Particular Conditions (e.g., Comarca de FILL_ME_REGION).",
+        "Portuguese law governs these conditions. The courts of Braga have jurisdiction, without prejudice to mandatory rules that provide otherwise.",
         "Consumers can also use the official Portuguese electronic complaints book (see link below).",
       ],
     },
@@ -213,9 +205,10 @@ export const RENTAL_CONDITIONS: RentalConditionsDoc = {
       title: "Contacts",
       body: [
         "Company: Algarve Machinery Rental",
-        "Address: Barranco da Vaca, Aljezur, Portugal",
+        "Registered address: Avenida da Liberdade, Centro Comercial Granjinhos, Loja 446, 4710-249, Braga, Portugal",
+        "Warehouse: Barranco da Vaca, 8670-116, Aljezur, Portugal",
+        "Warehouse hours: Mo–Fr 08:00–19:00",
         "Email: support@amr-rentals.com",
-        "Phone: FILL_ME_PHONE",
       ],
     },
   ],

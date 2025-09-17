@@ -56,7 +56,7 @@ export default function CookieConsentBanner({
       className="fixed inset-x-0 bottom-0 z-50"
     >
       <div className="mx-auto w-full max-w-5xl px-4 pb-4">
-        <div className="rounded-2xl border bg-background/95 p-4 shadow-lg backdrop-blur">
+        <div className="rounded-2xl border bg-foreground/20 p-4 shadow-lg backdrop-blur">
           <p className="text-sm leading-relaxed">
             We use essential cookies to make this site work and optional cookies
             to improve the experience. You can accept all cookies or keep only
