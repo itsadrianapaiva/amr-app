@@ -12,7 +12,7 @@ export type WhatsAppConfig = {
 
 export type LocationConfig = {
   label?: string; // e.g., 'Head Office'
-  addressLine1: string;
+  addressLine1: string | null;
   city: string;
   region?: string;
   postalCode?: string;
@@ -60,7 +60,7 @@ export const CONTACTS: ContactContent = {
   location: {
     // TODO: replace placeholders with real values.
     label: "Head Office",
-    addressLine1: "The street, 123",
+    addressLine1: "",
     city: "Aljezur",
     region: "Barranco da Vaca",
     postalCode: "8670-116",

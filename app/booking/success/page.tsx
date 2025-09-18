@@ -1,6 +1,7 @@
 import "server-only";
 import Link from "next/link";
 import { db } from "@/lib/db";
+import Ga4Purchase from "@/components/analytics/ga4-purchase";
 
 /**
  * Tiny helper to format a Date as YYYY-MM-DD in the Lisbon timezone,
@@ -23,6 +24,7 @@ async function getBookingSummary(bookingId: number) {
       id: true,
       startDate: true,
       endDate: true,
+      totalCost: true, // needed for GA4 purchase value
       machine: { select: { id: true, name: true } },
       // We intentionally avoid pulling heavy relations here.
     },
@@ -33,7 +35,7 @@ async function getBookingSummary(bookingId: number) {
  * Customer Success Page
  * - Reads `booking_id` from the query string (Stripe success_url already includes it).
  * - Loads a minimal booking summary and renders a friendly receipt.
- * - Shows an email notice for next steps.
+ * - Sends a GA4 "purchase" event (value in EUR) once mounted on the client.
  */
 export default async function CustomerSuccessPage({
   searchParams,
@@ -97,6 +99,9 @@ export default async function CustomerSuccessPage({
   const start = formatYmdLisbon(booking.startDate);
   const end = formatYmdLisbon(booking.endDate);
 
+  // Safely coerce Prisma Decimal -> number for GA4
+  const purchaseValue = Number(booking.totalCost);
+
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
       <h1 className="text-2xl font-semibold">Booking confirmed</h1>
@@ -144,6 +149,20 @@ export default async function CustomerSuccessPage({
           </Link>
         )}
       </div>
+
+      {/* GA4 purchase: fires once on mount (no effect on SSR) */}
+      <Ga4Purchase
+        transactionId={String(booking.id)}
+        value={purchaseValue}
+        currency="EUR"
+        items={[
+          {
+            item_id: String(booking.machine?.id ?? ""),
+            item_name: booking.machine?.name ?? "Machine",
+            quantity: 1,
+          },
+        ]}
+      />
     </div>
   );
 }
