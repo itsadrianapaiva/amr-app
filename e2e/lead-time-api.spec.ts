@@ -14,7 +14,7 @@ async function postCreateBooking(
   request: APIRequestContext,
   payload: Record<string, any>
 ) {
-  const res = await request.post(`${APP_URL}/api/dev/create-booking`, {
+  const res = await request.post(`/api/dev/create-booking`, {
     headers: { "Content-Type": "application/json" },
     data: payload,
   });
@@ -23,7 +23,9 @@ async function postCreateBooking(
 }
 
 test.describe("Lead-time server guard (heavy machines)", () => {
-  test("rejects booking whose start is before earliest", async ({ request }) => {
+  test("rejects booking whose start is before earliest", async ({
+    request,
+  }) => {
     const earliest = computeEarliestStartYmd(new Date(), 2, 15);
     const tooSoonStart = addDaysYmd(earliest, -1);
     const tooSoonEnd = earliest; // minimum 1-day span
@@ -39,17 +41,22 @@ test.describe("Lead-time server guard (heavy machines)", () => {
       type: "leadtime-before",
       description: `status=${res.status()} body=${text.slice(0, 300)}`,
     });
-    expect(res.ok(), `Expected non-OK when start < earliest; got ${res.status()}`).toBeFalsy();
+    expect(
+      res.ok(),
+      `Expected non-OK when start < earliest; got ${res.status()}`
+    ).toBeFalsy();
   });
 
-  test("accepts booking whose start is safely after earliest (earliest + 3)", async ({ request }) => {
+  test("accepts booking whose start is safely after earliest (earliest + 3)", async ({
+    request,
+  }) => {
     const earliest = computeEarliestStartYmd(new Date(), 2, 15);
     const start = addDaysYmd(earliest, 3);
     const end = addDaysYmd(start, 1);
 
     const { res, text } = await postCreateBooking(request, {
       machineId: HEAVY_MACHINE_ID,
-      startDate: start,   // IMPORTANT: correct keys for the route DTO
+      startDate: start, // IMPORTANT: correct keys for the route DTO
       endDate: end,
       email: `e2e-leadtime-after-${Date.now()}@tests.local`,
     });
@@ -58,7 +65,10 @@ test.describe("Lead-time server guard (heavy machines)", () => {
       type: "leadtime-after",
       description: `status=${res.status()} body=${text.slice(0, 300)}`,
     });
-    expect(res.ok(), `Expected OK when start >= earliest; got ${res.status()} body=${text.slice(0, 200)}`).toBeTruthy();
+    expect(
+      res.ok(),
+      `Expected OK when start >= earliest; got ${res.status()} body=${text.slice(0, 200)}`
+    ).toBeTruthy();
   });
 });
 
@@ -75,7 +85,10 @@ test.describe("Overlap guard (inclusive tsrange on same machine)", () => {
       endDate: end,
       email: `e2e-overlap-a-${Date.now()}@tests.local`,
     });
-    expect(first.res.ok(), `First booking should be OK; got ${first.res.status()} body=${first.text.slice(0, 200)}`).toBeTruthy();
+    expect(
+      first.res.ok(),
+      `First booking should be OK; got ${first.res.status()} body=${first.text.slice(0, 200)}`
+    ).toBeTruthy();
 
     // Second booking overlaps the same range (same machine, different email) → expect non-OK
     const second = await postCreateBooking(request, {

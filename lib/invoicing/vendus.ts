@@ -12,17 +12,32 @@ import type {
 type VendusRegister = { id: number; type: string; status: "on" | "off"; title: string };
 type VendusDocResponse = {
   id: number;
-  number?: string;        // sometimes "123" or "2025/123"
-  full_number?: string;   // some APIs return "FT 2025/123"
-  at_code?: string;       // ATCUD if configured
+  number?: string;        // "123" or "2025/123"
+  full_number?: string;   // "FR 2025/123"
+  atcud?: string;         // some accounts return this key
+  at_code?: string;       // others return this key for ATCUD
+  qrcode_data?: string;   // string payload for QR
+  pdf_url?: string;       // when output=pdf_url
+  output_url?: string;    // some payloads use output_url
 };
 type VendusError = { error?: string; message?: string };
 
-const BASE_URL = process.env.VENDUS_URL?.replace(/\/+$/, "") || "https://www.vendus.pt/ws";
+const BASE_URL =
+  (process.env.VENDUS_BASE_URL || process.env.VENDUS_URL || "https://www.vendus.pt/ws").replace(
+    /\/+$/,
+    ""
+  );
+
 const API_KEY = process.env.VENDUS_API_KEY;
 if (!API_KEY) {
   throw new Error("Missing VENDUS_API_KEY env");
 }
+
+// Safe defaults:
+// - mode tests prevents AT communication until you flip it
+// - FR matches “money received now” for your full-upfront flow
+const MODE = (process.env.VENDUS_MODE || "tests") as "tests" | "normal";
+const DOC_TYPE = (process.env.VENDUS_DOC_TYPE || "FR") as "FT" | "FR" | "PF";
 
 function authHeader() {
   // Basic auth with API key as username and empty password.
@@ -39,14 +54,18 @@ async function http<T>(method: "GET" | "POST", path: string, body?: unknown): Pr
       ...(body ? { "Content-Type": "application/json" } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
-    // Vendus returns JSON for errors; no-cache keeps CI/dev deterministic.
     cache: "no-store",
+    // keep serverless deterministic
+    next: { revalidate: 0 },
   });
 
-  // Try to parse JSON either way to surface useful error info
   const text = await res.text();
   let parsed: any = null;
-  try { parsed = text ? JSON.parse(text) : null; } catch { /* non-JSON, ignore */ }
+  try {
+    parsed = text ? JSON.parse(text) : null;
+  } catch {
+    /* ignore */
+  }
 
   if (!res.ok) {
     const vErr = (parsed as VendusError) || {};
@@ -90,7 +109,6 @@ async function resolveRegisterId(): Promise<number> {
     return id;
   }
 
-  // Vendus registers live under v1.0
   const regs = await http<VendusRegister[]>("GET", "/v1.0/registers/");
   const apiReg = regs.find((r) => r.type === "api" && r.status === "on");
   if (!apiReg) {
@@ -100,20 +118,19 @@ async function resolveRegisterId(): Promise<number> {
   return apiReg.id;
 }
 
-// Convert provider-agnostic lines to Vendus products payload.
+// Convert provider-agnostic lines to Vendus products payload (net price).
 function toVendusProducts(lines: InvoiceCreateInput["lines"]) {
   return lines.map((l) => {
-    const price = Number((l.unitPriceCents / 100).toFixed(2));
+    const price = Number((l.unitPriceCents / 100).toFixed(2)); // net
     const tax_id = mapVatToTaxId(l.vatPercent);
     if (tax_id === "ISE" && !l.vatExemptionCode) {
       throw new Error("VAT 0 requires a legal exemption code in InvoiceLine.vatExemptionCode");
     }
-    // Vendus accepts a simple product object per document line.
     return {
       name: l.description,
       qty: l.quantity,
-      price,
-      tax_id,                // NOR, INT, RED, ISE
+      price, // net; Vendus will add VAT from tax_id
+      tax_id, // NOR, INT, RED, ISE
       exemption_reason: l.vatExemptionCode, // only if ISE
       reference: l.itemRef,
     };
@@ -132,7 +149,7 @@ export const vendusProvider: InvoicingProvider = {
   },
 
   async getInvoicePdf(providerInvoiceId: string): Promise<string> {
-    // Vendus PDF endpoint under v1.1
+    // Fallback direct PDF endpoint; in create we will prefer pdf_url if present.
     return `${BASE_URL}/v1.1/documents/${providerInvoiceId}.pdf`;
   },
 
@@ -145,7 +162,7 @@ export const vendusProvider: InvoicingProvider = {
     const clientPayload = {
       name: cli.name,
       email: cli.email,
-      fiscal_id: cli.nif,               // optional for B2C
+      fiscal_id: cli.nif, // optional for B2C
       address: addr?.line1,
       postalcode: addr?.postalCode,
       city: addr?.city,
@@ -155,30 +172,33 @@ export const vendusProvider: InvoicingProvider = {
     const products = toVendusProducts(input.lines);
 
     // Construct document create payload.
-    // Type FT (Fatura). If your accountant prefers FR, change here.
     const payload = {
-      type: "FT",
+      type: DOC_TYPE, // FR for money received; FT if you invoice before payment; PF for pro-forma
+      mode: MODE, // tests by default to avoid AT comms while validating
       date: lisbonYmd(input.issuedAt),
       register_id: registerId,
       client: clientPayload,
       products,
-      currency: input.currency,               // "EUR"
-      external_reference: input.externalRef,  // Stripe PI id
+      currency: input.currency, // "EUR"
+      external_reference: input.idempotencyKey || input.externalRef,
       notes: input.notes,
-      // If you need to finalize immediately and your account requires it,
-      // Vendus typically finalizes automatically for FT. We omit extra flags.
+      // Return a stable URL and QR payload for ops checks
+      output: "pdf_url",
+      return_qrcode: 1,
     };
 
     const res = await http<VendusDocResponse>("POST", "/v1.1/documents/", payload);
 
     const number = res.full_number || res.number || String(res.id);
-    const pdfUrl = await this.getInvoicePdf(String(res.id));
+    // prefer vendor-rendered URL; fallback to deterministic .pdf path
+    const pdfUrl = res.pdf_url || res.output_url || (await this.getInvoicePdf(String(res.id)));
+    const atcud = res.atcud || res.at_code || undefined;
 
     return {
       provider: "vendus",
       providerInvoiceId: String(res.id),
       number,
-      atcud: res.at_code, // if your series has validation code configured
+      atcud,
       pdfUrl,
     };
   },
@@ -186,27 +206,29 @@ export const vendusProvider: InvoicingProvider = {
   async createCreditNote(input: CreditNoteCreateInput): Promise<CreditNoteRecord> {
     const registerId = await resolveRegisterId();
 
-    // When lines are omitted we cannot legally create an ISE doc without a reason.
-    // For now, require explicit lines so amounts are clear. We can enhance later
-    // to fetch original lines before issuing a full credit.
     const products = input.lines ? toVendusProducts(input.lines) : undefined;
     if (!products) {
-      throw new Error("createCreditNote requires lines for now. We will add 'full credit' by fetching the original document in a later iteration.");
+      throw new Error(
+        "createCreditNote requires lines for now. We will add 'full credit' by fetching the original document in a later iteration."
+      );
     }
 
     const payload = {
       type: "NC", // Nota de crédito
+      mode: MODE,
       date: lisbonYmd(new Date()),
       register_id: registerId,
-      client: undefined,              // Vendus links client via related_id
+      client: undefined, // Vendus links client via related_id
       products,
       related_id: Number(input.original.providerInvoiceId), // link to original
       notes: input.reason,
+      output: "pdf_url",
+      return_qrcode: 1,
     };
 
     const res = await http<VendusDocResponse>("POST", "/v1.1/documents/", payload);
     const number = res.full_number || res.number || String(res.id);
-    const pdfUrl = `${BASE_URL}/v1.1/documents/${res.id}.pdf`;
+    const pdfUrl = res.pdf_url || res.output_url || `${BASE_URL}/v1.1/documents/${res.id}.pdf`;
 
     return {
       provider: "vendus",

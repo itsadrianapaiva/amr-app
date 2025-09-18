@@ -97,19 +97,28 @@ function lisbonYmd(d: Date): string {
     month: "2-digit",
     day: "2-digit",
   });
-  const parts = fmt.formatToParts(d).reduce<Record<string, string>>((acc, p) => {
-    if (p.type !== "literal") acc[p.type] = p.value;
-    return acc;
-  }, {});
+  const parts = fmt
+    .formatToParts(d)
+    .reduce<Record<string, string>>((acc, p) => {
+      if (p.type !== "literal") acc[p.type] = p.value;
+      return acc;
+    }, {});
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
-// Inclusive day count (start and end are both counted).
+// Parse YYYY-MM-DD into a UTC midnight Date (no DST effects).
+function ymdToUtcDate(ymd: string): Date {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+// Inclusive day count based on Lisbon-local YMDs mapped to UTC midnight.
+// This avoids DST offsets by never constructing +01:00 or +00:00 timestamps from the original Date.
 function inclusiveDays(start: Date, end: Date): number {
-  // Normalize to Lisbon YMD then back to Date to avoid DST weirdness.
-  const s = new Date(lisbonYmd(start) + "T00:00:00+01:00");
-  const e = new Date(lisbonYmd(end) + "T00:00:00+01:00");
-  const ms = e.getTime() - s.getTime();
-  const days = Math.round(ms / 86_400_000) + 1;
+  const sYmd = lisbonYmd(start);
+  const eYmd = lisbonYmd(end);
+  const sUtc = ymdToUtcDate(sYmd);
+  const eUtc = ymdToUtcDate(eYmd);
+  const days = Math.round((eUtc.getTime() - sUtc.getTime()) / 86_400_000) + 1;
   return Math.max(1, days);
 }

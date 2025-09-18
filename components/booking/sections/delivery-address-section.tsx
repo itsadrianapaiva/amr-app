@@ -78,7 +78,7 @@ export default function DeliveryAddressSection({
             <FormControl>
               <Input
                 id="siteAddress.city"
-                placeholder="Lisbon"
+                placeholder="Aljezur"
                 autoComplete="address-level2"
                 {...field}
                 value={field.value ?? ""}

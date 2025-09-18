@@ -144,3 +144,20 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 }
+
+/* Print rules: hide the floating WhatsApp button (and similar WhatsApp floaters) on all pages */
+@media print {
+  /* Your FAB: fixed-position anchor that opens wa.me */
+  a[href*="wa.me"].fixed {
+    display: none !important;
+  }
+
+  /* Extra safety nets for alternate implementations */
+  a[aria-label*="whatsapp" i].fixed,
+  [data-social="whatsapp"],
+  .whatsapp-fab,
+  .wa-chat,
+  .wa-floating {
+    display: none !important;
+  }
+}
