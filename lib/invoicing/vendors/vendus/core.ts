@@ -16,9 +16,9 @@ export type VendusRegister = {
 
 export type VendusRegisterDetail = {
   id: number;
-  type?: string;               // "api" or "pos"/"normal" or similar
-  status?: "open" | "close";   // session state
-  situation?: "on" | "off";    // activation
+  type?: string; // "api" or "pos"/"normal" or similar
+  status?: "open" | "close"; // session state
+  situation?: "on" | "off"; // activation
   mode?: "normal" | "tests";
   document_type_id?: string;
   title?: string;
@@ -44,7 +44,10 @@ export const BASE_URL = (
 ).replace(/\/+$/, "");
 
 export const MODE = (process.env.VENDUS_MODE || "tests") as "tests" | "normal";
-export const DOC_TYPE = (process.env.VENDUS_DOC_TYPE || "FR") as "FT" | "FR" | "PF";
+export const DOC_TYPE = (process.env.VENDUS_DOC_TYPE || "FR") as
+  | "FT"
+  | "FR"
+  | "PF";
 
 /** Read the API key only when needed so imports never throw. */
 function getApiKey(): string {
@@ -65,7 +68,11 @@ export function authHeader(): string {
  * - Parses JSON if possible.
  * - On non-2xx throws with Vendus message when present.
  */
-export async function http<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
+export async function http<T>(
+  method: "GET" | "POST",
+  path: string,
+  body?: unknown
+): Promise<T> {
   const url = `${BASE_URL}${path}`;
   const res = await fetch(url, {
     method,
@@ -87,14 +94,20 @@ export async function http<T>(method: "GET" | "POST", path: string, body?: unkno
 
   if (!res.ok) {
     const vErr = (parsed as VendusError) || {};
-    const message = vErr.message || vErr.error || `HTTP ${res.status} ${res.statusText}`;
-    throw new Error(`Vendus API error at ${path}: ${message}`);
+    const base =
+      vErr.message || vErr.error || `HTTP ${res.status} ${res.statusText}`;
+    const withBody = parsed
+      ? base
+      : `${base} — body: ${text?.slice(0, 400) || ""}`;
+    throw new Error(`Vendus API error at ${path}: ${withBody}`);
   }
   return (parsed ?? ({} as T)) as T;
 }
 
 /** PT VAT to Vendus tax_id mapping. */
-export function mapVatToTaxId(vatPercent: number): "NOR" | "INT" | "RED" | "ISE" {
+export function mapVatToTaxId(
+  vatPercent: number
+): "NOR" | "INT" | "RED" | "ISE" {
   if (vatPercent === 23) return "NOR";
   if (vatPercent === 13) return "INT";
   if (vatPercent === 6) return "RED";
@@ -110,9 +123,11 @@ export function lisbonYmd(d: Date): string {
     month: "2-digit",
     day: "2-digit",
   });
-  const parts = fmt.formatToParts(d).reduce<Record<string, string>>((acc, p) => {
-    if (p.type !== "literal") acc[p.type] = p.value;
-    return acc;
-  }, {});
+  const parts = fmt
+    .formatToParts(d)
+    .reduce<Record<string, string>>((acc, p) => {
+      if (p.type !== "literal") acc[p.type] = p.value;
+      return acc;
+    }, {});
   return `${parts.year}-${parts.month}-${parts.day}`;
 }

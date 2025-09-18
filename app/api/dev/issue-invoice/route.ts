@@ -39,25 +39,23 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
 
-    // ---- NEW: vendus debug branch (safe: GET only)
-    if (url.searchParams.get("vendus") === "registers") {
-      const r = await vendusGet("/v1.0/registers/");
+    // vendus register detail probe
+    if (url.searchParams.get("vendus")?.startsWith("register:")) {
+      const idStr = url.searchParams.get("vendus")!.split(":")[1];
+      const id = Number(idStr);
+      const { getRegisterDetail } = await import(
+        "@/lib/invoicing/vendors/vendus/registers"
+      );
+      if (!Number.isFinite(id)) {
+        return NextResponse.json(
+          { ok: false, error: "Invalid register id" },
+          { status: 400 }
+        );
+      }
+      const detail = await getRegisterDetail(id);
       return NextResponse.json(
-        {
-          ok: r.status === 200,
-          stage: "vendus-registers",
-          status: r.status,
-          url: r.url,
-          data: r.json,
-          hints: [
-            "Use an API (Programmatic integration) register, Active=Yes.",
-            "Set VENDUS_REGISTER_ID to that numeric id if auto-discovery is wrong.",
-          ],
-        },
-        {
-          status: r.status === 200 ? 200 : 502,
-          headers: { "cache-control": "no-store" },
-        }
+        { ok: true, stage: "vendus-register-detail", id, detail },
+        { headers: { "cache-control": "no-store" } }
       );
     }
     // ---- end vendus debug branch
