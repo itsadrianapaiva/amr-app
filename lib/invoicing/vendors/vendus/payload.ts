@@ -1,4 +1,3 @@
-// lib/invoicing/vendors/vendus/payload.ts
 import "server-only";
 import type { DocType } from "./core";
 import { MODE, lisbonYmd, mapVatToTaxId } from "./core";
