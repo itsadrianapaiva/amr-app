@@ -1,3 +1,4 @@
+// lib/invoicing/vendors/vendus/core.ts
 import "server-only";
 
 /**
@@ -62,11 +63,18 @@ export function authHeader(): string {
   return `Basic ${token}`;
 }
 
+/** Trim long bodies for error messages without leaking too much content. */
+function snippet(s: string | null, max = 400): string {
+  if (!s) return "";
+  const trimmed = s.slice(0, max);
+  return s.length > max ? `${trimmed}...[truncated]` : trimmed;
+}
+
 /**
  * Deterministic HTTP helper.
  * - No caching.
  * - Parses JSON if possible.
- * - On non-2xx throws with Vendus message when present.
+ * - On non-2xx throws with Vendus message when present and includes request/response context.
  */
 export async function http<T>(
   method: "GET" | "POST",
@@ -82,26 +90,52 @@ export async function http<T>(
     },
     body: body ? JSON.stringify(body) : undefined,
     cache: "no-store",
+    redirect: "follow",
   });
 
-  const text = await res.text();
-  let parsed: any = null;
+  const contentType = res.headers.get("content-type") || "";
+  const raw = await res.text();
+
+  // Try to parse JSON, but allow plain text
+  let parsed: unknown = null;
   try {
-    parsed = text ? JSON.parse(text) : null;
+    parsed = raw ? JSON.parse(raw) : null;
   } catch {
-    // Some Vendus responses are plain text; ignore JSON parse errors.
+    parsed = null;
   }
 
   if (!res.ok) {
-    const vErr = (parsed as VendusError) || {};
-    const base =
-      vErr.message || vErr.error || `HTTP ${res.status} ${res.statusText}`;
-    const withBody = parsed
-      ? base
-      : `${base} — body: ${text?.slice(0, 400) || ""}`;
-    throw new Error(`Vendus API error at ${path}: ${withBody}`);
+    // Prefer Vendus' structured message when available
+    const v = (parsed as VendusError) || {};
+    const baseMsg =
+      v.message?.toString() ||
+      v.error?.toString() ||
+      `${res.status} ${res.statusText}`;
+
+    // Append short raw body even when parsed succeeded, for opaque 403s
+    const bodyPart =
+      raw && !v.message && !v.error
+        ? ` - body: ${snippet(raw)}`
+        : raw
+          ? ` - body: ${snippet(raw)}`
+          : "";
+
+    // Minimal request/response context that helps debugging and is safe to log
+    const ctx = `ctx: method=${method} path=${path} mode=${MODE} docType=${DOC_TYPE} contentType=${contentType}`;
+
+    // Gentle hints for the common staging 403 basket without being prescriptive
+    const hint =
+      res.status === 403
+        ? " Hint: check register open state, document series permissions, and tests vs normal mode."
+        : "";
+
+    throw new Error(
+      `Vendus API error at ${path}: ${baseMsg}${bodyPart} (${ctx}).${hint}`
+    );
   }
-  return (parsed ?? ({} as T)) as T;
+
+  // If no JSON body, return empty object casted to T
+  return (parsed ?? {}) as T;
 }
 
 /** PT VAT to Vendus tax_id mapping. */
