@@ -5,11 +5,64 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+// Small helper to call Vendus with Basic Auth using your API key
+async function vendusGet(
+  path: string,
+  params?: Record<string, string | number | undefined>
+) {
+  const host = process.env.VENDUS_HOST || "https://www.vendus.pt";
+  const url = new URL(`/ws${path}`, host);
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined) url.searchParams.set(k, String(v));
+    }
+  }
+  const key = process.env.VENDUS_API_KEY || "";
+  const auth = Buffer.from(`${key}:`).toString("base64");
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Basic ${auth}` },
+    // defensive: never cache
+    next: { revalidate: 0 },
+  });
+  const text = await res.text();
+  let json: unknown = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    // some Vendus responses aren't JSON; return raw
+    json = { raw: text };
+  }
+  return { status: res.status, json, url: url.toString() };
+}
+
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
 
-    // --- Debug short-circuit: hit this route with ?debug=1 to verify the handler runs
+    // ---- NEW: vendus debug branch (safe: GET only)
+    if (url.searchParams.get("vendus") === "registers") {
+      const r = await vendusGet("/v1.0/registers/");
+      return NextResponse.json(
+        {
+          ok: r.status === 200,
+          stage: "vendus-registers",
+          status: r.status,
+          url: r.url,
+          data: r.json,
+          hints: [
+            "Use an API (Programmatic integration) register, Active=Yes.",
+            "Set VENDUS_REGISTER_ID to that numeric id if auto-discovery is wrong.",
+          ],
+        },
+        {
+          status: r.status === 200 ? 200 : 502,
+          headers: { "cache-control": "no-store" },
+        }
+      );
+    }
+    // ---- end vendus debug branch
+
+    // Fast liveness probe
     if (url.searchParams.get("debug") === "1") {
       return NextResponse.json(
         {
@@ -24,10 +77,9 @@ export async function GET(req: Request) {
         { headers: { "cache-control": "no-store" } }
       );
     }
-    // --- end debug block
 
     const id = Number(url.searchParams.get("id"));
-    const piParam = url.searchParams.get("pi") || undefined; // optional PI override
+    const piParam = url.searchParams.get("pi") || undefined;
 
     if (!Number.isFinite(id)) {
       return NextResponse.json(
@@ -36,13 +88,12 @@ export async function GET(req: Request) {
       );
     }
 
-    // Lazy-load heavy/serverful deps so module-eval crashes become catchable JSON.
+    // Lazy-load to keep module-eval errors catchable
     const [{ db }, { maybeIssueInvoice }] = await Promise.all([
       import("@/lib/db"),
       import("@/lib/invoicing/issue-for-booking"),
     ]);
 
-    // Pull booking facts from DB
     const b = await db.booking.findUnique({
       where: { id },
       include: { machine: true },
@@ -55,14 +106,12 @@ export async function GET(req: Request) {
       );
     }
 
-    // Build the minimal facts our orchestrator needs
     const facts = {
       id: b.id,
       startDate: b.startDate,
       endDate: b.endDate,
       machineName: b.machine.name,
-      // unit price must be net/ex-VAT in integer cents
-      unitDailyCents: Math.round(Number(b.machine.dailyRate) * 100),
+      unitDailyCents: Math.round(Number(b.machine.dailyRate) * 100), // net cents
       vatPercent: 23,
       customerName: b.customerName,
       customerEmail: b.customerEmail || undefined,
@@ -77,7 +126,6 @@ export async function GET(req: Request) {
         : undefined,
     } as const;
 
-    // Choose a PI: explicit ?pi param, or stored on the booking if present
     const paymentIntentId = piParam || b.stripePaymentIntentId || "";
     if (!paymentIntentId) {
       return NextResponse.json(
@@ -90,7 +138,6 @@ export async function GET(req: Request) {
       );
     }
 
-    // Helpful early toggle to make misconfig obvious
     if (process.env.INVOICING_ENABLED !== "true") {
       return NextResponse.json(
         { ok: false, error: "INVOICING_DISABLED. Set INVOICING_ENABLED=true" },
@@ -98,7 +145,6 @@ export async function GET(req: Request) {
       );
     }
 
-    // Issue the invoice (returns null only if internally disabled by provider)
     const record = await maybeIssueInvoice({
       booking: facts,
       stripePaymentIntentId: paymentIntentId,
@@ -116,8 +162,6 @@ export async function GET(req: Request) {
       );
     }
 
-    // Persist back to Booking for quick visibility in Ops/UI
-    // (If this throws, it will be caught below and returned as JSON.)
     await db.booking.update({
       where: { id: b.id },
       data: {
