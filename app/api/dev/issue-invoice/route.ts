@@ -1,4 +1,3 @@
-// app/api/dev/issue-invoice/route.ts
 import "server-only";
 import { NextResponse } from "next/server";
 
@@ -9,6 +8,24 @@ export const revalidate = 0;
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
+
+    // --- Debug short-circuit: hit this route with ?debug=1 to verify the handler runs
+    if (url.searchParams.get("debug") === "1") {
+      return NextResponse.json(
+        {
+          ok: true,
+          stage: "entered-handler",
+          env: {
+            invoicingEnabled: process.env.INVOICING_ENABLED === "true",
+            vendusMode: process.env.VENDUS_MODE || null,
+            nodeEnv: process.env.NODE_ENV || null,
+          },
+        },
+        { headers: { "cache-control": "no-store" } }
+      );
+    }
+    // --- end debug block
+
     const id = Number(url.searchParams.get("id"));
     const piParam = url.searchParams.get("pi") || undefined; // optional PI override
 
@@ -91,7 +108,10 @@ export async function GET(req: Request) {
 
     if (!record) {
       return NextResponse.json(
-        { ok: false, error: "Provider declined issuance (disabled or misconfigured)" },
+        {
+          ok: false,
+          error: "Provider declined issuance (disabled or misconfigured)",
+        },
         { status: 409, headers: { "cache-control": "no-store" } }
       );
     }
@@ -117,7 +137,9 @@ export async function GET(req: Request) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     const stack =
-      process.env.DEBUG_INVOICING === "1" && err instanceof Error ? err.stack : undefined;
+      process.env.DEBUG_INVOICING === "1" && err instanceof Error
+        ? err.stack
+        : undefined;
 
     console.error("[dev/issue-invoice] Error:", msg, stack);
     return NextResponse.json(
