@@ -1,3 +1,4 @@
+// lib/invoicing/vendors/vendus/payload.ts
 import "server-only";
 import type { DocType } from "./core";
 import { MODE, lisbonYmd, mapVatToTaxId } from "./core";
@@ -43,9 +44,7 @@ export function toVendusProducts(
 function normalizeCountry(country?: string): string | undefined {
   if (!country) return undefined;
   const iso = country.toUpperCase().trim();
-  // Domestic PT is safe to omit - Vendus will default it correctly for most accounts
-  if (iso === "PT") return undefined;
-  // Keep a conservative allowlist to avoid P006 - expand as needed
+  if (iso === "PT") return undefined; // omit domestic PT to avoid P006
   if (/^[A-Z]{2}$/.test(iso)) return iso;
   return undefined;
 }
@@ -64,7 +63,6 @@ export function buildClientPayload(input: InvoiceCreateInput) {
     address: addr?.line1,
     postalcode: addr?.postalCode,
     city: addr?.city,
-    // country only when valid and non-PT to avoid Vendus P006
     ...(country ? { country } : {}),
   };
 }
@@ -73,6 +71,8 @@ export function buildClientPayload(input: InvoiceCreateInput) {
  * Build POST /v1.1/documents/ payload.
  * - docType: "FR" | "FT" | "PF"
  * - mode comes from env (tests/normal) and is included explicitly.
+ *
+ * Note: Vendus v1.1 rejects `products` and expects `items` top-level key.
  */
 export function buildCreateDocumentPayload(params: {
   docType: DocType;
@@ -80,16 +80,17 @@ export function buildCreateDocumentPayload(params: {
   input: InvoiceCreateInput;
 }) {
   const { docType, registerId, input } = params;
-  const products = toVendusProducts(input.lines);
+  const products = toVendusProducts(input.lines); // keep type/mapper stable
   const client = buildClientPayload(input);
 
   return {
-    type: docType, // FR money received now; FT invoice before payment; PF pro-forma
-    mode: MODE, // 'tests' by default to avoid AT comms
+    type: docType, // FR now; FT invoice; PF pro-forma
+    mode: MODE, // 'tests' to avoid AT comms on staging
     date: lisbonYmd(input.issuedAt), // YYYY-MM-DD in Europe/Lisbon
     register_id: registerId,
     client,
-    products,
+    // v1.1 requires "items" instead of "products"
+    items: products,
     currency: input.currency, // "EUR"
     external_reference: input.idempotencyKey || input.externalRef,
     notes: input.notes,
