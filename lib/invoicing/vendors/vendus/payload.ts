@@ -39,10 +39,24 @@ export function toVendusProducts(
   });
 }
 
+/** Accept only ISO alpha-2 [A-Z]{2}. */
+function normalizeCountry(country?: string): string | undefined {
+  if (!country) return undefined;
+  const iso = country.toUpperCase().trim();
+  // Domestic PT is safe to omit - Vendus will default it correctly for most accounts
+  if (iso === "PT") return undefined;
+  // Keep a conservative allowlist to avoid P006 - expand as needed
+  if (/^[A-Z]{2}$/.test(iso)) return iso;
+  return undefined;
+}
+
 /** Minimal client payload (send only what we have). */
 export function buildClientPayload(input: InvoiceCreateInput) {
   const cli = input.customer;
   const addr = cli.address;
+
+  const country = normalizeCountry(addr?.country);
+
   return {
     name: cli.name,
     email: cli.email,
@@ -50,7 +64,8 @@ export function buildClientPayload(input: InvoiceCreateInput) {
     address: addr?.line1,
     postalcode: addr?.postalCode,
     city: addr?.city,
-    country: addr?.country || "PT",
+    // country only when valid and non-PT to avoid Vendus P006
+    ...(country ? { country } : {}),
   };
 }
 
@@ -69,13 +84,13 @@ export function buildCreateDocumentPayload(params: {
   const client = buildClientPayload(input);
 
   return {
-    type: docType,                    // FR money received now; FT invoice before payment; PF pro-forma
-    mode: MODE,                       // 'tests' by default to avoid AT comms
-    date: lisbonYmd(input.issuedAt),  // YYYY-MM-DD in Europe/Lisbon
+    type: docType, // FR money received now; FT invoice before payment; PF pro-forma
+    mode: MODE, // 'tests' by default to avoid AT comms
+    date: lisbonYmd(input.issuedAt), // YYYY-MM-DD in Europe/Lisbon
     register_id: registerId,
     client,
     products,
-    currency: input.currency,         // "EUR"
+    currency: input.currency, // "EUR"
     external_reference: input.idempotencyKey || input.externalRef,
     notes: input.notes,
     output: "pdf_url",
