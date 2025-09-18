@@ -8,7 +8,7 @@ import type {
   CreditNoteRecord,
   ProviderHealth,
 } from "../../provider";
-import { BASE_URL, DOC_TYPE, type DocType } from "./core";
+import { BASE_URL, type DocType } from "./core";
 import {
   resolveRegisterIdFor,
   assertRegisterCanIssue,
@@ -29,7 +29,14 @@ function preferredRegisterId(): number | null {
   return n;
 }
 
-/** Deterministic fallback PDF URL when API doesn’t return pdf_url. */
+/** Resolve document type at call time to allow per-request overrides. */
+function currentDocType(): Exclude<DocType, "NC"> {
+  const raw = (process.env.VENDUS_DOC_TYPE || "FR").toUpperCase();
+  if (raw === "FR" || raw === "FT" || raw === "PF") return raw;
+  return "FR";
+}
+
+/** Deterministic fallback PDF URL when API does not return pdf_url. */
 function directPdfUrl(providerId: string): string {
   return `${BASE_URL}/v1.1/documents/${providerId}.pdf`;
 }
@@ -37,9 +44,10 @@ function directPdfUrl(providerId: string): string {
 export const vendusProvider: InvoicingProvider = {
   async healthCheck(): Promise<ProviderHealth> {
     try {
+      const doc = currentDocType();
       const pref = preferredRegisterId();
-      const id = await resolveRegisterIdFor(DOC_TYPE as DocType, pref);
-      await assertRegisterCanIssue(id, DOC_TYPE as DocType);
+      const id = await resolveRegisterIdFor(doc, pref);
+      await assertRegisterCanIssue(id, doc);
       return { ok: true };
     } catch (e: any) {
       return { ok: false, message: String(e?.message || e) };
@@ -52,15 +60,16 @@ export const vendusProvider: InvoicingProvider = {
   },
 
   async createInvoice(input: InvoiceCreateInput): Promise<InvoiceRecord> {
+    const doc = currentDocType();
     const pref = preferredRegisterId();
-    const id = await resolveRegisterIdFor(DOC_TYPE as DocType, pref);
-    await assertRegisterCanIssue(id, DOC_TYPE as DocType);
-    return createInvoiceDocument({ docType: DOC_TYPE as Exclude<DocType, "NC">, registerId: id, input });
+    const id = await resolveRegisterIdFor(doc, pref);
+    await assertRegisterCanIssue(id, doc);
+    return createInvoiceDocument({ docType: doc, registerId: id, input });
   },
 
   async createCreditNote(input: CreditNoteCreateInput): Promise<CreditNoteRecord> {
     const pref = preferredRegisterId();
-    // Credit notes are fiscal → require open register.
+    // Credit notes are fiscal, require open register.
     const id = await resolveRegisterIdFor("NC", pref);
     await assertRegisterCanIssue(id, "NC");
     return createCreditNoteDocument({ registerId: id, input });
