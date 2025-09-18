@@ -65,7 +65,19 @@ export async function onPaymentIntentSucceeded(
     });
 
     if (record) {
-      // TODO (next step): persist to Booking or an Invoice table.
+      // persist invoice to Booking for Ops & customer access
+      await db.booking.update({
+        where: { id: bookingId },
+        data: {
+          invoiceProvider: record.provider,
+          invoiceProviderId: record.providerInvoiceId,
+          invoiceNumber: record.number,
+          invoicePdfUrl: record.pdfUrl,
+          invoiceAtcud: record.atcud ?? null,
+          updatedAt: new Date(),
+        },
+      });
+
       log("invoice:issued", {
         bookingId,
         provider: record.provider,
