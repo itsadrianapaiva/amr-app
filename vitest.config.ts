@@ -3,8 +3,15 @@ import path from "node:path";
 
 export default defineConfig({
   resolve: {
-    // Map "@/…" to the repo root, matching your Next.js alias usage.
-    alias: { "@": path.resolve(__dirname, ".") },
+    alias: [
+      // Keep the Next-style "@/..." absolute imports
+      { find: "@", replacement: path.resolve(__dirname, ".") },
+      // Shim Next's virtual "server-only" module in unit tests
+      {
+        find: "server-only",
+        replacement: path.resolve(__dirname, "tests/shims/server-only.ts"),
+      },
+    ],
   },
   test: {
     include: ["tests/**/*.{test,spec}.ts"], // only run tests in /tests

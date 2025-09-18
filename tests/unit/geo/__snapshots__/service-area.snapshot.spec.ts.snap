@@ -1,0 +1,58 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Service area geometry snapshot > exports a stable MultiPolygon for CI guardrails 1`] = `
+{
+  "coordinates": [
+    [
+      [
+        [
+          -8.999,
+          36.85,
+        ],
+        [
+          -7.9,
+          36.85,
+        ],
+        [
+          -7.9,
+          37.5,
+        ],
+        [
+          -8.999,
+          37.5,
+        ],
+        [
+          -8.999,
+          36.85,
+        ],
+      ],
+    ],
+    [
+      [
+        [
+          -9.35,
+          37.5,
+        ],
+        [
+          -8.1,
+          37.5,
+        ],
+        [
+          -8.1,
+          38.1,
+        ],
+        [
+          -9.35,
+          38.1,
+        ],
+        [
+          -9.35,
+          37.5,
+        ],
+      ],
+    ],
+  ],
+  "name": "Algarve up to Faro + Alentejo Litoral",
+  "type": "MultiPolygon",
+}
+`;
