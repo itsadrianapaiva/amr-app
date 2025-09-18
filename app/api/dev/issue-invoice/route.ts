@@ -76,6 +76,20 @@ export async function GET(req: Request) {
       );
     }
 
+    // Optional per-call doc override: ?doc=PF|FR|FT
+    const docParam = url.searchParams.get("doc");
+    if (docParam) {
+      const allowed = new Set(["PF", "FR", "FT"]);
+      if (!allowed.has(docParam)) {
+        return NextResponse.json(
+          { ok: false, error: "Invalid ?doc. Allowed: PF, FR, FT" },
+          { status: 400, headers: { "cache-control": "no-store" } }
+        );
+      }
+      // Important: set before dynamic imports so vendus core reads it at module eval time.
+      process.env.VENDUS_DOC_TYPE = docParam;
+    }
+
     const id = Number(url.searchParams.get("id"));
     const piParam = url.searchParams.get("pi") || undefined;
 
