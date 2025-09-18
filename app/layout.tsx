@@ -7,6 +7,7 @@ import { getFooterCategories } from "@/lib/data/footer-categories";
 import CookieConsentBanner from "@/components/cookie-consent";
 import { createDefaultMetadata } from "@/lib/seo/default-metadata";
 import ConsentProvider from "@/components/consent-provider";
+import OrganizationJsonLd from "@/components/seo/organization-jsonld";
 
 /**
  * We compose brand-safe defaults (canonical, OG/Twitter, robots) from
@@ -45,25 +46,22 @@ export default async function RootLayout({
       <body>
         {/* loads gtag + applies consent early */}
         <ConsentProvider />
-
+        {/* Inject Organization + WebSite JSON-LD */}
+        <OrganizationJsonLd /> 
+        
         {/* Invisible anchor so '/#home' targets the very top */}
         <div id="home" className="sr-only" aria-hidden="true" />
-
         {/* Sticky header on all pages */}
         <SiteNav />
-
         {/* Page content (HomeView renders <main/>) */}
         {children}
-
         {/* Global footer on all pages */}
         <SiteFooter categories={footerCategories} />
-
         {/* Floating WhatsApp button */}
         <WhatsAppFab
           iconSrc="/assets/whatsapp.png"
           ariaLabel="Contact us on WhatsApp"
         />
-
         {/* Cookie consent banner (client component) */}
         <CookieConsentBanner policyHref="/legal/privacy" />
       </body>

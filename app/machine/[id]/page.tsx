@@ -13,6 +13,7 @@ import { MACHINE_CARD_COPY } from "@/lib/content/machines";
 import { resolveMachineImage } from "@/lib/content/images";
 import { buildMachineDescription } from "@/lib/content/machine-description";
 import { shouldHideDetailByName } from "@/lib/visibility";
+import ProductJsonLd from "@/components/seo/product-jsonld";
 
 /** Safe reader for either 'category' (new) or 'type' (legacy) without using 'any'. */
 function getCategoryOrType(m: unknown): string {
@@ -89,48 +90,65 @@ export default async function MachineDetailPage({
     dbUrl: null, // avoid external hosts in Next/Image on detail page
   });
 
+  // 🔧 Normalize Next/Image StaticImageData to string for JSON-LD
+  const imageSrc =
+    typeof img.src === "string" ? img.src : (img.src as { src: string }).src;
+
+  const jsonLd = (
+    <ProductJsonLd
+      id={machine.id}
+      name={displayName}
+      description={buildMachineDescription(machine)}
+      image={imageSrc}
+      dailyRate={s.dailyRate}
+    />
+  );
+
   return (
-    <section className="px-4 py-16 md:py-24 md:px-8 lg:px-12">
-      <div className="container mx-auto">
-        <div className="grid grid-cols-1 gap-8 lg:gap-12">
-          <Pretitle center text={MACHINE_DETAIL_COPY.pretitle} />
+    <>
+      {jsonLd}
+      <section className="px-4 py-16 md:py-24 md:px-8 lg:px-12">
+        <div className="container mx-auto">
+          <div className="grid grid-cols-1 gap-8 lg:gap-12">
+            <Pretitle center text={MACHINE_DETAIL_COPY.pretitle} />
 
-          {/* Column 1: Image */}
-          <div className="relative h-[400px] w-full overflow-hidden rounded-lg md:h-[500px]">
-            <Image
-              src={img.src}
-              alt={img.alt}
-              fill
-              sizes="(min-width:1024px) 960px, 100vw"
-              className="object-cover"
-            />
-          </div>
-
-          {/* Column 2: Details & Booking Form */}
-          <div className="flex flex-col">
-            <h1 className="mb-4 text-2xl font-bold md:text-3xl uppercase">
-              {displayName}
-            </h1>
-            {displayType && (
-              <p className="mb-4 text-sm text-muted-foreground">
-                {displayType}
-              </p>
-            )}
-            <p className="mb-6 text-muted-foreground">
-              {buildMachineDescription(machine)}
-            </p>
-
-            <MachineSpecs machine={machine} />
-
-            <div className="mt-8">
-              <BookingForm
-                machine={formMachine}
-                disabledRangesJSON={disabledRangesJSON}
+            {/* Column 1: Image */}
+            <div className="relative h-[400px] w-full overflow-hidden rounded-lg md:h-[500px]">
+              <Image
+                src={img.src}
+                alt={img.alt}
+                fill
+                sizes="(min-width:1024px) 960px, 100vw"
+                className="object-cover"
               />
+            </div>
+
+            {/* Column 2: Details & Booking Form */}
+            <div className="flex flex-col">
+              <h1 className="mb-4 text-2xl font-bold md:text-3xl uppercase">
+                {displayName}
+              </h1>
+              {displayType && (
+                <p className="mb-4 text-sm text-muted-foreground">
+                  {displayType}
+                </p>
+              )}
+              <p className="mb-6 text-muted-foreground">
+                {buildMachineDescription(machine)}
+              </p>
+
+              <MachineSpecs machine={machine} />
+
+              <div className="mt-8">
+                <BookingForm
+                  machine={formMachine}
+                  disabledRangesJSON={disabledRangesJSON}
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </>
   );
 }
