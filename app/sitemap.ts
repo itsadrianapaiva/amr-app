@@ -1,25 +1,20 @@
 import type { MetadataRoute } from "next";
+import { db } from "@/lib/db";
 
 /**
  * Sitemap strategy:
- * - Production: absolute URLs using NEXT_PUBLIC_SITE_URL.
- * - Non-prod: still returns a valid sitemap (helps for local tooling),
- *   but ensure robots.ts blocks indexing on staging/preview.
- *
- * ENV:
- * - NEXT_PUBLIC_SITE_URL: e.g., "https://amr.pt" (no trailing slash).
- * - NEXT_PUBLIC_ENV: "production" | "staging" | "development" | "preview" (optional; informational here).
+ * - Absolute URLs using NEXT_PUBLIC_SITE_URL (falls back to example.com if missing).
+ * - Static routes listed explicitly.
+ * - Dynamic routes for machine detail pages at /machine/[id].
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const site =
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ||
-    "https://example.com";
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") || "https://example.com";
 
   // Helper to build absolute URLs consistently
-  const u = (path: string) =>
-    `${site}${path.startsWith("/") ? "" : "/"}${path}`;
+  const u = (path: string) => `${site}${path.startsWith("/") ? "" : "/"}${path}`;
 
-  // Known static routes (expand as we add)
+  // Static routes (expand as needed)
   const staticRoutes = [
     { path: "/", priority: 1.0, changefreq: "daily" as const },
     { path: "/catalog", priority: 0.9, changefreq: "daily" as const },
@@ -28,23 +23,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/legal/cookies", priority: 0.2, changefreq: "yearly" as const },
   ];
 
-  /**
-   * Dynamic machine detail pages:
-   * We’ll wire these in Step 1c once you confirm the detail route pattern,
-   * e.g., /machines/[slug] or /catalog/[slug].
-   * For now we return the static base; robots already protects non-prod.
-   */
-  // const machineEntries: MetadataRoute.Sitemap = await getMachineSitemapEntries();
+  // Fetch machine IDs for dynamic detail pages
+  const machines = await db.machine.findMany({
+    select: { id: true },
+    orderBy: { id: "asc" },
+  });
 
+  // NOTE: Machine model doesn’t expose updatedAt/createdAt;
+  // we'll use a single consistent timestamp for this generation.
   const now = new Date().toISOString();
 
-  const entries: MetadataRoute.Sitemap = staticRoutes.map((r) => ({
+  // Map static pages
+  const staticEntries: MetadataRoute.Sitemap = staticRoutes.map((r) => ({
     url: u(r.path),
     lastModified: now,
     changeFrequency: r.changefreq,
     priority: r.priority,
   }));
 
-  // return [...entries, ...machineEntries];
-  return entries;
+  // Map dynamic machine pages at /machine/[id]
+  const machineEntries: MetadataRoute.Sitemap = machines.map((m) => ({
+    url: u(`/machine/${m.id}`),
+    lastModified: now,
+    changeFrequency: "weekly",
+    priority: 0.8,
+  }));
+
+  return [...staticEntries, ...machineEntries];
 }
