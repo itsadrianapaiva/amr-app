@@ -96,7 +96,6 @@ export function buildCreateDocumentPayload(params: {
     register_id: registerId,
     client,
     items, // v1.1 expects items
-    currency: input.currency, // "EUR"
     external_reference: input.idempotencyKey || input.externalRef,
     notes: input.notes,
     output: "pdf_url",
