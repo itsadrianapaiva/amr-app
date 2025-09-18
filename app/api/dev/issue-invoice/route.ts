@@ -1,7 +1,6 @@
+// app/api/dev/issue-invoice/route.ts
 import "server-only";
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { maybeIssueInvoice } from "@/lib/invoicing/issue-for-booking";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,7 +8,6 @@ export const revalidate = 0;
 
 export async function GET(req: Request) {
   try {
-    // This route relies on your global middleware gate (x-e2e-secret).
     const url = new URL(req.url);
     const id = Number(url.searchParams.get("id"));
     const piParam = url.searchParams.get("pi") || undefined; // optional PI override
@@ -20,6 +18,12 @@ export async function GET(req: Request) {
         { status: 400, headers: { "cache-control": "no-store" } }
       );
     }
+
+    // Lazy-load heavy/serverful deps so module-eval crashes become catchable JSON.
+    const [{ db }, { maybeIssueInvoice }] = await Promise.all([
+      import("@/lib/db"),
+      import("@/lib/invoicing/issue-for-booking"),
+    ]);
 
     // Pull booking facts from DB
     const b = await db.booking.findUnique({
@@ -87,15 +91,13 @@ export async function GET(req: Request) {
 
     if (!record) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: "Provider declined issuance (disabled or misconfigured)",
-        },
+        { ok: false, error: "Provider declined issuance (disabled or misconfigured)" },
         { status: 409, headers: { "cache-control": "no-store" } }
       );
     }
 
     // Persist back to Booking for quick visibility in Ops/UI
+    // (If this throws, it will be caught below and returned as JSON.)
     await db.booking.update({
       where: { id: b.id },
       data: {
@@ -115,9 +117,7 @@ export async function GET(req: Request) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     const stack =
-      process.env.DEBUG_INVOICING === "1" && err instanceof Error
-        ? err.stack
-        : undefined;
+      process.env.DEBUG_INVOICING === "1" && err instanceof Error ? err.stack : undefined;
 
     console.error("[dev/issue-invoice] Error:", msg, stack);
     return NextResponse.json(
