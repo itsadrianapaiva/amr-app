@@ -1,6 +1,8 @@
+// lib/geo/parse-headers.ts
 /**
  * Parses geolocation from common CDN/server headers into a normalized shape.
  * - Netlify:   "x-nf-geo": JSON with { latitude, longitude }
+ * - Vercel:    "x-vercel-ip-latitude", "x-vercel-ip-longitude"
  * - Cloudflare:"cf-iplatitude", "cf-iplongitude"
  *
  * Returns { lat, lng } or null when unavailable/invalid.
@@ -25,7 +27,7 @@ function toNumber(v: unknown): number | null {
  *   - Accepts Request.headers converted via Object.fromEntries(new Headers(req.headers))
  */
 export function parseGeoFromHeaders(
-  headers: Record<string, string | string[] | undefined>,
+  headers: Record<string, string | string[] | undefined>
 ): LatLng | null {
   // Normalize keys to lowercase for case-insensitive access.
   const map: Record<string, string | string[] | undefined> = {};
@@ -37,9 +39,11 @@ export function parseGeoFromHeaders(
   if (nf) {
     try {
       const obj =
-        typeof nf === "string" ? JSON.parse(nf) :
-        Array.isArray(nf) ? JSON.parse(nf[0] ?? "") :
-        null;
+        typeof nf === "string"
+          ? JSON.parse(nf)
+          : Array.isArray(nf)
+            ? JSON.parse(nf[0] ?? "")
+            : null;
       if (obj) {
         const lat = toNumber(obj.latitude);
         const lng = toNumber(obj.longitude);
