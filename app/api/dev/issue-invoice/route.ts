@@ -39,6 +39,15 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
 
+    // vendus registers list probe
+    if (url.searchParams.get("vendus") === "registers") {
+      const out = await vendusGet("/v1.0/registers/");
+      return NextResponse.json(
+        { ok: out.status === 200, stage: "vendus-registers", result: out.json },
+        { headers: { "cache-control": "no-store" }, status: out.status }
+      );
+    }
+
     // vendus register detail probe
     if (url.searchParams.get("vendus")?.startsWith("register:")) {
       const idStr = url.searchParams.get("vendus")!.split(":")[1];
@@ -76,6 +85,18 @@ export async function GET(req: Request) {
       );
     }
 
+    // robust id parsing; don't treat missing ?id as 0
+    const idParam = url.searchParams.get("id");
+    const id = idParam && /^\d+$/.test(idParam) ? Number(idParam) : NaN;
+    const piParam = url.searchParams.get("pi") || undefined;
+
+    if (!Number.isFinite(id)) {
+      return NextResponse.json(
+        { ok: false, error: "Missing or invalid ?id" },
+        { status: 400, headers: { "cache-control": "no-store" } }
+      );
+    }
+
     // Optional per-call doc override: ?doc=PF|FR|FT
     const docParam = url.searchParams.get("doc");
     if (docParam) {
@@ -88,16 +109,6 @@ export async function GET(req: Request) {
       }
       // Important: set before dynamic imports so vendus core reads it at module eval time.
       process.env.VENDUS_DOC_TYPE = docParam;
-    }
-
-    const id = Number(url.searchParams.get("id"));
-    const piParam = url.searchParams.get("pi") || undefined;
-
-    if (!Number.isFinite(id)) {
-      return NextResponse.json(
-        { ok: false, error: "Missing or invalid ?id" },
-        { status: 400, headers: { "cache-control": "no-store" } }
-      );
     }
 
     // Lazy-load to keep module-eval errors catchable
