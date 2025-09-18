@@ -6,6 +6,7 @@ import WhatsAppFab from "@/components/whatsapp-fab";
 import { getFooterCategories } from "@/lib/data/footer-categories";
 import CookieConsentBanner from "@/components/cookie-consent";
 import { createDefaultMetadata } from "@/lib/seo/default-metadata";
+import ConsentProvider from "@/components/consent-provider";
 
 /**
  * We compose brand-safe defaults (canonical, OG/Twitter, robots) from
@@ -33,7 +34,6 @@ export const metadata: Metadata = {
   },
 };
 
-
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -43,6 +43,9 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body>
+        {/* loads gtag + applies consent early */}
+        <ConsentProvider />
+
         {/* Invisible anchor so '/#home' targets the very top */}
         <div id="home" className="sr-only" aria-hidden="true" />
 
