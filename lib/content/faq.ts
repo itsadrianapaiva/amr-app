@@ -39,10 +39,6 @@ export const FAQ_CONTENT: FaqContent = {
       a: "The price summary shows amounts before VAT and the total with VAT. You pay the full rental amount plus VAT at checkout. Stripe shows the VAT breakdown and your invoice reflects the same amounts.",
     },
     {
-      q: "Delivery, collection, and return",
-      a: "If you select Delivery, we take the machine to your site. If you also select Pickup, we collect it at the end. If Delivery is not selected you collect the machine from us; if Pickup is not selected you return it to our yard. Please add the job site address during checkout so we can plan logistics. Delivery and pickup fees may apply.",
-    },
-    {
       q: "Is an operator available?",
       a: "Yes. An on-site operator is a flat €350 per day for all machines. You can add this during checkout so it appears on your booking and invoice.",
     },
