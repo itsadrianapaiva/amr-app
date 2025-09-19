@@ -95,11 +95,9 @@ function makeAddonsList(input: {
 
 /**
  * notifyBookingConfirmed
- * Loads the booking and sends two emails:
- *  - Customer confirmation (if we have a customerEmail)
- *  - Internal notification to ADMIN_TO
- *
- * Never throws. Uses sendEmail() which already contains dry-run behavior.
+ * Sends:
+ *  - Customer email ONLY when invoice is present (prevents double-send)
+ *  - Internal email always
  */
 export async function notifyBookingConfirmed(
   bookingId: number,
@@ -160,12 +158,15 @@ export async function notifyBookingConfirmed(
     pickupSelected: b.pickupSelected,
   });
 
+  // single gate to prevent double-send
+  const hasInvoice = !!b.invoiceNumber && !!b.invoicePdfUrl;
+
   // build a signed proxy URL for internal email if an invoice exists
   const invoiceProxyUrl = b.invoicePdfUrl
     ? buildInvoiceLinkSnippet(b.id).url
     : undefined;
 
-  // 3) Customer email (optional) — SKIP for ops-created bookings and internal placeholders
+  // --- Customer email (send only when invoice exists) ---
   const isInternalPlaceholder = (b.customerEmail || "")
     .toLowerCase()
     .endsWith("@internal.local");
