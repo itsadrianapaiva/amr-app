@@ -1,10 +1,10 @@
+// next.config.ts
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
-    // Don't run ESLint during `next build` (and don't require the package)
     ignoreDuringBuilds: true,
   },
-  // Optional: silence the dev-origin warnings
+
   allowedDevOrigins: [
     "http://127.0.0.1:3000",
     "http://localhost:3000",
@@ -12,6 +12,19 @@ const nextConfig = {
     "http://localhost:8888",
     "http://127.0.0.1",
   ],
+
+  images: {
+    // AVIF encoders can 500 in some serverless setups.
+    // Keep WebP (big win) and fall back to JPEG automatically.
+    formats: ["image/webp"],
+
+    // Keep these aligned with our layouts to avoid wasteful variants.
+    deviceSizes: [360, 640, 768, 1024, 1280, 1536, 1920],
+    imageSizes: [64, 96, 128, 256, 384],
+
+    // Safety valve: if issues persist, flip this to true temporarily to disable the optimizer globally.
+    // unoptimized: true,
+  },
 };
 
 export default nextConfig;
