@@ -65,7 +65,10 @@ export default function Hero({
         src={heroSrc}
         alt="Tracked excavator working on a job site"
         fill
+        /* Keep the image decisive for LCP: priority eagerly loads; fetchPriority hints the browser scheduler explicitly */
         priority
+        fetchPriority="high"
+        /* Full-bleed hero = the rendered width is the viewport width */
         sizes="100vw"
         className="absolute inset-0 object-cover"
       />

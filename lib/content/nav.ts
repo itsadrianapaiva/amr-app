@@ -47,7 +47,7 @@ export type NavLink = {
       href: "/#catalog",
     },
     // No phone yet. Placeholder keeps layout stable until we set a number.
-    phoneDisplay: "Your phone here",
+    phoneDisplay: "+351934014611",
     // WhatsApp off for now. Set to e.g. "+3519XXXXXXXX" when ready.
     whatsappE164: null,
     // Optional small tagline for a skinny top bar or badge near CTA.

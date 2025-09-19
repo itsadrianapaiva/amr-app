@@ -35,20 +35,68 @@ export const metadata: Metadata = {
   },
 };
 
+// Env-aware flags so we only warm connections we actually use.
+// GA4 or Google Ads configured?
+const hasGA =
+  !!process.env.NEXT_PUBLIC_GA4_ID || !!process.env.NEXT_PUBLIC_GADS_ID;
+// Stripe publishable key configured (client usage)?
+const hasStripe = !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   const footerCategories = await getFooterCategories();
+
   return (
     <html lang="en">
+      <head>
+        {/* 
+          Connection warmups:
+          - dns-prefetch is low-cost hint (DNS only)
+          - preconnect opens TCP+TLS (bigger win when actually used)
+          - crossOrigin="" makes the connection "anonymous" and sharable across subresources 
+        */}
+
+        {/* Google Tag Manager / Analytics (only if configured) */}
+        {hasGA && (
+          <>
+            <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+            <link
+              rel="preconnect"
+              href="https://www.googletagmanager.com"
+              crossOrigin=""
+            />
+            <link rel="dns-prefetch" href="https://www.google-analytics.com" />
+            <link
+              rel="preconnect"
+              href="https://www.google-analytics.com"
+              crossOrigin=""
+            />
+          </>
+        )}
+
+        {/* Stripe (only if configured) */}
+        {hasStripe && (
+          <>
+            <link rel="dns-prefetch" href="https://js.stripe.com" />
+            <link
+              rel="preconnect"
+              href="https://js.stripe.com"
+              crossOrigin=""
+            />
+            <link rel="dns-prefetch" href="https://m.stripe.com" />
+            <link rel="preconnect" href="https://m.stripe.com" crossOrigin="" />
+          </>
+        )}
+      </head>
       <body>
         {/* loads gtag + applies consent early */}
         <ConsentProvider />
         {/* Inject Organization + WebSite JSON-LD */}
-        <OrganizationJsonLd /> 
-        
+        <OrganizationJsonLd />
+
         {/* Invisible anchor so '/#home' targets the very top */}
         <div id="home" className="sr-only" aria-hidden="true" />
         {/* Sticky header on all pages */}

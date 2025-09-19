@@ -1,0 +1,17 @@
+# 1) Next.js build artifacts (hashed) — safe to cache for a year
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# 2) Own static assets (images, fonts, SVG, etc.) — also immutable if filenames are content-hashed
+# Adjust paths to match your project structure:
+/images/*
+  Cache-Control: public, max-age=31536000, immutable
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# 3) Default catch-all for HTML/SSR responses — always revalidate
+# More specific rules above take precedence.
+/*
+  Cache-Control: public, max-age=0, must-revalidate

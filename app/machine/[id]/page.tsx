@@ -118,7 +118,11 @@ export default async function MachineDetailPage({
                 src={img.src}
                 alt={img.alt}
                 fill
-                sizes="(min-width:1024px) 960px, 100vw"
+                /* Use max-width logic: on small screens take full viewport width, otherwise cap around our content column width */
+                sizes="(max-width: 1024px) 100vw, 960px"
+                /* Detail pages land with this hero-like image above the fold; make it LCP-friendly */
+                priority
+                fetchPriority="high"
                 className="object-cover"
               />
             </div>

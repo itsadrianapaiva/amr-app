@@ -51,14 +51,13 @@ export const CONTACTS: ContactContent = {
     // TODO: replace placeholders with real values.
     email: "support@amr-rentals.com",
     whatsapp: {
-      e164: "+351900000000",
-      display: "(+351) 900 000 000",
+      e164: "+351934014611",
+      display: "(+351) 934 014 611",
       messageTemplate: "Hello AMR, I need help with something else.",
     },
-    responseTimeNote: "Mon–Fri, 08:00–18:00 (Lisbon)",
+    responseTimeNote: "Mon–Fri, 09:00–17:00 (Lisbon)",
   },
   location: {
-    // TODO: replace placeholders with real values.
     label: "Head Office",
     addressLine1: "",
     city: "Aljezur",
