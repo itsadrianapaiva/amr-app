@@ -34,7 +34,7 @@ export const HOME_HERO: HeroContent = {
   primaryLabel: "Browse machines",
 
   // Set when ready to enable WhatsApp CTA, e.g. "+3519XXXXXXXX"
-  whatsappNumberE164: null,
+  whatsappNumberE164:"+351934014611",
   whatsappLabel: "Need help? Chat on WhatsApp",
 
   // Hook for the future background photo (your globals already define color tokens).
