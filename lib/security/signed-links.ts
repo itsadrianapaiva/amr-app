@@ -14,14 +14,14 @@ const VERSION = 1;
 
 /**
  * Reads the secret used to sign invoice links.
- * Required env: INVOICE_LINK_SECRET
+ * Required env: INVOICING_LINK_SECRET
  */
 function getSecret(): string {
-  const secret = process.env.INVOICE_LINK_SECRET;
+  const secret = process.env.INVOICING_LINK_SECRET;
   if (!secret || secret.length < 24) {
     // Keep error explicit so we fail loudly in staging if not configured
     throw new Error(
-      "Missing INVOICE_LINK_SECRET or too short. Set a long random string in your environment."
+      "Missing INVOICING_LINK_SECRET or too short. Set a long random string in your environment."
     );
   }
   return secret;
@@ -56,7 +56,11 @@ export function createSignedToken<T extends AnyRecord>(
     throw new Error("ttlSeconds must be a positive number");
   }
   const now = Math.floor(Date.now() / 1000);
-  const payload: SignedPayload<T> = { ...data, exp: now + ttlSeconds, v: VERSION };
+  const payload: SignedPayload<T> = {
+    ...data,
+    exp: now + ttlSeconds,
+    v: VERSION,
+  };
   const payloadB64 = b64urlEncode(Buffer.from(JSON.stringify(payload)));
   const message = `v${VERSION}.${payloadB64}`;
   const sig = createHmac(ALG, getSecret()).update(message).digest("hex");
@@ -67,7 +71,9 @@ export function createSignedToken<T extends AnyRecord>(
  * Verifies token and returns payload if valid and not expired. Otherwise null.
  * Uses timingSafeEqual to avoid subtle timing leaks.
  */
-export function verifySignedToken<T extends AnyRecord>(token: string): T | null {
+export function verifySignedToken<T extends AnyRecord>(
+  token: string
+): T | null {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
