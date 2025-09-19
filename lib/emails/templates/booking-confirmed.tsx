@@ -1,5 +1,6 @@
 import "server-only";
 import type { ReactElement } from "react";
+import { buildInvoiceLinkSnippet } from "@/lib/emails/invoice-link";
 
 /** Props aligned to our customer-facing data contract. Money as strings "123.45". */
 export type CustomerBookingEmailProps = {
@@ -30,7 +31,7 @@ export type CustomerBookingEmailProps = {
   invoicePdfUrl?: string | null;
 
   warehouseAddress: string;
-  warehouseHours: string; // "Mon–Fri 09:00–18:00"
+  warehouseHours: string; // "Mon–Fri 09:00–17:00"
   callByDateTimeLocal?: string | null; // "Sep 13, 18:00 Lisbon"
   machineAccessNote?: string | null; // "3.5-ton truck"
 };
@@ -129,6 +130,16 @@ export default function BookingConfirmedEmail(
   const dateRange = fmtRangeLisbon(startYmd, endYmd);
   const greeting = customerName ? `Hi ${customerName},` : "Hello,";
 
+  // Prefer our signed proxy link when an invoice exists; fall back to raw URL if env is missing.
+  let invoiceHref: string | null = null;
+  if (invoicePdfUrl) {
+    try {
+      invoiceHref = buildInvoiceLinkSnippet(bookingId).url; // default TTL 72h
+    } catch {
+      invoiceHref = invoicePdfUrl; // safe fallback
+    }
+  }
+
   return (
     <html>
       <body style={S.body}>
@@ -162,21 +173,24 @@ export default function BookingConfirmedEmail(
 
             <hr style={S.hr} />
 
-           {/* Clear logistics: start vs end of rental */}
-           <p style={S.p}>
+            {/* Clear logistics: start vs end of rental */}
+            <p style={S.p}>
               <strong>Start of rental:</strong>{" "}
               {deliverySelected ? (
                 <>
                   We will deliver the machine to your site.
-                  {callByDateTimeLocal ? ` We will call you by ${callByDateTimeLocal}` : " We will call you"}{" "}
+                  {callByDateTimeLocal
+                    ? ` We will call you by ${callByDateTimeLocal}`
+                    : " We will call you"}{" "}
                   to confirm the delivery window. Please ensure access is clear
                   {machineAccessNote ? ` for a ${machineAccessNote}` : ""}.
                 </>
               ) : (
                 <>
-                  Please collect the machine at <span style={S.v}>{warehouseAddress}</span>. Hours:{" "}
-                  <span style={S.v}>{warehouseHours}</span>. Bring a valid ID and
-                  this email.
+                  Please collect the machine at{" "}
+                  <span style={S.v}>{warehouseAddress}</span>. Hours:{" "}
+                  <span style={S.v}>{warehouseHours}</span>. Bring a valid ID
+                  and this email.
                 </>
               )}
             </p>
@@ -190,37 +204,39 @@ export default function BookingConfirmedEmail(
                 </>
               ) : (
                 <>
-                  Please return the machine to <span style={S.v}>{warehouseAddress}</span>. Hours:{" "}
-                  <span style={S.v}>{warehouseHours}</span>. If you prefer a pickup,
-                  reply to this email and we will arrange it.
+                  Please return the machine to{" "}
+                  <span style={S.v}>{warehouseAddress}</span>. Hours:{" "}
+                  <span style={S.v}>{warehouseHours}</span>. If you prefer a
+                  pickup, reply to this email and we will arrange it.
                 </>
               )}
             </p>
 
             <p style={S.p}>
-              <strong>On handover:</strong> We collect the refundable deposit, do
-              a short equipment check on return, and release the deposit after
-              inspection.
+              <strong>On handover:</strong> We collect the refundable deposit,
+              do a short equipment check on return, and release the deposit
+              after inspection.
             </p>
 
             <hr style={S.hr} />
 
-            {invoicePdfUrl ? (
+            {invoiceHref ? (
               <p style={S.p}>
                 <strong>Invoice:</strong>{" "}
-                <a href={invoicePdfUrl} style={S.link}>
+                <a href={invoiceHref} style={S.link}>
                   Download PDF
                 </a>
               </p>
             ) : (
               <p style={S.p}>
-                <strong>Invoice:</strong> It will arrive shortly after payment is
-                fully settled.
+                <strong>Invoice:</strong> It will arrive shortly after payment
+                is fully settled.
               </p>
             )}
 
             <p style={S.small}>
-              Need help? Call {supportPhone} or reply to this email. {companyName} ·{" "}
+              Need help? Call {supportPhone} or reply to this email.{" "}
+              {companyName} ·{" "}
               <a href={companySite} style={S.link}>
                 {companySite}
               </a>{" "}

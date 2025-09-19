@@ -90,7 +90,7 @@ export default async function MachineDetailPage({
     dbUrl: null, // avoid external hosts in Next/Image on detail page
   });
 
-  // 🔧 Normalize Next/Image StaticImageData to string for JSON-LD
+  // Normalize Next/Image StaticImageData to string for JSON-LD
   const imageSrc =
     typeof img.src === "string" ? img.src : (img.src as { src: string }).src;
 

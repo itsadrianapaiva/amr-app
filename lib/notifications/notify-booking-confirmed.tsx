@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/emails/mailer";
 import BookingConfirmedEmail from "@/lib/emails/templates/booking-confirmed";
 import BookingInternalEmail from "@/lib/emails/templates/booking-internal";
+import { buildInvoiceLinkSnippet } from "../emails/invoice-link";
 
 /** Narrow, explicit input. Keep this module single-purpose. */
 export type NotifySource = "customer" | "ops";
@@ -15,7 +16,7 @@ const COMPANY_EMAIL =
   process.env.EMAIL_REPLY_TO ||
   process.env.SUPPORT_EMAIL ||
   "support@amr-rentals.com";
-const SUPPORT_PHONE = process.env.SUPPORT_PHONE || "351000000000";
+const SUPPORT_PHONE = process.env.SUPPORT_PHONE || "351934014611";
 const COMPANY_WEBSITE =
   process.env.COMPANY_WEBSITE || "https://amr-rentals.com";
 
@@ -31,7 +32,7 @@ const ADMIN_TO = (
 
 /** Logistics (customer “what happens next”). */
 const WAREHOUSE_ADDRESS = process.env.WAREHOUSE_ADDRESS || "AMR Warehouse";
-const WAREHOUSE_HOURS = process.env.WAREHOUSE_HOURS || "Mon–Fri 09:00–18:00";
+const WAREHOUSE_HOURS = process.env.WAREHOUSE_HOURS || "Mon–Fri 09:00–17:00";
 
 /** Public URL for Ops deep links in internal mail. */
 const APP_URL = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "";
@@ -159,6 +160,11 @@ export async function notifyBookingConfirmed(
     pickupSelected: b.pickupSelected,
   });
 
+  // build a signed proxy URL for internal email if an invoice exists
+  const invoiceProxyUrl = b.invoicePdfUrl
+    ? buildInvoiceLinkSnippet(b.id).url
+    : undefined;
+
   // 3) Customer email (optional) — SKIP for ops-created bookings and internal placeholders
   const isInternalPlaceholder = (b.customerEmail || "")
     .toLowerCase()
@@ -230,7 +236,7 @@ export async function notifyBookingConfirmed(
       stripePiId={undefined}
       stripePiUrl={undefined}
       invoiceNumber={b.invoiceNumber || undefined}
-      invoicePdfUrl={b.invoicePdfUrl || undefined}
+      invoicePdfUrl={invoiceProxyUrl || undefined}
       googleCalendarEventId={undefined}
       googleHtmlLink={undefined}
     />
