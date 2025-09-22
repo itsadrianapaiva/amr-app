@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import Image, { type StaticImageData } from "next/image";
 import Pretitle from "@/components/ui/pretitle";
 import { WHY_BOOK } from "@/lib/content/why";
 import { imageContent } from "@/lib/content/images";
@@ -14,6 +14,12 @@ import { CheckCircle2 } from "lucide-react";
 export default function WhyBook() {
   // Pick which variant to show: "default" or "alt"
   const img = imageContent.why.default;
+
+  // Detect static import to enable blur placeholder
+  const isStatic =
+    typeof img.src === "object" &&
+    img.src !== null &&
+    "src" in (img.src as StaticImageData);
 
   return (
     <section id="about" className="px-8 py-16 md:py-24 md:px-8 lg:px-12">
@@ -65,6 +71,13 @@ export default function WhyBook() {
                 width={444}
                 height={492}
                 loading="lazy"
+                decoding="async"
+                fetchPriority="low"
+                /* Right column is ~420–444px on xl. Below xl it can span ~90vw. */
+                sizes="(min-width:1280px) 444px, (min-width:1024px) 50vw, 90vw"
+                /* Blur when using StaticImageData from our static imports */
+                placeholder={isStatic ? "blur" : "empty"}
+                quality={78}
                 className="block"
               />
             </div>
