@@ -61,8 +61,6 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
             {NAV_CONTENT.primaryCta.label}
           </Link>
         </div>
-
-        {/* Optional socials/contacts could go here later */}
       </div>
     </SheetContent>
   );
@@ -97,9 +95,12 @@ export default function SiteNav() {
     <header className={`sticky top-0 z-50 transition-colors ${headerClasses}`}>
       {/* Extra horizontal padding so the CTA isn't glued to the right edge */}
       <div className="container mx-auto px-4 md:px-6 lg:px-8 xl:px-10">
-        <div className="flex min-h-[72px] items-center justify-between md:min-h-[88px]">
-          {/* Brand */}
-          <Logo src={logoSrc} width={160} height={48} />
+        {/* Lock row height across states to avoid CLS */}
+        <div className="flex min-h-[120px] items-center justify-between py-2">
+          {/* Reserve exact logo box so swapping src never reflows */}
+          <div className="h-14 w-[160px] shrink-0 flex items-center">
+            <Logo src={logoSrc} width={160} height={48} />
+          </div>
 
           {/* Desktop nav */}
           <nav className="hidden items-center gap-6 md:flex">
@@ -134,15 +135,14 @@ export default function SiteNav() {
             </Link>
           </nav>
 
-          {/* Mobile trigger — white over hero, regular when solid */}
-          <div className="md:hidden">
+          {/* Mobile trigger — fixed dimensions so it can't jitter */}
+          <div className="md:hidden shrink-0">
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger
                 aria-label="Open menu"
-                className="inline-flex h-18 w-18 items-center justify-center"
+                className="inline-flex h-12 w-12 items-center justify-center"
               >
-                {" "}
-                <Menu className="h-10 w-10 mr-8" />
+                <Menu className="h-8 w-8" />
               </SheetTrigger>
               <MobileMenu onClose={() => setOpen(false)} />
             </Sheet>
