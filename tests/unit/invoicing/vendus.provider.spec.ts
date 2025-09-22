@@ -1,5 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
+// Stub the Vendus client resolver so provider tests never hit GET /v1.1/clients/
+vi.mock("../../../lib/invoicing/vendors/vendus/clients", async (orig) => {
+  const mod = await orig<any>();
+  return {
+    ...mod,
+    resolveOrCreateClient: vi.fn().mockResolvedValue(123), // fixed Vendus client id
+  };
+});
+
 // Create a virtual stub for Next.js' "server-only" (kept from your original)
 (vi as any).mock("server-only", () => ({}), { virtual: true });
 
