@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
@@ -57,15 +57,21 @@ export function MachineCard({ machine, eager = false }: MachineCardProps) {
   if (showPickup) specs.push(MACHINE_CARD_COPY.labels.pickupAvailable);
   const specsLine = specs.join(" • ");
 
-  // Always resolve via our internal map; ignore DB/CSV links to avoid Next/Image host errors
+  // Resolve local/static or remote image (remote is guarded)
   const img = resolveMachineImage({
     type: categoryOrType,
     name: machine.name ?? "",
     dbUrl: null, // explicitly ignore external URLs on cards
   });
 
-  const srcToUse = img.src;
+  const srcToUse = img.src as StaticImageData | string;
   const altToUse = img.alt;
+
+  // If we have a static import, use a blur placeholder for nicer perceived loading
+  const isStatic =
+    typeof srcToUse === "object" &&
+    srcToUse !== null &&
+    "src" in (srcToUse as any);
 
   return (
     <div className="group relative h-[492px] w-full overflow-hidden">
@@ -86,11 +92,15 @@ export function MachineCard({ machine, eager = false }: MachineCardProps) {
         src={srcToUse}
         alt={altToUse}
         fill
-        /* Grid is 1/2/4 columns: use 100vw / 50vw / 25vw (container padding reduces a bit but this safely avoids oversizing) */
+        /* 1 / 2 / 4 columns on base / md / xl */
         sizes="(min-width:1280px) 25vw, (min-width:768px) 50vw, 100vw"
-        /* Load only the very first row sooner; others stay lazy */
+        /* Nudge the first row only */
         loading={eager ? "eager" : "lazy"}
         fetchPriority={eager ? "high" : "auto"}
+        /* Blur only when StaticImageData is available (auto blurDataURL) */
+        placeholder={isStatic ? "blur" : "empty"}
+        /* Mild quality trim; WebP handles compression well */
+        quality={78}
         className="object-cover transition-transform duration-500 group-hover:scale-105"
       />
 
