@@ -23,6 +23,6 @@ export default defineConfig({
       "coverage/**",
     ],
     environment: "node",
-    setupFiles: ["tests/setup/silence-geo-logs.ts"],
+    setupFiles: ["tests/setup/silence-geo-logs.ts", "./tests/shims/setup.ts"],
   },
 });

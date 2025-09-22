@@ -1,4 +1,3 @@
-// lib/invoicing/vendors/vendus/core.ts
 import "server-only";
 
 /**
