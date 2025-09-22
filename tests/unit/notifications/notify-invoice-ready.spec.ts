@@ -1,5 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// make JSX safe in Vitest by mocking React + jsx-runtime ---
+vi.mock("react", () => ({
+  default: { createElement: () => null },
+  createElement: () => null,
+}));
+vi.mock("react/jsx-runtime", () => ({
+  jsx: () => null,
+  jsxs: () => null,
+  Fragment: "fragment",
+}));
+
 // Hoist-safe test doubles (Vitest hoists vi.mock calls)
 const { findUnique, updateMany, sendEmail } = vi.hoisted(() => {
   return {
@@ -9,7 +20,7 @@ const { findUnique, updateMany, sendEmail } = vi.hoisted(() => {
   };
 });
 
-// Optional: if you haven't already aliased "server-only" to a shim in vitest config
+// Optional: if not already shimmed globally
 vi.mock("server-only", () => ({}));
 
 // Mock DB layer before importing SUT
@@ -29,7 +40,7 @@ vi.mock("@/lib/emails/invoice-link", () => ({
   }),
 }));
 
-// Mock template to avoid JSX rendering work
+// Mock template to avoid heavy JSX rendering
 vi.mock("@/lib/emails/templates/invoice-ready", () => ({
   default: () => null,
   subjectForInvoiceReady: (id: number, n?: string) =>
