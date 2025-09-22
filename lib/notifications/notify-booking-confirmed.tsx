@@ -131,6 +131,8 @@ export async function notifyBookingConfirmed(
       invoiceNumber: true,
       invoicePdfUrl: true,
 
+      confirmationEmailSentAt: true,
+
       machine: { select: { name: true, deposit: true } },
     },
   });
@@ -158,57 +160,63 @@ export async function notifyBookingConfirmed(
     pickupSelected: b.pickupSelected,
   });
 
-  // single gate to prevent double-send
+  // 3) Invoice presence gate + signed proxy link (centralized resolver)
   const hasInvoice = !!b.invoiceNumber && !!b.invoicePdfUrl;
+  const invoiceSigned = hasInvoice ? buildInvoiceLinkSnippet(b.id) : undefined;
 
-  // build a signed proxy URL for internal email if an invoice exists
-  const invoiceProxyUrl = b.invoicePdfUrl
-    ? buildInvoiceLinkSnippet(b.id).url
-    : undefined;
-
-  // --- Customer email (send only when invoice exists) ---
+  // 4) Customer email — send once, only if invoice exists and not internal placeholder
   const isInternalPlaceholder = (b.customerEmail || "")
     .toLowerCase()
     .endsWith("@internal.local");
+
   let customerPromise: Promise<unknown> = Promise.resolve();
 
   if (source !== "ops" && b.customerEmail && !isInternalPlaceholder) {
-    const react: ReactElement = (
-      <BookingConfirmedEmail
-        companyName={COMPANY_NAME}
-        companyEmail={COMPANY_EMAIL}
-        supportPhone={SUPPORT_PHONE}
-        companySite={COMPANY_WEBSITE}
-        customerName={b.customerName || undefined}
-        bookingId={b.id}
-        machineName={machineName}
-        startYmd={startYmd}
-        endYmd={endYmd}
-        rentalDays={days}
-        addonsList={addonsList}
-        deliverySelected={b.deliverySelected}
-        pickupSelected={b.pickupSelected}
-        siteAddress={siteAddress || null}
-        subtotalExVat={money.subtotalExVat}
-        vatAmount={money.vatAmount}
-        totalInclVat={money.totalInclVat}
-        depositAmount={toMoneyString(depositNumber)}
-        invoicePdfUrl={b.invoicePdfUrl || undefined}
-        warehouseAddress={WAREHOUSE_ADDRESS}
-        warehouseHours={WAREHOUSE_HOURS}
-        callByDateTimeLocal={null}
-        machineAccessNote={null}
-      />
-    );
-
-    customerPromise = sendEmail({
-      to: b.customerEmail,
-      subject: "Your AMR booking is confirmed: next steps",
-      react,
+    // Atomic claim: exactly one sender wins
+    const claim = await db.booking.updateMany({
+      where: { id: b.id, confirmationEmailSentAt: null },
+      data: { confirmationEmailSentAt: new Date() },
     });
+
+    if (claim.count === 1) {
+      const react: ReactElement = (
+        <BookingConfirmedEmail
+          companyName={COMPANY_NAME}
+          companyEmail={COMPANY_EMAIL}
+          supportPhone={SUPPORT_PHONE}
+          companySite={COMPANY_WEBSITE}
+          customerName={b.customerName || undefined}
+          bookingId={b.id}
+          machineName={machineName}
+          startYmd={startYmd}
+          endYmd={endYmd}
+          rentalDays={days}
+          addonsList={addonsList}
+          deliverySelected={b.deliverySelected}
+          pickupSelected={b.pickupSelected}
+          siteAddress={siteAddress || null}
+          subtotalExVat={money.subtotalExVat}
+          vatAmount={money.vatAmount}
+          totalInclVat={money.totalInclVat}
+          depositAmount={toMoneyString(depositNumber)}
+          // Pass link only if available now
+          invoicePdfUrl={invoiceSigned?.url}
+          warehouseAddress={WAREHOUSE_ADDRESS}
+          warehouseHours={WAREHOUSE_HOURS}
+          callByDateTimeLocal={null}
+          machineAccessNote={null}
+        />
+      );
+
+      customerPromise = sendEmail({
+        to: b.customerEmail,
+        subject: "Your AMR booking is confirmed: next steps",
+        react,
+      });
+    }
   }
 
-  // 4) Internal email (always)
+  // 5) Internal email — always, include signed proxy link when present
   const internalReact: ReactElement = (
     <BookingInternalEmail
       companyName={COMPANY_NAME}
@@ -237,7 +245,7 @@ export async function notifyBookingConfirmed(
       stripePiId={undefined}
       stripePiUrl={undefined}
       invoiceNumber={b.invoiceNumber || undefined}
-      invoicePdfUrl={invoiceProxyUrl || undefined}
+      invoicePdfUrl={invoiceSigned?.url}
       googleCalendarEventId={undefined}
       googleHtmlLink={undefined}
     />
@@ -251,6 +259,6 @@ export async function notifyBookingConfirmed(
     react: internalReact,
   });
 
-  // 5) Fire both in parallel; contain all failures
+  // 6) Fire both in parallel; contain all failures
   await Promise.allSettled([customerPromise, internalPromise]);
 }
