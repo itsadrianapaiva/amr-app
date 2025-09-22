@@ -11,8 +11,10 @@ import { resolveMachineImage } from "@/lib/content/images";
 function getCategoryOrType(m: unknown): string {
   if (m && typeof m === "object") {
     const r = m as Record<string, unknown>;
-    const cat = typeof r["category"] === "string" ? (r["category"] as string) : undefined;
-    const typ = typeof r["type"] === "string" ? (r["type"] as string) : undefined;
+    const cat =
+      typeof r["category"] === "string" ? (r["category"] as string) : undefined;
+    const typ =
+      typeof r["type"] === "string" ? (r["type"] as string) : undefined;
     return cat ?? typ ?? "";
   }
   return "";
@@ -20,9 +22,11 @@ function getCategoryOrType(m: unknown): string {
 
 interface MachineCardProps {
   machine: SerializableMachine;
+  /** Hint to load this card's image sooner (used for first row only). */
+  eager?: boolean;
 }
 
-export function MachineCard({ machine }: MachineCardProps) {
+export function MachineCard({ machine, eager = false }: MachineCardProps) {
   // Derived display values
   const displayName = toTitleCase(machine.name);
 
@@ -82,7 +86,11 @@ export function MachineCard({ machine }: MachineCardProps) {
         src={srcToUse}
         alt={altToUse}
         fill
-        sizes="(min-width:1024px) 33vw, (min-width:640px) 50vw, 100vw"
+        /* Grid is 1/2/4 columns: use 100vw / 50vw / 25vw (container padding reduces a bit but this safely avoids oversizing) */
+        sizes="(min-width:1280px) 25vw, (min-width:768px) 50vw, 100vw"
+        /* Load only the very first row sooner; others stay lazy */
+        loading={eager ? "eager" : "lazy"}
+        fetchPriority={eager ? "high" : "auto"}
         className="object-cover transition-transform duration-500 group-hover:scale-105"
       />
 
