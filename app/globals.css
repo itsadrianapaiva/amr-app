@@ -1,6 +1,28 @@
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
 
+/* --- Font stability for CLS (fallback + size-adjust) ---------------------- */
+/* Provide a safe default for --font-geist-sans so we never wait on a webfont.
+   If/when you self-host Geist and set --font-geist-sans elsewhere, this remains
+   a no-op. */
+:root {
+  /* Metric-compatible, widely available stack */
+  --font-geist-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans",
+    Ubuntu, Cantarell, "Helvetica Neue", Arial, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
+/* Use size-adjust where supported so fallback x-height matches the final font.
+     This reduces reflow when the custom font finishes loading. */
+@supports (font-size-adjust: 1) {
+  html {
+    /* 0.5–0.58 is a reasonable range for modern grotesks. Pick conservative 0.5
+         to avoid text growth when swapping. */
+    font-size-adjust: 0.5;
+  }
+}
+
 /* ------------------------------------------------------------
    Button Color Mapping by Semantic Tokens
 
