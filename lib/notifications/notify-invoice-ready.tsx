@@ -4,37 +4,9 @@ import type { ReactElement } from "react";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/emails/mailer";
 import { buildInvoiceLinkSnippet } from "@/lib/emails/invoice-link";
-
-/** Simple, local email body for the "invoice ready" email to keep this change scoped to one file. */
-function InvoiceReadyEmail(props: {
-  companyName: string;
-  customerName?: string;
-  bookingId: number;
-  invoiceNumber?: string;
-  invoiceUrl: string;
-  supportEmail: string;
-  supportPhone: string;
-}): ReactElement {
-  const greeting = props.customerName ? `Hi ${props.customerName},` : "Hello,";
-  return (
-    <div>
-      <p>{greeting}</p>
-      <p>
-        Your invoice for booking #{props.bookingId}
-        {props.invoiceNumber ? ` (${props.invoiceNumber})` : ""} is ready.
-      </p>
-      <p>
-        Download your invoice PDF here:{" "}
-        <a href={props.invoiceUrl}>{props.invoiceUrl}</a>
-      </p>
-      <hr />
-      <p>
-        {props.companyName} • Questions? {props.supportEmail} ·{" "}
-        {props.supportPhone}
-      </p>
-    </div>
-  );
-}
+import InvoiceReadyEmail, {
+  subjectForInvoiceReady,
+} from "@/lib/emails/templates/invoice-ready";
 
 /**
  * Send the "invoice ready" email exactly once per booking.
@@ -78,27 +50,27 @@ export async function notifyInvoiceReady(bookingId: number): Promise<void> {
   // 5) Build signed proxy URL via centralized resolver (prevents $deploy_prime_url leaks)
   const link = buildInvoiceLinkSnippet(b.id);
 
-  // 6) Compose email
+  // 6) Compose email with shared template (keeps brand styling in one place)
   const react: ReactElement = (
     <InvoiceReadyEmail
       companyName={process.env.COMPANY_NAME || "Algarve Machinery Rental"}
-      customerName={b.customerName || undefined}
-      bookingId={b.id}
-      invoiceNumber={b.invoiceNumber || undefined}
-      invoiceUrl={link.url}
       supportEmail={
         process.env.EMAIL_REPLY_TO ||
         process.env.SUPPORT_EMAIL ||
         "support@amr-rentals.com"
       }
       supportPhone={process.env.SUPPORT_PHONE || "351934014611"}
+      customerName={b.customerName || undefined}
+      bookingId={b.id}
+      invoiceNumber={b.invoiceNumber || undefined}
+      invoiceUrl={link.url}
     />
   );
 
-  // 7) Send
+  // 7) Send with centralized subject helper
   await sendEmail({
     to: email,
-    subject: `Your AMR invoice for booking #${b.id}`,
+    subject: subjectForInvoiceReady(b.id, b.invoiceNumber || undefined),
     react,
   });
 }
