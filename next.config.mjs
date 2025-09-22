@@ -1,9 +1,12 @@
-// next.config.ts
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+
+  // Enable package-level import optimization for lucide-react
+  // so only used icons are included in the client bundle.
+  optimizePackageImports: ["lucide-react"],
 
   allowedDevOrigins: [
     "http://127.0.0.1:3000",
@@ -21,9 +24,7 @@ const nextConfig = {
     // Keep these aligned with our layouts to avoid wasteful variants.
     deviceSizes: [360, 640, 768, 1024, 1280, 1536, 1920],
     imageSizes: [64, 96, 128, 256, 384],
-
-    // Safety valve: if issues persist, flip this to true temporarily to disable the optimizer globally.
-    // unoptimized: true,
+    // unoptimized: true, // Safety valve if you need to disable optimizer temporarily
   },
 };
 
