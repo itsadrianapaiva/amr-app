@@ -32,7 +32,9 @@ export default function WhatsAppFab({
         width={64}
         height={64}
         loading="lazy"
-        className="relative z-20 h-12 w-12 transition-transform hover:scale-110 sm:h-16 sm:w-16"
+        fetchPriority="low"
+        sizes="(min-width:640px) 64px, 48px"
+        className="relative z-20 h-12 w-12 sm:h-16 sm:w-16"
       />
     </a>
   );
