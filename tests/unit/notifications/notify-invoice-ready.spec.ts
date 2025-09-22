@@ -1,19 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// --- Mocks (declare before importing the SUT) ---
+// Hoist-safe test doubles (Vitest hoists vi.mock calls)
+const { findUnique, updateMany, sendEmail } = vi.hoisted(() => {
+  return {
+    findUnique: vi.fn(),
+    updateMany: vi.fn(),
+    sendEmail: vi.fn().mockResolvedValue(undefined),
+  };
+});
 
-// Mock DB layer: capture calls to findUnique / updateMany
-const findUnique = vi.fn();
-const updateMany = vi.fn();
+// Optional: if you haven't already aliased "server-only" to a shim in vitest config
+vi.mock("server-only", () => ({}));
+
+// Mock DB layer before importing SUT
 vi.mock("@/lib/db", () => ({
   db: { booking: { findUnique, updateMany } },
 }));
 
-// Mock email sender
-const sendEmail = vi.fn().mockResolvedValue(undefined);
+// Mock mailer
 vi.mock("@/lib/emails/mailer", () => ({ sendEmail }));
 
-// Mock link builder so we don't depend on env or HMAC tokens
+// Mock link builder so we don’t depend on env/HMAC
 vi.mock("@/lib/emails/invoice-link", () => ({
   buildInvoiceLinkSnippet: (id: number) => ({
     url: `https://example.test/invoice/${id}`,
@@ -22,14 +29,16 @@ vi.mock("@/lib/emails/invoice-link", () => ({
   }),
 }));
 
-// Mock the email template to avoid JSX/React runtime during the unit test
+// Mock template to avoid JSX rendering work
 vi.mock("@/lib/emails/templates/invoice-ready", () => ({
   default: () => null,
   subjectForInvoiceReady: (id: number, n?: string) =>
-    n ? `Your AMR invoice ${n} for booking #${id}` : `Your AMR invoice for booking #${id}`,
+    n
+      ? `Your AMR invoice ${n} for booking #${id}`
+      : `Your AMR invoice for booking #${id}`,
 }));
 
-// --- SUT (import after mocks) ---
+// SUT (after mocks)
 import { notifyInvoiceReady } from "@/lib/notifications/notify-invoice-ready";
 
 describe("notifyInvoiceReady", () => {
@@ -40,7 +49,6 @@ describe("notifyInvoiceReady", () => {
   });
 
   it("sends exactly once even if called twice (idempotent via updateMany claim)", async () => {
-    // Booking has invoice persisted and a real email
     findUnique.mockResolvedValue({
       id: 42,
       customerName: "Ana",
@@ -50,24 +58,21 @@ describe("notifyInvoiceReady", () => {
       invoiceEmailSentAt: null,
     });
 
-    // First call claims the send, second call sees it already claimed
     updateMany
-      .mockResolvedValueOnce({ count: 1 }) // winner → sends
-      .mockResolvedValueOnce({ count: 0 }); // loser → skips
+      .mockResolvedValueOnce({ count: 1 }) // first call wins → send
+      .mockResolvedValueOnce({ count: 0 }); // second call loses → skip
 
     await notifyInvoiceReady(42);
     await notifyInvoiceReady(42);
 
     expect(updateMany).toHaveBeenCalledTimes(2);
     expect(sendEmail).toHaveBeenCalledTimes(1);
-
     const [payload] = sendEmail.mock.calls[0];
     expect(payload.to).toBe("ana@example.com");
     expect(payload.subject).toMatch(/invoice/i);
   });
 
   it("no-ops when invoice fields are missing", async () => {
-    // Invoice not yet persisted → should return early
     findUnique.mockResolvedValue({
       id: 99,
       customerName: "João",
@@ -84,7 +89,6 @@ describe("notifyInvoiceReady", () => {
   });
 
   it("skips internal placeholder addresses", async () => {
-    // Internal/test address → should not send
     findUnique.mockResolvedValue({
       id: 77,
       customerName: "Test",
