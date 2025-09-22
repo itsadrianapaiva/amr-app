@@ -48,7 +48,6 @@ function normalizeBaseUrl(raw: string): string {
   s = s.replace(/^(https?:\/\/)+/i, "");
 
   // 3) Decide scheme based on host (keep path/port after host intact)
-  //    Extract the host portion before first slash
   const firstSlash = s.indexOf("/");
   const host = firstSlash === -1 ? s : s.slice(0, firstSlash);
   const scheme = isLocalHost(host) ? "http://" : "https://";
@@ -58,24 +57,30 @@ function normalizeBaseUrl(raw: string): string {
   return stripTrailingSlash(rebuilt);
 }
 
-/** Resolve a sensible base URL from environment in this order. */
+/** Resolve a sensible base URL from environment safely. */
 function resolveBaseUrlFromEnv(): string {
-  // Preferred explicit app URLs
-  const baseCandidate =
-    process.env.APP_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    // Netlify-provided URLs
-    process.env.URL ||
-    process.env.DEPLOY_PRIME_URL ||
-    process.env.DEPLOY_URL ||
-    "";
+  // Preferred explicit app URLs first; then Netlify; then literal placeholders as last resort
+  const candidates = [
+    process.env.APP_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.URL, // Netlify primary URL
+    process.env.DEPLOY_PRIME_URL, // Deploy preview / branch URL (if present)
+    process.env.DEPLOY_URL, // Fallback Netlify deploy URL
+    "$DEPLOY_PRIME_URL", // literal placeholder (expand if env set)
+    "$DEPLOY_URL", // literal placeholder (expand if env set)
+  ].filter(Boolean) as string[];
 
-  if (!baseCandidate)
-    throw new Error(
-      "No base URL found (APP_URL, NEXT_PUBLIC_APP_URL, URL, DEPLOY_PRIME_URL, or DEPLOY_URL)."
-    );
+  for (const raw of candidates) {
+    const expanded = raw.includes("$") ? expandPlaceholders(raw) : raw;
+    // If still contains a placeholder after expansion, skip it and try the next candidate
+    if (/\$[A-Za-z0-9_]+/.test(expanded)) continue;
 
-  return normalizeBaseUrl(baseCandidate);
+    return normalizeBaseUrl(expanded);
+  }
+
+  throw new Error(
+    "No usable base URL found (checked APP_URL, NEXT_PUBLIC_APP_URL, URL, DEPLOY_PRIME_URL, DEPLOY_URL)."
+  );
 }
 
 /**
@@ -101,7 +106,7 @@ export function makeInvoicePdfLink(
 /**
  * Convenience wrapper that resolves base URL from environment.
  * Uses APP_URL, NEXT_PUBLIC_APP_URL, then Netlify's URL/DEPLOY_* variables.
- * Expands "$deploy_prime_url" style placeholders when present.
+ * Skips unresolved "$VARS" and falls back deterministically.
  */
 export function makeInvoicePdfLinkForEnv(
   bookingId: number,
