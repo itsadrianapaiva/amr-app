@@ -19,8 +19,11 @@ type HeroProps = {
   imageName?: "hero" | "hero-02" | "hero-03";
 };
 
-const HERO_IMAGES: Record<NonNullable<HeroProps["imageName"]>, StaticImageData> = {
-  "hero": hero01,
+const HERO_IMAGES: Record<
+  NonNullable<HeroProps["imageName"]>,
+  StaticImageData
+> = {
+  hero: hero01,
   "hero-02": hero02,
   "hero-03": hero03,
 };
@@ -49,12 +52,10 @@ export default function Hero({
   return (
     <section
       className={[
-        // Stable height to avoid CLS
         "relative min-h-[64vh] overflow-hidden",
         backgroundClassName,
       ].join(" ")}
     >
-      {/* Background image — LCP target (no animation to avoid delaying paint) */}
       <Image
         src={heroImg}
         alt="Tracked excavator working on a job site"
@@ -67,22 +68,23 @@ export default function Hero({
         className="absolute inset-0 object-cover"
       />
 
-      {/* Contrast guard (can fade subtly) */}
+      {/* keep overlay + text fades, but NOT on the h1 */}
       <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/10 via-black/70 to-black/90 fade-in fade-in-100" />
 
       <div className="container mx-auto flex min-h-[64vh] items-center px-4 md:px-8">
         <div className="z-20 mx-auto max-w-[608px] text-center text-white xl:mx-0 xl:text-left text-balance">
-          {/* Pretitle */}
           <p className="text-sm md:text-md font-semibold uppercase tracking-wider text-white/80 fade-in fade-in-100">
             {pretitle}
           </p>
 
-          {/* Headline with subtle emphasis on “machinery” */}
-          <h1 className="mt-2 text-3xl md:text-4xl font-bold leading-tight text-white/90 fade-in fade-in-200">
+          {/* IMPORTANT: h1 has NO fade/transform so it can paint ASAP */}
+          <h1 className="mt-2 text-3xl md:text-4xl font-bold leading-tight text-white/90">
             {title.includes("machinery") ? (
               <>
                 {title.split("machinery")[0]}
-                <span className="border-b border-accent text-white">machinery</span>
+                <span className="border-b border-accent text-white">
+                  machinery
+                </span>
                 {title.split("machinery")[1]}
               </>
             ) : (
@@ -90,12 +92,10 @@ export default function Hero({
             )}
           </h1>
 
-          {/* Subtitle */}
           <p className="mt-4 text-base md:text-lg text-white/80 fade-in fade-in-300">
             {subtitle}
           </p>
 
-          {/* CTAs */}
           <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row fade-in fade-in-400">
             <Link href={primaryHref} prefetch={false}>
               <Button
