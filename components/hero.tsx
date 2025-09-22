@@ -1,11 +1,8 @@
-"use client";
-
-import Image from "next/image";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-/* ---- Static imports give us: preload for priority images + blur placeholders */
+/* Static imports unlock intrinsic size + blur + preload for priority */
 import hero01 from "@/public/images/hero/hero.jpg";
 import hero02 from "@/public/images/hero/hero-02.jpg";
 import hero03 from "@/public/images/hero/hero-03.jpg";
@@ -22,11 +19,18 @@ type HeroProps = {
   imageName?: "hero" | "hero-02" | "hero-03";
 };
 
-const HERO_IMAGES: Record<NonNullable<HeroProps["imageName"]>, any> = {
-  hero: hero01,
+const HERO_IMAGES: Record<NonNullable<HeroProps["imageName"]>, StaticImageData> = {
+  "hero": hero01,
   "hero-02": hero02,
   "hero-03": hero03,
 };
+
+/** Build a WhatsApp deep link from E.164 (server-safe, no DOM API). */
+function buildWhatsAppHref(e164?: string | null) {
+  if (!e164) return null;
+  const digits = e164.replace(/[^\d]/g, "");
+  return digits ? `https://wa.me/${digits}` : null;
+}
 
 export default function Hero({
   pretitle = "Instant online booking",
@@ -39,71 +43,46 @@ export default function Hero({
   backgroundClassName = "",
   imageName = "hero",
 }: HeroProps) {
-  // Minimal fade-in
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  const fadeIn = "transition-opacity duration-500 ease-out";
-  const stage = mounted ? "opacity-100" : "opacity-0";
-  const delay = (ms: number): CSSProperties => ({ transitionDelay: `${ms}ms` });
-
-  // Build WhatsApp deep link only if provided
-  const whatsappHref = useMemo(() => {
-    if (!whatsappNumberE164) return null;
-    const digits = whatsappNumberE164.replace(/[^\d]/g, "");
-    return `https://wa.me/${digits}`;
-  }, [whatsappNumberE164]);
-
-  // Choose statically imported image (unlocks blur + automatic preload for priority)
   const heroImg = HERO_IMAGES[imageName] ?? HERO_IMAGES["hero"];
+  const whatsappHref = buildWhatsAppHref(whatsappNumberE164);
 
   return (
     <section
       className={[
-        // Reserve stable height to avoid CLS; 64vh gives a bit more breathing room
+        // Stable height to avoid CLS
         "relative min-h-[64vh] overflow-hidden",
         backgroundClassName,
       ].join(" ")}
     >
-      {/* Background image — LCP target */}
+      {/* Background image — LCP target (no animation to avoid delaying paint) */}
       <Image
         src={heroImg}
         alt="Tracked excavator working on a job site"
-        // Fill inside a container with a stable min-height → no layout jump
         fill
-        // LCP boosters
         priority
         fetchPriority="high"
-        // Right-sizing: the hero is always full-bleed width
         sizes="100vw"
-        // Reduce bytes a touch without visible quality loss
         quality={78}
-        // Blur prevents harsh placeholder and improves perceived LCP
         placeholder="blur"
         className="absolute inset-0 object-cover"
       />
 
-      {/* Contrast guard */}
-      <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/10 via-black/70 to-black/90" />
+      {/* Contrast guard (can fade subtly) */}
+      <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/10 via-black/70 to-black/90 fade-in fade-in-100" />
 
       <div className="container mx-auto flex min-h-[64vh] items-center px-4 md:px-8">
         <div className="z-20 mx-auto max-w-[608px] text-center text-white xl:mx-0 xl:text-left text-balance">
-          <p
-            className={`text-sm md:text-md font-semibold uppercase tracking-wider text-white/80 ${fadeIn} ${stage}`}
-            style={delay(60)}
-          >
+          {/* Pretitle */}
+          <p className="text-sm md:text-md font-semibold uppercase tracking-wider text-white/80 fade-in fade-in-100">
             {pretitle}
           </p>
 
-          <h1
-            className={`mt-2 text-3xl md:text-4xl font-bold leading-tight text-white/90 ${fadeIn} ${stage}`}
-            style={delay(120)}
-          >
-            {title.split("machinery").length > 1 ? (
+          {/* Headline with subtle emphasis on “machinery” */}
+          <h1 className="mt-2 text-3xl md:text-4xl font-bold leading-tight text-white/90 fade-in fade-in-200">
+            {title.includes("machinery") ? (
               <>
                 {title.split("machinery")[0]}
-                <span className="border-b border-accent text-white">
-                  machinery
-                </span>
+                <span className="border-b border-accent text-white">machinery</span>
                 {title.split("machinery")[1]}
               </>
             ) : (
@@ -111,17 +90,13 @@ export default function Hero({
             )}
           </h1>
 
-          <p
-            className={`mt-4 text-base md:text-lg text-white/80 ${fadeIn} ${stage}`}
-            style={delay(180)}
-          >
+          {/* Subtitle */}
+          <p className="mt-4 text-base md:text-lg text-white/80 fade-in fade-in-300">
             {subtitle}
           </p>
 
-          <div
-            className={`mt-7 flex flex-col justify-center items-center gap-3 sm:flex-row ${fadeIn} ${stage}`}
-            style={delay(240)}
-          >
+          {/* CTAs */}
+          <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row fade-in fade-in-400">
             <Link href={primaryHref} prefetch={false}>
               <Button
                 size="lg"

@@ -183,3 +183,41 @@
     display: none !important;
   }
 }
+
+/* --- CSS-only fade-in utilities (motion-safe) ------------------------------ */
+@keyframes amr-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Base fade-in: duration and easing tuned for subtlety */
+.fade-in {
+  opacity: 0; /* ensure initial state without JS */
+}
+@media (prefers-reduced-motion: no-preference) {
+  .fade-in {
+    animation-name: amr-fade-in;
+    animation-duration: 500ms;
+    animation-timing-function: ease-out;
+    animation-fill-mode: both; /* keep final state */
+  }
+}
+
+/* Small, semantic delay helpers for simple “stagger” */
+.fade-in-100 { animation-delay: 100ms; }
+.fade-in-200 { animation-delay: 200ms; }
+.fade-in-300 { animation-delay: 300ms; }
+.fade-in-400 { animation-delay: 400ms; }
+
+/* Respect users who prefer less motion */
+@media (prefers-reduced-motion: reduce) {
+  .fade-in,
+  .fade-in-100,
+  .fade-in-200,
+  .fade-in-300,
+  .fade-in-400 {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
