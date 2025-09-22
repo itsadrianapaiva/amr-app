@@ -41,7 +41,7 @@ export default function SiteNav() {
     <header className={`sticky top-0 z-50 transition-colors ${headerClasses}`}>
       <div className="container mx-auto px-4 md:px-6 lg:px-8 xl:px-10">
         {/* Taller row + padding to avoid any clipping */}
-        <div className="flex min-h-[96px] items-center justify-between py-2">
+        <div className="flex min-h-[120px] items-center justify-between py-2">
           {/* Reserved logo box prevents reflow when swapping src */}
           <div className="h-14 w-[160px] shrink-0 flex items-center">
             <Logo src={logoSrc} width={160} height={48} />
@@ -88,7 +88,10 @@ export default function SiteNav() {
                 <Menu className="h-8 w-8" />
               </SheetTrigger>
               {/* Keep <SheetContent> SSR to reserve space/animation shell; actual menu is lazy */}
-              <SheetContent side="right" className="p-0 border-0 bg-transparent">
+              <SheetContent
+                side="right"
+                className="p-0 border-0 bg-transparent"
+              >
                 {/* When the dynamic chunk is ready, render full menu */}
                 <MobileMenu onClose={() => setOpen(false)} />
               </SheetContent>
