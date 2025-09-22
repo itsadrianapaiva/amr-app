@@ -17,6 +17,8 @@ import {
 
 import { db } from "@/lib/db";
 
+import { notifyInvoiceReady } from "@/lib/notifications/notify-invoice-ready";
+
 /**
  * onPaymentIntentSucceeded
  * Primary path for card (immediate) success.
@@ -107,6 +109,18 @@ export async function onPaymentIntentSucceeded(
     log("notify:done", { bookingId });
   } catch (err) {
     log("notify:error", {
+      bookingId,
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  // 6) Then notify “invoice ready” (idempotent; runs only once when invoice exists)
+  log("invoice_ready:start", { bookingId });
+  try {
+    await notifyInvoiceReady(bookingId); // no-ops if invoice fields missing or email already sent
+    log("invoice_ready:done", { bookingId });
+  } catch (err) {
+    log("invoice_ready:error", {
       bookingId,
       err: err instanceof Error ? err.message : String(err),
     });
