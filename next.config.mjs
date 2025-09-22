@@ -4,9 +4,10 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
 
-  // Enable package-level import optimization for lucide-react
-  // so only used icons are included in the client bundle.
-  optimizePackageImports: ["lucide-react"],
+  // Use the experimental field for older Next versions
+  experimental: {
+    optimizePackageImports: ["lucide-react"],
+  },
 
   allowedDevOrigins: [
     "http://127.0.0.1:3000",
