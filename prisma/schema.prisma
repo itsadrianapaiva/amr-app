@@ -95,6 +95,8 @@ model Booking {
   invoicePdfUrl              String?
   /// ATCUD (if the series has a validation code configured).
   invoiceAtcud               String?
+  
+  confirmationEmailSentAt    DateTime? @db.Timestamp(6)
 
    /// Aggregated refund info (Stripe amounts are in cents).
   refundStatus         RefundStatus   @default(NONE)
