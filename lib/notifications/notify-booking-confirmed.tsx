@@ -164,11 +164,6 @@ export async function notifyBookingConfirmed(
   const hasInvoice = !!b.invoiceNumber && !!b.invoicePdfUrl;
   const invoiceSigned = hasInvoice ? buildInvoiceLinkSnippet(b.id) : undefined;
 
-  // build a signed proxy URL for internal email if an invoice exists
-  const invoiceProxyUrl = b.invoicePdfUrl
-    ? buildInvoiceLinkSnippet(b.id).url
-    : undefined;
-
   // 4) Customer email — send once, only if invoice exists and not internal placeholder
   const isInternalPlaceholder = (b.customerEmail || "")
     .toLowerCase()
@@ -176,13 +171,8 @@ export async function notifyBookingConfirmed(
 
   let customerPromise: Promise<unknown> = Promise.resolve();
 
-  if (
-    source !== "ops" &&
-    hasInvoice &&
-    b.customerEmail &&
-    !isInternalPlaceholder
-  ) {
-    // Atomic claim: exactly one sender wins for this booking
+  if (source !== "ops" && b.customerEmail && !isInternalPlaceholder) {
+    // Atomic claim: exactly one sender wins
     const claim = await db.booking.updateMany({
       where: { id: b.id, confirmationEmailSentAt: null },
       data: { confirmationEmailSentAt: new Date() },
@@ -209,7 +199,7 @@ export async function notifyBookingConfirmed(
           vatAmount={money.vatAmount}
           totalInclVat={money.totalInclVat}
           depositAmount={toMoneyString(depositNumber)}
-          // Always pass the signed proxy URL, never the vendor URL
+          // Pass link only if available now
           invoicePdfUrl={invoiceSigned?.url}
           warehouseAddress={WAREHOUSE_ADDRESS}
           warehouseHours={WAREHOUSE_HOURS}
@@ -255,7 +245,6 @@ export async function notifyBookingConfirmed(
       stripePiId={undefined}
       stripePiUrl={undefined}
       invoiceNumber={b.invoiceNumber || undefined}
-      // Signed proxy url fixes $deploy_prime_url leaks
       invoicePdfUrl={invoiceSigned?.url}
       googleCalendarEventId={undefined}
       googleHtmlLink={undefined}
