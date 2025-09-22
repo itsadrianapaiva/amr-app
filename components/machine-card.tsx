@@ -116,7 +116,7 @@ export function MachineCard({ machine, eager = false }: MachineCardProps) {
           {/* Top row: name + CTA */}
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="font-semibold tracking-tight">{displayName}</h4>
+              <h3 className="font-semibold tracking-tight">{displayName}</h3>
               <p
                 className="max-w-[14rem] truncate text-xs uppercase tracking-wider text-muted-foreground"
                 title={displayType}

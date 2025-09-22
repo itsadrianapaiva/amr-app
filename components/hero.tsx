@@ -19,8 +19,11 @@ type HeroProps = {
   imageName?: "hero" | "hero-02" | "hero-03";
 };
 
-const HERO_IMAGES: Record<NonNullable<HeroProps["imageName"]>, StaticImageData> = {
-  "hero": hero01,
+const HERO_IMAGES: Record<
+  NonNullable<HeroProps["imageName"]>,
+  StaticImageData
+> = {
+  hero: hero01,
   "hero-02": hero02,
   "hero-03": hero03,
 };
@@ -78,11 +81,13 @@ export default function Hero({
           </p>
 
           {/* Headline with subtle emphasis on “machinery” */}
-          <h1 className="mt-2 text-3xl md:text-4xl font-bold leading-tight text-white/90 fade-in fade-in-200">
+          <h1 className="mt-2 text-3xl md:text-4xl font-bold leading-tight text-white/90">
             {title.includes("machinery") ? (
               <>
                 {title.split("machinery")[0]}
-                <span className="border-b border-accent text-white">machinery</span>
+                <span className="border-b border-accent text-white">
+                  machinery
+                </span>
                 {title.split("machinery")[1]}
               </>
             ) : (
