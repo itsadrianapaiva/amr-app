@@ -1,60 +1,46 @@
+// lib/notifications/mailers/internal-confirmed.tsx
 "use server";
 import "server-only";
 import type { ReactElement } from "react";
 import BookingInternalEmail from "@/lib/emails/templates/booking-internal";
 
-/**
- * InternalConfirmedView
- * Minimal, template-oriented shape for the internal notification.
- * Keeps this mailer decoupled from Prisma models.
- */
 export type InternalConfirmedView = {
   id: number;
   machineId: number;
   machineName: string;
-
-  startYmd: string;                // YYYY-MM-DD (UTC)
-  endYmd: string;                  // YYYY-MM-DD (UTC)
+  startYmd: string;
+  endYmd: string;
   rentalDays: number;
-
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
-
   siteAddress?: string;
-
   addonsList: string;
-
-  subtotalExVat: string;           // "123.45"
-  vatAmount: string;               // "28.39"
-  totalInclVat: string;            // "151.84"
-  depositAmount: string;           // "250.00"
-
+  subtotalExVat: string;
+  vatAmount: string;
+  totalInclVat: string;
+  depositAmount: string;
   invoiceNumber?: string;
-  invoicePdfUrl?: string;          // signed proxy URL if present
+  invoicePdfUrl?: string;
 };
 
-/** Who triggered the notification (for template context). */
 export type NotifySource = "customer" | "ops";
 
-/** Env-backed config (server-only). Defaults are safe for dev. */
 const COMPANY_NAME = process.env.COMPANY_NAME || "Algarve Machinery Rental";
 const COMPANY_EMAIL =
   process.env.EMAIL_REPLY_TO ||
   process.env.SUPPORT_EMAIL ||
   "support@amr-rentals.com";
-
-/** Public URL for Ops deep links in internal mail. */
 const APP_URL = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "";
 
 /**
  * buildInternalEmail
- * Pure renderer for the internal notification — no DB, no I/O, just JSX.
+ * Async to satisfy Next.js server action inference rules for exported server functions.
  */
-export function buildInternalEmail(
+export async function buildInternalEmail(
   view: InternalConfirmedView,
   source: NotifySource
-): ReactElement {
+): Promise<ReactElement> {
   const opsUrlForBooking = APP_URL ? `${APP_URL}/ops` : "#";
 
   return (
@@ -73,12 +59,10 @@ export function buildInternalEmail(
       customerPhone={view.customerPhone || undefined}
       siteAddress={view.siteAddress || undefined}
       addonsList={view.addonsList}
-      // Operational flags not shown in the current template; keep false.
       deliverySelected={false}
       pickupSelected={false}
-      // Simple heuristic preserved from previous code (can be replaced by real rule).
       heavyLeadTimeApplies={[5, 6, 7].includes(view.machineId)}
-      geofenceStatus={"inside"} // TODO: wire real geofence when available
+      geofenceStatus={"inside"}
       subtotalExVat={view.subtotalExVat}
       vatAmount={view.vatAmount}
       totalInclVat={view.totalInclVat}

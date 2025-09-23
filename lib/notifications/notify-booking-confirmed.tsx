@@ -5,7 +5,6 @@ import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/emails/mailer";
 import { buildInvoiceLinkSnippet } from "@/lib/emails/invoice-link";
 
-// extracted mailers
 import {
   buildCustomerEmail,
   type CustomerConfirmedView,
@@ -29,10 +28,14 @@ const ADMIN_TO = (
   .map((s) => s.trim())
   .filter(Boolean);
 
-/** Utilities (tiny and local) */
+/* ----------------------- Small local helpers (restored) ----------------------- */
+
+/** Format Date → "YYYY-MM-DD" (UTC) for templates */
 function toYmdUTC(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
+
+/** Prisma Decimal-safe → number */
 function decimalToNumber(value: unknown): number {
   if (typeof value === "number") return value;
   const anyVal = value as any;
@@ -40,9 +43,13 @@ function decimalToNumber(value: unknown): number {
     ? anyVal.toNumber()
     : Number(value ?? 0);
 }
+
+/** Money helpers: build strings with two decimals */
 function toMoneyString(n: number): string {
   return n.toFixed(2);
 }
+
+/** Inclusive rental days: 1 + whole-day difference in UTC */
 function rentalDaysInclusive(start: Date, end: Date): number {
   const ms =
     Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()) -
@@ -50,6 +57,11 @@ function rentalDaysInclusive(start: Date, end: Date): number {
   const diff = Math.round(ms / 86_400_000);
   return Math.max(1, diff + 1);
 }
+
+/**
+ * Split a VAT-inclusive total into ex-VAT + VAT at 23%.
+ * Assumes totalIncl = ex * 1.23 → ex = total / 1.23
+ */
 function splitVatFromTotal(totalIncl: number) {
   const ex = totalIncl / 1.23;
   const vat = totalIncl - ex;
@@ -59,6 +71,8 @@ function splitVatFromTotal(totalIncl: number) {
     totalInclVat: toMoneyString(totalIncl),
   };
 }
+
+/** Build a human-readable add-ons string from booking flags */
 function makeAddonsList(input: {
   operatorSelected: boolean;
   insuranceSelected: boolean;
@@ -73,66 +87,7 @@ function makeAddonsList(input: {
   return items.length ? items.join(" · ") : "None";
 }
 
-/** Common lean view built once, then mapped to each mailer’s view type. */
-type BookingCommonView = {
-  id: number;
-  machineId: number;
-  machineName: string;
-  startYmd: string;
-  endYmd: string;
-  rentalDays: number;
-  customerName?: string | null;
-  customerEmail?: string | null;
-  customerPhone?: string | null;
-  siteAddress?: string;
-  addonsList: string;
-  subtotalExVat: string;
-  vatAmount: string;
-  totalInclVat: string;
-  depositAmount: string;
-  invoiceNumber?: string | null;
-  invoicePdfUrl?: string; // signed proxy URL if present
-};
-
-function toCommonView(b: any): BookingCommonView {
-  const startYmd = toYmdUTC(b.startDate);
-  const endYmd = toYmdUTC(b.endDate);
-  const machineName = b.machine?.name ?? `Machine #${b.machineId}`;
-  const rentalDays = rentalDaysInclusive(b.startDate, b.endDate);
-  const totals = splitVatFromTotal(decimalToNumber(b.totalCost));
-  const depositAmount = toMoneyString(decimalToNumber(b.machine?.deposit ?? 0));
-  const siteAddress = [b.siteAddressLine1 || "", b.siteAddressCity || ""]
-    .filter(Boolean)
-    .join(", ");
-  const addonsList = makeAddonsList({
-    operatorSelected: b.operatorSelected,
-    insuranceSelected: b.insuranceSelected,
-    deliverySelected: b.deliverySelected,
-    pickupSelected: b.pickupSelected,
-  });
-  const hasInvoice = !!b.invoiceNumber && !!b.invoicePdfUrl;
-  const signed = hasInvoice ? buildInvoiceLinkSnippet(b.id) : undefined;
-
-  return {
-    id: b.id,
-    machineId: b.machineId,
-    machineName,
-    startYmd,
-    endYmd,
-    rentalDays,
-    customerName: b.customerName || undefined,
-    customerEmail: b.customerEmail || undefined,
-    customerPhone: b.customerPhone || undefined,
-    siteAddress: siteAddress || undefined,
-    addonsList,
-    subtotalExVat: totals.subtotalExVat,
-    vatAmount: totals.vatAmount,
-    totalInclVat: totals.totalInclVat,
-    depositAmount,
-    invoiceNumber: b.invoiceNumber || undefined,
-    invoicePdfUrl: signed?.url,
-  };
-}
+/* ----------------------------------------------------------------------------- */
 
 /**
  * notifyBookingConfirmed
@@ -140,8 +95,7 @@ function toCommonView(b: any): BookingCommonView {
  * - Send confirmation exactly once.
  * - If invoice exists at that time, include link AND mark invoiceEmailSentAt,
  *   so later notify-invoice-ready will no-op (max two emails for customer).
- * - Always send internal email (duplicate internal sends from multiple Stripe events
- *   are acceptable for now; we can add a DB flag later if needed).
+ * - Always send internal email.
  */
 export async function notifyBookingConfirmed(
   bookingId: number,
@@ -175,42 +129,57 @@ export async function notifyBookingConfirmed(
   });
   if (!b) return;
 
-  const viewCommon = toCommonView(b);
+  // 2) Derive view data once
+  const startYmd = toYmdUTC(b.startDate);
+  const endYmd = toYmdUTC(b.endDate);
+  const machineName = b.machine?.name ?? `Machine #${b.machineId}`;
+  const rentalDays = rentalDaysInclusive(b.startDate, b.endDate);
+  const totals = splitVatFromTotal(decimalToNumber(b.totalCost));
+  const depositAmount = toMoneyString(decimalToNumber(b.machine?.deposit ?? 0));
+  const siteAddress = [b.siteAddressLine1 || "", b.siteAddressCity || ""]
+    .filter(Boolean)
+    .join(", ");
+  const addonsList = makeAddonsList({
+    operatorSelected: b.operatorSelected,
+    insuranceSelected: b.insuranceSelected,
+    deliverySelected: b.deliverySelected,
+    pickupSelected: b.pickupSelected,
+  });
+  const hasInvoiceNow = !!b.invoiceNumber && !!b.invoicePdfUrl;
+  const signed = hasInvoiceNow ? buildInvoiceLinkSnippet(b.id) : undefined;
+
   const isInternalPlaceholder = (b.customerEmail || "")
     .toLowerCase()
     .endsWith("@internal.local");
-  const hasInvoiceNow = !!b.invoiceNumber && !!b.invoicePdfUrl;
 
-  // 2) Customer confirmation — atomic claim
+  // 3) Customer confirmation — atomic claim
   let customerPromise: Promise<unknown> = Promise.resolve();
   if (source !== "ops" && b.customerEmail && !isInternalPlaceholder) {
     const data: Record<string, Date> = { confirmationEmailSentAt: new Date() };
     const where: any = { id: b.id, confirmationEmailSentAt: null };
-
-    if (hasInvoiceNow) {
-      data.invoiceEmailSentAt = new Date();
-    }
+    if (hasInvoiceNow) data.invoiceEmailSentAt = new Date();
 
     const claim = await db.booking.updateMany({ where, data });
 
     if (claim.count === 1) {
-      // Map to the customer mailer’s view
       const customerView: CustomerConfirmedView = {
-        id: viewCommon.id,
-        machineName: viewCommon.machineName,
-        startYmd: viewCommon.startYmd,
-        endYmd: viewCommon.endYmd,
-        rentalDays: viewCommon.rentalDays,
-        customerName: viewCommon.customerName,
-        siteAddress: viewCommon.siteAddress || null,
-        subtotalExVat: viewCommon.subtotalExVat,
-        vatAmount: viewCommon.vatAmount,
-        totalInclVat: viewCommon.totalInclVat,
-        depositAmount: viewCommon.depositAmount,
-        invoicePdfUrl: viewCommon.invoicePdfUrl, // optional
+        id: b.id,
+        machineName,
+        startYmd,
+        endYmd,
+        rentalDays,
+        customerName: b.customerName,
+        siteAddress: siteAddress || null,
+        subtotalExVat: totals.subtotalExVat,
+        vatAmount: totals.vatAmount,
+        totalInclVat: totals.totalInclVat,
+        depositAmount,
+        invoicePdfUrl: signed?.url,
       };
 
-      const react: ReactElement = buildCustomerEmail(customerView);
+      // async builder (server fn)
+      const react: ReactElement = await buildCustomerEmail(customerView);
+
       customerPromise = sendEmail({
         to: b.customerEmail,
         subject: "Your AMR booking is confirmed: next steps",
@@ -219,32 +188,33 @@ export async function notifyBookingConfirmed(
     }
   }
 
-  // 3) Internal email — always
+  // 4) Internal email — always
   const internalView: InternalConfirmedView = {
-    id: viewCommon.id,
-    machineId: viewCommon.machineId,
-    machineName: viewCommon.machineName,
-    startYmd: viewCommon.startYmd,
-    endYmd: viewCommon.endYmd,
-    rentalDays: viewCommon.rentalDays,
-    customerName: viewCommon.customerName || undefined,
-    customerEmail: viewCommon.customerEmail || undefined,
-    customerPhone: viewCommon.customerPhone || undefined,
-    siteAddress: viewCommon.siteAddress || undefined,
-    addonsList: viewCommon.addonsList,
-    subtotalExVat: viewCommon.subtotalExVat,
-    vatAmount: viewCommon.vatAmount,
-    totalInclVat: viewCommon.totalInclVat,
-    depositAmount: viewCommon.depositAmount,
-    invoiceNumber: viewCommon.invoiceNumber || undefined,
-    invoicePdfUrl: viewCommon.invoicePdfUrl,
+    id: b.id,
+    machineId: b.machineId,
+    machineName,
+    startYmd,
+    endYmd,
+    rentalDays,
+    customerName: b.customerName || undefined,
+    customerEmail: b.customerEmail || undefined,
+    customerPhone: b.customerPhone || undefined,
+    siteAddress: siteAddress || undefined,
+    addonsList,
+    subtotalExVat: totals.subtotalExVat,
+    vatAmount: totals.vatAmount,
+    totalInclVat: totals.totalInclVat,
+    depositAmount,
+    invoiceNumber: b.invoiceNumber || undefined,
+    invoicePdfUrl: signed?.url,
   };
 
-  const internalReact: ReactElement = buildInternalEmail(
+  const internalReact: ReactElement = await buildInternalEmail(
     internalView,
     source as MailerNotifySource
   );
-  const internalSubject = `New CONFIRMED booking #${viewCommon.id}: ${viewCommon.machineName} · ${viewCommon.startYmd}–${viewCommon.endYmd}`;
+
+  const internalSubject = `New CONFIRMED booking #${b.id}: ${machineName} · ${startYmd}–${endYmd}`;
 
   const internalPromise = sendEmail({
     to: ADMIN_TO,
@@ -252,6 +222,6 @@ export async function notifyBookingConfirmed(
     react: internalReact,
   });
 
-  // 4) Fire both in parallel; contain failures
+  // 5) Fire both in parallel; contain failures
   await Promise.allSettled([customerPromise, internalPromise]);
 }
