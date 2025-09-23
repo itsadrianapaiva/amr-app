@@ -1,6 +1,6 @@
+// lib/invoicing/invoice-links.ts
 // Purpose: generate customer-facing invoice PDF links using our signed token.
-// This version try to fix Netlify env resolution and expands "$deploy_prime_url" style placeholders,
-// and normalizes against accidental double protocols like "http://http://host".
+// Context-aware Netlify selection so staging/previews never use the production domain.
 
 import { createSignedToken } from "@/lib/security/signed-links";
 
@@ -9,13 +9,17 @@ function stripTrailingSlash(u: string): string {
   return u.replace(/\/+$/, "");
 }
 
-/** Expand "$var" placeholders using process.env (case-insensitive). */
-function expandPlaceholders(input: string): string {
-  return input.replace(/\$([A-Za-z0-9_]+)/g, (_, name: string) => {
-    const key = name.toUpperCase(); // Netlify envs are uppercase
-    const val = process.env[key];
-    return typeof val === "string" && val.length > 0 ? val : `$${name}`; // leave as-is if unknown
-  });
+/** Expand "$VAR" placeholders using process.env (case-insensitive). Empty → undefined. */
+function expandPlaceholdersOrUndef(input?: string): string | undefined {
+  if (!input) return undefined;
+  const out = input
+    .replace(/\$([A-Za-z0-9_]+)/g, (_, name: string) => {
+      const key = name.toUpperCase(); // Netlify envs are uppercase
+      const val = process.env[key];
+      return typeof val === "string" ? val : "";
+    })
+    .trim();
+  return out.length > 0 ? out : undefined;
 }
 
 /** Is the host considered local (keeps http)? */
@@ -23,68 +27,85 @@ function isLocalHost(host: string): boolean {
   return /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(host);
 }
 
+/** Get hostname from a possibly scheme-less string */
+function asHostname(s: string): string {
+  try {
+    const url = /^https?:\/\//i.test(s) ? new URL(s) : new URL(`https://${s}`);
+    return url.hostname;
+  } catch {
+    return s;
+  }
+}
+
 /**
- * Normalize a possibly placeholder-containing base URL to:
- *  - expand $VARS from env
- *  - strip any leading protocol(s) (handles "http://http://host")
- *  - re-apply scheme: http for local, https for everything else
- *  - trim trailing slashes
- *
- * Accepts inputs like:
- *  - "http://$deploy_prime_url"
- *  - "$DEPLOY_PRIME_URL"
- *  - "amr.example.com"
- *  - "https://amr.example.com/"
+ * Normalize a base URL to:
+ *  - strip stacked protocols ("http://http://...")
+ *  - ensure scheme (http for local, https otherwise)
+ *  - trim trailing slash
  */
 function normalizeBaseUrl(raw: string): string {
   let s = (raw || "").trim();
   if (!s) throw new Error("Empty base URL");
 
-  // 1) Expand placeholders (e.g., "$deploy_prime_url")
-  if (s.includes("$")) s = expandPlaceholders(s);
-
-  // 2) Remove any number of leading protocols, e.g., "http://http://host"
+  // Remove any number of leading protocols, e.g., "http://http://host"
   s = s.replace(/^(https?:\/\/)+/i, "");
 
-  // 3) Decide scheme based on host (keep path/port after host intact)
-  const firstSlash = s.indexOf("/");
-  const host = firstSlash === -1 ? s : s.slice(0, firstSlash);
+  // Decide scheme based on host
+  const host = s.split("/")[0]!;
   const scheme = isLocalHost(host) ? "http://" : "https://";
 
-  // 4) Rebuild and strip trailing slash(es)
-  const rebuilt = scheme + s.replace(/\/+$/, "");
-  return stripTrailingSlash(rebuilt);
+  return stripTrailingSlash(scheme + s);
 }
 
-/** Resolve a sensible base URL from environment safely. */
+/**
+ * Context-aware resolution for Netlify:
+ * - In production (CONTEXT === "production"): prefer explicit app URLs, then Netlify URL fallbacks.
+ * - In non-production (branch-deploy / deploy-preview): prefer DEPLOY_PRIME_URL or URL,
+ *   and ignore production-looking APP_URL to avoid amr-rentals.com leaking into staging.
+ */
 function resolveBaseUrlFromEnv(): string {
-  // Preferred explicit app URLs first; then Netlify; then literal placeholders as last resort
-  const candidates = [
-    process.env.APP_URL,
-    process.env.NEXT_PUBLIC_APP_URL,
-    process.env.URL, // Netlify primary URL
-    process.env.DEPLOY_PRIME_URL, // Deploy preview / branch URL (if present)
-    process.env.DEPLOY_URL, // Fallback Netlify deploy URL
-    "$DEPLOY_PRIME_URL", // literal placeholder (expand if env set)
-    "$DEPLOY_URL", // literal placeholder (expand if env set)
-  ].filter(Boolean) as string[];
+  const CONTEXT = (process.env.CONTEXT || "").toLowerCase(); // 'production' | 'branch-deploy' | 'deploy-preview' | etc.
+  const APP_URL = expandPlaceholdersOrUndef(process.env.APP_URL);
+  const NEXT_PUBLIC_APP_URL = expandPlaceholdersOrUndef(
+    process.env.NEXT_PUBLIC_APP_URL
+  );
+  const URL = expandPlaceholdersOrUndef(process.env.URL); // Netlify site URL for this deploy
+  const DEPLOY_PRIME_URL = expandPlaceholdersOrUndef(
+    process.env.DEPLOY_PRIME_URL
+  ); // preview/branch
+  const DEPLOY_URL = expandPlaceholdersOrUndef(process.env.DEPLOY_URL);
 
-  for (const raw of candidates) {
-    const expanded = raw.includes("$") ? expandPlaceholders(raw) : raw;
-    // If still contains a placeholder after expansion, skip it and try the next candidate
-    if (/\$[A-Za-z0-9_]+/.test(expanded)) continue;
+  // Helper: first non-empty from a list
+  const first = (...xs: Array<string | undefined>) => xs.find(Boolean);
 
-    return normalizeBaseUrl(expanded);
+  if (CONTEXT === "production") {
+    const candidate = first(
+      APP_URL,
+      NEXT_PUBLIC_APP_URL,
+      URL,
+      DEPLOY_PRIME_URL,
+      DEPLOY_URL
+    );
+    if (candidate) return normalizeBaseUrl(candidate);
+    throw new Error("No usable base URL in production context.");
   }
 
-  throw new Error(
-    "No usable base URL found (checked APP_URL, NEXT_PUBLIC_APP_URL, URL, DEPLOY_PRIME_URL, DEPLOY_URL)."
+  // Non-production: prefer per-deploy URLs
+  const candidate = first(
+    DEPLOY_PRIME_URL,
+    URL,
+    DEPLOY_URL,
+    APP_URL,
+    NEXT_PUBLIC_APP_URL
   );
+  if (candidate) return normalizeBaseUrl(candidate);
+
+  throw new Error("No usable base URL (non-production).");
 }
 
 /**
  * Build an absolute URL for the invoice PDF proxy using a provided base URL.
- * Example result:
+ * Example:
  *   https://amr.example.com/api/invoices/123/pdf?t=<token>
  */
 export function makeInvoicePdfLink(
@@ -98,14 +119,13 @@ export function makeInvoicePdfLink(
 
   const ttlSeconds = opts?.ttlSeconds ?? 60 * 60 * 72; // default 72h
   const token = createSignedToken({ bid: bookingId }, ttlSeconds);
-  const root = stripTrailingSlash(normalizeBaseUrl(baseUrl));
+  const root = normalizeBaseUrl(baseUrl);
   return `${root}/api/invoices/${bookingId}/pdf?t=${encodeURIComponent(token)}`;
 }
 
 /**
  * Convenience wrapper that resolves base URL from environment.
- * Uses APP_URL, NEXT_PUBLIC_APP_URL, then Netlify's URL/DEPLOY_* variables.
- * Skips unresolved "$VARS" and falls back deterministically.
+ * Uses Netlify CONTEXT to avoid staging emails pointing at production.
  */
 export function makeInvoicePdfLinkForEnv(
   bookingId: number,
