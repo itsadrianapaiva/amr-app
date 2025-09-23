@@ -12,7 +12,30 @@ function safeFilename(s: string): string {
   return s.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 80);
 }
 
-/** Detects if the upstream PDF lives on Vendus and, if so, attaches auth headers. */
+/** Detect if URL is Vendus and return a *fetchable* URL with proper params applied. */
+function prepareVendusUrl(raw: string): string {
+  const u = new URL(raw);
+  const host = u.hostname.toLowerCase();
+  const isVendus = host === "www.vendus.pt" || host.endsWith(".vendus.pt");
+  if (!isVendus) return raw;
+
+  // Ensure correct working mode for detail/pdf GETs:
+  // Vendus requires `mode` to match how the doc was created (normal|tests).
+  const mode = (process.env.VENDUS_MODE || "").toLowerCase();
+  if (mode === "tests" || mode === "normal") {
+    if (!u.searchParams.has("mode")) u.searchParams.set("mode", mode);
+  }
+
+  // Optional escape hatch: some setups prefer query auth. Leave off by default.
+  if (process.env.VENDUS_FORCE_QUERY_AUTH === "1") {
+    const key = (process.env.VENDUS_API_KEY || "").trim();
+    if (key) u.searchParams.set("api_key", key);
+  }
+
+  return u.toString();
+}
+
+/** Vendus auth headers: HTTP Basic with API key as user and EMPTY password. */
 function vendusAuthHeadersFor(urlStr: string): HeadersInit | undefined {
   try {
     const u = new URL(urlStr);
@@ -20,19 +43,13 @@ function vendusAuthHeadersFor(urlStr: string): HeadersInit | undefined {
     const isVendus = host === "www.vendus.pt" || host.endsWith(".vendus.pt");
     if (!isVendus) return undefined;
 
-    // Vendus v1.1 auth: HTTP Basic with API key as username and EMPTY password.
-    // Ref: docs show curl -u api_key: https://.../account (empty password).
-    // No secret required. :contentReference[oaicite:1]{index=1}
     const apiKey = (process.env.VENDUS_API_KEY || "").trim();
-
-    // Optional fallbacks if you ever pre-bake an Authorization value or switch modes.
-    const basicFixed = (process.env.VENDUS_AUTH_BASIC || "").trim(); // "Basic abcd=="
-    const bearer = (process.env.VENDUS_BEARER_TOKEN || "").trim(); // "Bearer ey..."
+    const basicFixed = (process.env.VENDUS_AUTH_BASIC || "").trim();
+    const bearer = (process.env.VENDUS_BEARER_TOKEN || "").trim();
 
     let Authorization: string | undefined;
 
     if (apiKey) {
-      // Build "Basic base64(apiKey:)" — note the trailing colon.
       const raw = Buffer.from(`${apiKey}:`).toString("base64");
       Authorization = `Basic ${raw}`;
     } else if (basicFixed) {
@@ -88,9 +105,11 @@ export async function GET(
       );
     }
 
-    // Build upstream headers. If Vendus, attach Authorization when possible.
-    const authHeaders = vendusAuthHeadersFor(booking.invoicePdfUrl);
-    const upstream = await fetch(booking.invoicePdfUrl, {
+    // Prepare upstream URL (adds mode/tests when needed) and headers.
+    const upstreamUrl = prepareVendusUrl(booking.invoicePdfUrl);
+    const authHeaders = vendusAuthHeadersFor(upstreamUrl);
+
+    const upstream = await fetch(upstreamUrl, {
       method: "GET",
       redirect: "follow",
       headers: {
