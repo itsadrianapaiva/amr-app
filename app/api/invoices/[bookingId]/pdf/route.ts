@@ -12,6 +12,47 @@ function safeFilename(s: string): string {
   return s.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 80);
 }
 
+/** Detects if the upstream PDF lives on Vendus and, if so, attaches auth headers. */
+function vendusAuthHeadersFor(urlStr: string): HeadersInit | undefined {
+  try {
+    const u = new URL(urlStr);
+    const host = u.hostname.toLowerCase();
+    const isVendus = host === "www.vendus.pt" || host.endsWith(".vendus.pt");
+    if (!isVendus) return undefined;
+
+    // Vendus v1.1 auth: HTTP Basic with API key as username and EMPTY password.
+    // Ref: docs show curl -u api_key: https://.../account (empty password).
+    // No secret required. :contentReference[oaicite:1]{index=1}
+    const apiKey = (process.env.VENDUS_API_KEY || "").trim();
+
+    // Optional fallbacks if you ever pre-bake an Authorization value or switch modes.
+    const basicFixed = (process.env.VENDUS_AUTH_BASIC || "").trim(); // "Basic abcd=="
+    const bearer = (process.env.VENDUS_BEARER_TOKEN || "").trim(); // "Bearer ey..."
+
+    let Authorization: string | undefined;
+
+    if (apiKey) {
+      // Build "Basic base64(apiKey:)" — note the trailing colon.
+      const raw = Buffer.from(`${apiKey}:`).toString("base64");
+      Authorization = `Basic ${raw}`;
+    } else if (basicFixed) {
+      Authorization = basicFixed.startsWith("Basic ")
+        ? basicFixed
+        : `Basic ${basicFixed}`;
+    } else if (bearer) {
+      Authorization = bearer.startsWith("Bearer ")
+        ? bearer
+        : `Bearer ${bearer}`;
+    }
+
+    return Authorization
+      ? { accept: "application/pdf", authorization: Authorization }
+      : { accept: "application/pdf" };
+  } catch {
+    return undefined;
+  }
+}
+
 export async function GET(
   req: Request,
   ctx: { params: { bookingId: string } }
@@ -47,11 +88,15 @@ export async function GET(
       );
     }
 
-    // Server fetch of vendor PDF
+    // Build upstream headers. If Vendus, attach Authorization when possible.
+    const authHeaders = vendusAuthHeadersFor(booking.invoicePdfUrl);
     const upstream = await fetch(booking.invoicePdfUrl, {
       method: "GET",
       redirect: "follow",
-      headers: { accept: "application/pdf" },
+      headers: {
+        accept: "application/pdf",
+        ...(authHeaders || {}),
+      },
       cache: "no-store",
     });
 
