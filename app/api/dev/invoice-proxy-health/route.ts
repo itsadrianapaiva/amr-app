@@ -89,7 +89,7 @@ function resolveAppUrl(): string | null {
     expandPlaceholder(process.env.URL) ??
     expandPlaceholder(process.env.DEPLOY_PRIME_URL) ??
     expandPlaceholder(process.env.DEPLOY_URL) ??
-    null;
+    undefined;
 
   if (!base) return null;
 
@@ -105,7 +105,7 @@ function resolveAppUrl(): string | null {
 
   // Trim trailing slash
   base = base.replace(/\/+$/, "");
-  return base;
+  return base || null;
 }
 
 function isLocal(u: string): boolean {
@@ -119,11 +119,15 @@ function isLocal(u: string): boolean {
 
 function expandPlaceholder(v?: string): string | undefined {
   if (!v) return undefined;
-  // Expand $url, $URL, $deploy_prime_url, etc.
-  return v
+  // Expand common Netlify-style placeholders (case-insensitive).
+  const expanded = v
     .replace(/\$url/gi, process.env.URL ?? "")
     .replace(/\$deploy_prime_url/gi, process.env.DEPLOY_PRIME_URL ?? "")
     .replace(/\$deploy_url/gi, process.env.DEPLOY_URL ?? "");
+
+  const trimmed = expanded.trim();
+  // CRITICAL: treat empty string as undefined so caller can fall back.
+  return trimmed.length > 0 ? trimmed : undefined;
 }
 
 function usedEnvKeys(): string[] {
