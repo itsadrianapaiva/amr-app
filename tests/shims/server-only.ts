@@ -1,4 +1,4 @@
-// ✅Vitest shim for Next.js's "server-only" virtual module.
+// Vitest shim for Next.js's "server-only" virtual module.
 // This file lets unit tests import server files that include `import "server-only";`
 // without Vite trying to resolve a real package.
 

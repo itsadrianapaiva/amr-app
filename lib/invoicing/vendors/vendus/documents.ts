@@ -8,6 +8,13 @@ import type {
   CreditNoteCreateInput,
   CreditNoteRecord,
 } from "../../provider";
+import {
+  resolveOrCreateClient,
+  type ClientInput,
+  type VendusCore,
+} from "./clients";
+
+type VendusModeT = "normal" | "tests";
 
 /** Parse Vendus doc response into our Invoice/CreditNote record parts. */
 function parseDocResponse(res: VendusDocResponse) {
@@ -18,19 +25,113 @@ function parseDocResponse(res: VendusDocResponse) {
   return { id: String(res.id), number, pdfUrl, atcud };
 }
 
+/** Small helper to safely read optional properties without hard-coding types. */
+function pick<T = string>(obj: any, ...keys: string[]): T | undefined {
+  for (const k of keys) {
+    const v = obj?.[k];
+    if (v !== undefined && v !== null && String(v).trim() !== "") {
+      return v as T;
+    }
+  }
+  return undefined;
+}
+
+/** Map our InvoiceCreateInput into a Vendus ClientInput (tolerant to field names). */
+function mapInvoiceToClientInput(input: InvoiceCreateInput): ClientInput {
+  // Always present per your form: name, email; NIF optional; address if delivery/billing chosen.
+  const fiscalId =
+    pick<string>(input, "customerNIF") ??
+    pick<string>(input, "billingTaxId") ??
+    pick<string>(input, "taxId");
+
+  const email =
+    pick<string>(input, "customerEmail") ?? pick<string>(input, "email");
+
+  const name =
+    pick<string>(input, "customerName") ??
+    pick<string>(input, "billingCompanyName") ??
+    pick<string>(input, "name") ??
+    (email ? email.split("@")[0] : undefined);
+
+  const address =
+    pick<string>(input, "billingAddressLine1") ??
+    pick<string>(input, "addressLine1");
+
+  const postalcode =
+    pick<string>(input, "billingPostalCode") ??
+    pick<string>(input, "postalCode");
+
+  const city =
+    pick<string>(input, "billingCity") ?? pick<string>(input, "city");
+
+  const country =
+    pick<string>(input, "billingCountry") ?? pick<string>(input, "country");
+
+  const external_reference = pick<number | string>(input, "bookingId", "id")
+    ? `booking:${pick<number | string>(input, "bookingId", "id")}`
+    : undefined;
+
+  return {
+    fiscalId,
+    email,
+    name,
+    address,
+    postalcode,
+    city,
+    country,
+    external_reference,
+  };
+}
+
+/** Thin adapter around our existing http() so clients.ts can stay DI-friendly and unit-testable. */
+const vendusCore: VendusCore = {
+  async request<T>(
+    // your http() only supports GET/POST; narrow here to avoid TS2345
+    method: "GET" | "POST",
+    path: string,
+    opts?: {
+      query?: Record<string, unknown>;
+      json?: unknown;
+      mode?: VendusModeT;
+      contentType?: string;
+    }
+  ): Promise<T> {
+    // Our core http() accepts a single payload; for GET provide { mode, query }, for POST merge json + mode.
+    const payload: Record<string, unknown> = { mode: MODE as VendusModeT };
+    if (opts?.query) payload.query = opts.query;
+    if (opts?.json) Object.assign(payload, opts.json);
+    if (opts?.contentType) payload.contentType = opts.contentType;
+    return http<T>(method, path, payload);
+  },
+  log(msg: string, extra?: Record<string, unknown>) {
+    console.info(msg, extra);
+  },
+};
+
 /** Create an invoice-like document (FR, FT, or PF). */
 export async function createInvoiceDocument(params: {
   docType: Exclude<DocType, "NC">; // FR | FT | PF
   registerId: number;
   input: InvoiceCreateInput;
 }): Promise<InvoiceRecord> {
-  const payload = buildCreateDocumentPayload(params);
+  const { input } = params;
+
+  // 1) Resolve or create a concrete Vendus client and get its ID.
+  const clientInput = mapInvoiceToClientInput(input);
+  const clientId = await resolveOrCreateClient(vendusCore, clientInput, MODE);
+
+  // 2) Build the standard v1.1 payload, then force client.id to avoid Vendus A001 ambiguity.
+  const payload: any = buildCreateDocumentPayload(params);
+  payload.client = { id: clientId };
+
+  // 3) Issue the document.
   const res = await http<VendusDocResponse>(
     "POST",
     "/v1.1/documents/",
     payload
   );
   const { id, number, pdfUrl, atcud } = parseDocResponse(res);
+
   return {
     provider: "vendus",
     providerInvoiceId: id,
