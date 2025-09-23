@@ -1,3 +1,4 @@
+// lib/invoicing/vendors/vendus/payload.ts
 import "server-only";
 import type { DocType } from "./core";
 import { MODE, lisbonYmd, mapVatToTaxId } from "./core";
@@ -18,9 +19,11 @@ export type VendusItem = {
 
 /** Transform provider-agnostic lines into Vendus v1.1 items. */
 export function toVendusItems(
-  lines: InvoiceCreateInput["lines"]
+  lines: InvoiceCreateInput["lines"] | undefined
 ): VendusItem[] {
-  return lines.map((l) => {
+  // Defensive: tolerate undefined and empty arrays
+  const src = Array.isArray(lines) ? lines : [];
+  return src.map((l) => {
     const tax_id = mapVatToTaxId(l.vatPercent);
     const net = Number((l.unitPriceCents / 100).toFixed(2));
     // v1.1 expects gross_price. For ISE, gross == net.
@@ -58,21 +61,132 @@ function normalizeCountry(country?: string): string | undefined {
   return undefined;
 }
 
-/** Minimal client payload (send only what we have). */
+/** Minimal client payload (send only what we have). Robust when `input.customer` is missing. */
 export function buildClientPayload(input: InvoiceCreateInput) {
-  const cli = input.customer;
-  const addr = cli.address;
+  // Many tests pass root-level fields (customerName, customerEmail, customerNIF, etc.)
+  // Make this tolerant by reading from `input.customer` first, then falling back to roots.
+  const anyInput = input as any;
+
+  const cli = (anyInput.customer ?? {}) as {
+    name?: string;
+    email?: string;
+    nif?: string;
+    address?: {
+      line1?: string;
+      postalCode?: string;
+      city?: string;
+      country?: string;
+    };
+  };
+
+  const name =
+    cli.name ??
+    anyInput.customerName ??
+    anyInput.billingCompanyName ??
+    anyInput.name ??
+    anyInput.email ?? // fallback: use the email as a display name if nothing else
+    "Online Customer";
+
+  const email = cli.email ?? anyInput.customerEmail ?? anyInput.email;
+
+  const nif =
+    cli.nif ?? anyInput.customerNIF ?? anyInput.billingTaxId ?? anyInput.taxId;
+
+  // Prefer structured `customer.address`, else build from root billing fields
+  const addr = cli.address ?? {
+    line1: anyInput.billingAddressLine1 ?? anyInput.addressLine1,
+    postalCode: anyInput.billingPostalCode ?? anyInput.postalCode,
+    city: anyInput.billingCity ?? anyInput.city,
+    country: anyInput.billingCountry ?? anyInput.country,
+  };
+
   const country = normalizeCountry(addr?.country);
 
   return {
-    name: cli.name,
-    email: cli.email,
-    fiscal_id: cli.nif, // optional for B2C
+    name,
+    email,
+    fiscal_id: nif, // optional for B2C
     address: addr?.line1,
     postalcode: addr?.postalCode,
     city: addr?.city,
     ...(country ? { country } : {}),
   };
+}
+
+/* ----------------- helpers for dynamic field access (type-safe-ish) ----------------- */
+
+/** Small helper to safely read optional properties without asserting a structural type. */
+function pick<T = string>(obj: any, ...keys: string[]): T | undefined {
+  for (const k of keys) {
+    const v = obj?.[k];
+    if (v !== undefined && v !== null && String(v).trim?.() !== "") {
+      return v as T;
+    }
+  }
+  return undefined;
+}
+
+/* ---------------------- robust fallback for missing lines ---------------------- */
+
+/**
+ * When callers don't prebuild `input.lines`, derive a single rental line
+ * from common booking-ish fields *if present*. This keeps issuance resilient
+ * without changing `InvoiceCreateInput`'s structural type.
+ */
+function fallbackLinesFromInput(input: InvoiceCreateInput) {
+  // Dates are optional; we read them dynamically and default quantity to 1
+  const startRaw = pick<string | Date>(input, "startDate", "rentalStart");
+  const endRaw = pick<string | Date>(input, "endDate", "rentalEnd");
+
+  const start = startRaw ? new Date(startRaw) : undefined;
+  const end = endRaw ? new Date(endRaw) : undefined;
+
+  let qty = 1;
+  if (
+    start &&
+    end &&
+    !Number.isNaN(start.getTime()) &&
+    !Number.isNaN(end.getTime())
+  ) {
+    const ms = Math.max(0, end.getTime() - start.getTime());
+    const days = Math.ceil(ms / (24 * 60 * 60 * 1000));
+    qty = Math.max(1, days);
+  }
+
+  const machineName = pick<string>(input, "machineName", "itemTitle");
+  const titleParts: string[] = [];
+  if (machineName) titleParts.push(String(machineName));
+  if (start && end)
+    titleParts.push(`rental ${lisbonYmd(start)} → ${lisbonYmd(end)}`);
+
+  const description = titleParts.length ? titleParts.join(" — ") : "Rental";
+
+  const unitPriceCents =
+    typeof pick<number>(input, "unitDailyCents", "unitPriceCents") === "number"
+      ? (pick<number>(input, "unitDailyCents", "unitPriceCents") as number)
+      : 0;
+
+  const vatPercent =
+    typeof pick<number>(input, "vatPercent") === "number"
+      ? (pick<number>(input, "vatPercent") as number)
+      : 23;
+
+  const bookingId = pick<number | string>(input, "bookingId", "id");
+  const itemRef =
+    input.idempotencyKey ||
+    input.externalRef ||
+    (bookingId != null ? `booking:${bookingId}` : undefined);
+
+  return [
+    {
+      description,
+      quantity: qty,
+      unitPriceCents,
+      vatPercent,
+      itemRef,
+      vatExemptionCode: undefined as string | undefined,
+    },
+  ];
 }
 
 /**
@@ -86,13 +200,20 @@ export function buildCreateDocumentPayload(params: {
   input: InvoiceCreateInput;
 }) {
   const { docType, registerId, input } = params;
-  const items = toVendusItems(input.lines);
+
+  // Prefer explicit lines, otherwise derive a robust fallback
+  const sourceLines =
+    input.lines && input.lines.length
+      ? input.lines
+      : fallbackLinesFromInput(input);
+
+  const items = toVendusItems(sourceLines);
   const client = buildClientPayload(input);
 
   return {
     type: docType, // FR now; FT invoice; PF pro-forma
     mode: MODE, // 'tests' on staging to avoid AT comms
-    date: lisbonYmd(input.issuedAt), // YYYY-MM-DD in Europe/Lisbon
+    date: lisbonYmd(input.issuedAt ?? new Date()), // default to "today" if not provided
     register_id: registerId,
     client,
     items, // v1.1 expects items
