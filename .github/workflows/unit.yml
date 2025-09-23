@@ -11,6 +11,13 @@ jobs:
     name: Run Vitest (unit)
     runs-on: ubuntu-latest
 
+    # ✅ Test-only environment for CI (no production secrets)
+    env:
+      INVOICING_LINK_SECRET: test_secret_0123456789abcdef_TEST_ONLY_SECRET
+      APP_URL: http://localhost:3000
+      # You can also set NEXT_PUBLIC_APP_URL if you want to exercise that path:
+      # NEXT_PUBLIC_APP_URL: http://localhost:3000
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
