@@ -1,9 +1,8 @@
-// lib/emails/mailer.ts
 // Production-ready Resend adapter with safe dry-run and Reply-To defaults.
 
 import "server-only";
 import { Resend } from "resend";
-import { renderAsync } from "@react-email/render"; // render React → HTML
+import { render } from "@react-email/render"; // render React → HTML
 import type { ReactElement } from "react";
 
 /** Derive the exact param/return types from the SDK (no `any`). */
@@ -70,7 +69,7 @@ export async function sendEmail(req: MailRequest): Promise<MailResult> {
   let html: string | undefined;
   if (req.react) {
     try {
-      html = await renderAsync(req.react);
+      html = await render(req.react);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("[email:error] render failed", msg);
