@@ -96,7 +96,7 @@ function toQueryString(rec?: Record<string, unknown>): string {
   return qs ? `?${qs}` : "";
 }
 
-/** Thin adapter around our http(): GET uses query string, POST uses JSON body. */
+/** Thin adapter around our http(): GET uses query string (no mode), POST uses JSON body (with mode). */
 const vendusCore: VendusCore = {
   async request<T>(
     method: "GET" | "POST",
@@ -108,17 +108,19 @@ const vendusCore: VendusCore = {
       contentType?: string;
     }
   ): Promise<T> {
-    // Always pass MODE through, but…
     if (method === "GET") {
-      // …GET MUST NOT have a body. Encode query params into the URL.
-      const qs = toQueryString({ ...(opts?.query || {}), mode: MODE as VendusModeT });
-      return http<T>("GET", `${path}${qs}`, undefined);
+      // IMPORTANT: Vendus does NOT accept `mode` as a GET param. Never include it.
+      const qs = toQueryString(opts?.query);
+      return http<T>("GET", `${path}${qs}`, undefined); // no body, no content-type
     }
 
-    // POST carries JSON body; merge MODE into payload so Vendus sees it.
+    // POST: include `mode` in the JSON body (Vendus expects it here)
     const payload =
       opts?.json && typeof opts.json === "object"
-        ? { ...(opts.json as Record<string, unknown>), mode: MODE as VendusModeT }
+        ? {
+            ...(opts.json as Record<string, unknown>),
+            mode: MODE as VendusModeT,
+          }
         : { mode: MODE as VendusModeT };
 
     return http<T>("POST", path, payload);
@@ -145,7 +147,11 @@ export async function createInvoiceDocument(params: {
   payload.client = { id: clientId };
 
   // 3) Issue the document.
-  const res = await http<VendusDocResponse>("POST", "/v1.1/documents/", payload);
+  const res = await http<VendusDocResponse>(
+    "POST",
+    "/v1.1/documents/",
+    payload
+  );
   const { id, number, pdfUrl, atcud } = parseDocResponse(res);
 
   return {
@@ -185,7 +191,11 @@ export async function createCreditNoteDocument(params: {
     return_qrcode: 1,
   };
 
-  const res = await http<VendusDocResponse>("POST", "/v1.1/documents/", payload);
+  const res = await http<VendusDocResponse>(
+    "POST",
+    "/v1.1/documents/",
+    payload
+  );
   const { id, number, pdfUrl } = parseDocResponse(res);
 
   return {
