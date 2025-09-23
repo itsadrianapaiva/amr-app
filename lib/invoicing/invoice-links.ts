@@ -1,6 +1,5 @@
-// lib/invoicing/invoice-links.ts
 // Purpose: generate customer-facing invoice PDF links using our signed token.
-// This version fixes Netlify env resolution and expands "$deploy_prime_url" style placeholders,
+// This version try to fix Netlify env resolution and expands "$deploy_prime_url" style placeholders,
 // and normalizes against accidental double protocols like "http://http://host".
 
 import { createSignedToken } from "@/lib/security/signed-links";
