@@ -1,29 +1,39 @@
-"use client";
-
-import Image from "next/image";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
+/* Static imports unlock intrinsic size + blur + preload for priority */
+import hero01 from "@/public/images/hero/hero.jpg";
+import hero02 from "@/public/images/hero/hero-02.jpg";
+import hero03 from "@/public/images/hero/hero-03.jpg";
+
 type HeroProps = {
-  /** Small USP line above the headline */
   pretitle?: string;
-  /** Calm headline; we keep it visually small on purpose */
   title?: string;
   subtitle?: string;
-
   primaryHref?: string;
   primaryLabel?: string;
-
   whatsappNumberE164?: string | null;
   whatsappLabel?: string;
-
-  /** Keep existing classes for spacing/layout; bg image now comes from <Image>. */
   backgroundClassName?: string;
-
-  /** Select which hero asset to render under /public/images/hero/*.jpg */
   imageName?: "hero" | "hero-02" | "hero-03";
 };
+
+const HERO_IMAGES: Record<
+  NonNullable<HeroProps["imageName"]>,
+  StaticImageData
+> = {
+  hero: hero01,
+  "hero-02": hero02,
+  "hero-03": hero03,
+};
+
+/** Build a WhatsApp deep link from E.164 (server-safe, no DOM API). */
+function buildWhatsAppHref(e164?: string | null) {
+  if (!e164) return null;
+  const digits = e164.replace(/[^\d]/g, "");
+  return digits ? `https://wa.me/${digits}` : null;
+}
 
 export default function Hero({
   pretitle = "Instant online booking",
@@ -33,62 +43,43 @@ export default function Hero({
   primaryLabel = "Browse machines",
   whatsappNumberE164,
   whatsappLabel = "Need help? Chat on WhatsApp",
-  backgroundClassName = "", // e.g. spacing/padding classes only
+  backgroundClassName = "",
   imageName = "hero",
 }: HeroProps) {
-  // Minimal fade-in without external deps; subtle by design
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  const fadeIn = "transition-opacity duration-500 ease-out";
-  const stage = mounted ? "opacity-100" : "opacity-0";
-  const delay = (ms: number): CSSProperties => ({ transitionDelay: `${ms}ms` });
-
-  // Build WhatsApp deep link only if provided
-  const whatsappHref = useMemo(() => {
-    if (!whatsappNumberE164) return null;
-    const digits = whatsappNumberE164.replace(/[^\d]/g, "");
-    return `https://wa.me/${digits}`;
-  }, [whatsappNumberE164]);
-
-  // Compute image src from the selected variant
-  const heroSrc = `/images/hero/${imageName}.jpg`;
+  const heroImg = HERO_IMAGES[imageName] ?? HERO_IMAGES["hero"];
+  const whatsappHref = buildWhatsAppHref(whatsappNumberE164);
 
   return (
     <section
       className={[
-        "relative h-[60vh] overflow-hidden",
+        "relative min-h-[64vh] overflow-hidden",
         backgroundClassName,
       ].join(" ")}
     >
-      {/* Background image — LCP friendly */}
       <Image
-        src={heroSrc}
+        src={heroImg}
         alt="Tracked excavator working on a job site"
         fill
         priority
+        fetchPriority="high"
         sizes="100vw"
+        quality={78}
+        placeholder="blur"
         className="absolute inset-0 object-cover"
       />
 
-      {/* Dark gradient ensures contrast over any future photo */}
-      <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/10 via-black/70 to-black/90" />
+      {/* keep overlay + text fades, but NOT on the h1 */}
+      <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/10 via-black/70 to-black/90 fade-in fade-in-100" />
 
-      <div className="container mx-auto flex h-full items-center px-4 md:px-8">
+      <div className="container mx-auto flex min-h-[64vh] items-center px-4 md:px-8">
         <div className="z-20 mx-auto max-w-[608px] text-center text-white xl:mx-0 xl:text-left text-balance">
-          {/* Pretitle: highlight our USP without shouting */}
-          <p
-            className={`text-sm md:text-md font-semibold uppercase tracking-wider text-white/80 ${fadeIn} ${stage}`}
-            style={delay(60)}
-          >
+          <p className="text-sm md:text-md font-semibold uppercase tracking-wider text-white/80 fade-in fade-in-100">
             {pretitle}
           </p>
 
-          {/* Headline: visually small, calm, high contrast */}
-          <h1
-            className={`mt-2 text-3xl md:text-4xl font-bold leading-tight text-white/90 ${fadeIn} ${stage}`}
-            style={delay(120)}
-          >
-            {title.split("machinery").length > 1 ? (
+          {/* IMPORTANT: h1 has NO fade/transform so it can paint ASAP */}
+          <h1 className="mt-2 text-3xl md:text-4xl font-bold leading-tight text-white/90">
+            {title.includes("machinery") ? (
               <>
                 {title.split("machinery")[0]}
                 <span className="border-b border-accent text-white">
@@ -101,19 +92,11 @@ export default function Hero({
             )}
           </h1>
 
-          {/* Subtitle: one clear sentence about the flow */}
-          <p
-            className={`mt-4 text-base md:text-lg text-white/80 ${fadeIn} ${stage}`}
-            style={delay(180)}
-          >
+          <p className="mt-4 text-base md:text-lg text-white/80 fade-in fade-in-300">
             {subtitle}
           </p>
 
-          {/* CTAs: strong primary, optional WhatsApp secondary */}
-          <div
-            className={`mt-7 flex flex-col justify-center items-center gap-3 sm:flex-row ${fadeIn} ${stage}`}
-            style={delay(240)}
-          >
+          <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row fade-in fade-in-400">
             <Link href={primaryHref} prefetch={false}>
               <Button
                 size="lg"

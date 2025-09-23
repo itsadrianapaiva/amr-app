@@ -31,9 +31,30 @@ function labelFor(m: SerializableMachine): string {
   return friendly && friendly.length ? friendly : raw ? toTitleCase(raw) : "";
 }
 
+/** Determine how many cards fit per row using Tailwind breakpoints. */
+function useCardsPerRow() {
+  const [cols, setCols] = useState<number>(1); // default: base (1 col)
+
+  useEffect(() => {
+    const compute = () => {
+      const w = window.innerWidth;
+      // Tailwind breakpoints: md=768, xl=1280 → our grid is 1 / 2 / 4
+      if (w >= 1280) setCols(4);
+      else if (w >= 768) setCols(2);
+      else setCols(1);
+    };
+    compute();
+    window.addEventListener("resize", compute, { passive: true });
+    return () => window.removeEventListener("resize", compute);
+  }, []);
+
+  return cols;
+}
+
 /** CatalogSection: intro text, category pills, and machine grid. */
 export default function CatalogSection({ machines }: CatalogSectionProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const cardsPerRow = useCardsPerRow();
 
   // Unique, sorted categories built from labels
   const categories = useMemo(() => {
@@ -80,6 +101,9 @@ export default function CatalogSection({ machines }: CatalogSectionProps) {
     window.history.replaceState({}, "", newUrl);
   }, [selectedCategory]);
 
+  // Number of eager images should equal the first visual row (1 / 2 / 4)
+  const eagerCount = cardsPerRow;
+
   return (
     <section id="catalog" className="container mx-auto">
       {/* Inventory intro */}
@@ -120,8 +144,12 @@ export default function CatalogSection({ machines }: CatalogSectionProps) {
 
       {/* Grid */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-        {visibleMachines.map((machine) => (
-          <MachineCard key={machine.id} machine={machine} />
+        {visibleMachines.map((machine, idx) => (
+          <MachineCard
+            key={machine.id}
+            machine={machine}
+            eager={idx < eagerCount}
+          />
         ))}
       </div>
     </section>

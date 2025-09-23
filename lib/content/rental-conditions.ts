@@ -207,7 +207,7 @@ export const RENTAL_CONDITIONS: RentalConditionsDoc = {
         "Company: Algarve Machinery Rental",
         "Registered address: Avenida da Liberdade, Centro Comercial Granjinhos, Loja 446, 4710-249, Braga, Portugal",
         "Warehouse: Barranco da Vaca, 8670-116, Aljezur, Portugal",
-        "Warehouse hours: Mo–Fr 08:00–19:00",
+        "Warehouse hours: Mo–Fr 09:00–17:00",
         "Email: support@amr-rentals.com",
       ],
     },

@@ -1,3 +1,4 @@
+// app/layout.tsx
 import type { Metadata } from "next";
 import "./globals.css";
 import SiteNav from "@/components/site-nav";
@@ -8,6 +9,7 @@ import CookieConsentBanner from "@/components/cookie-consent";
 import { createDefaultMetadata } from "@/lib/seo/default-metadata";
 import ConsentProvider from "@/components/consent-provider";
 import OrganizationJsonLd from "@/components/seo/organization-jsonld";
+import { unstable_cache } from "next/cache"; // NEW: cache helper
 
 /**
  * We compose brand-safe defaults (canonical, OG/Twitter, robots) from
@@ -21,10 +23,7 @@ export const metadata: Metadata = {
     template: "AMR • %s",
   },
   description: "Instant online booking for pro-grade machinery.",
-  // Per-page routes can still override alternates.canonical when needed
-  alternates: {
-    canonical: "/",
-  },
+  alternates: { canonical: "/" },
   icons: {
     icon: [
       { url: "/favicon.ico" },
@@ -35,20 +34,66 @@ export const metadata: Metadata = {
   },
 };
 
+// Env-aware flags so we only warm connections we actually use.
+const hasGA =
+  !!process.env.NEXT_PUBLIC_GA4_ID || !!process.env.NEXT_PUBLIC_GADS_ID;
+const hasStripe = !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+
+/** Cache footer categories to reduce server work on every route.
+ *  - Key: "footer-categories"
+ *  - Revalidate hourly; adjust if you change categories more frequently.
+ */
+const getFooterCategoriesCached = unstable_cache(
+  async () => getFooterCategories(),
+  ["footer-categories"],
+  { revalidate: 3600 }
+);
+
 export default async function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  const footerCategories = await getFooterCategories();
+}: Readonly<{ children: React.ReactNode }>) {
+  // Use cached value instead of hitting DB every request
+  const footerCategories = await getFooterCategoriesCached();
+
   return (
     <html lang="en">
+      <head>
+        {/* Connection warmups */}
+        {hasGA && (
+          <>
+            <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+            <link
+              rel="preconnect"
+              href="https://www.googletagmanager.com"
+              crossOrigin=""
+            />
+            <link rel="dns-prefetch" href="https://www.google-analytics.com" />
+            <link
+              rel="preconnect"
+              href="https://www.google-analytics.com"
+              crossOrigin=""
+            />
+          </>
+        )}
+        {hasStripe && (
+          <>
+            <link rel="dns-prefetch" href="https://js.stripe.com" />
+            <link
+              rel="preconnect"
+              href="https://js.stripe.com"
+              crossOrigin=""
+            />
+            <link rel="dns-prefetch" href="https://m.stripe.com" />
+            <link rel="preconnect" href="https://m.stripe.com" crossOrigin="" />
+          </>
+        )}
+      </head>
       <body>
         {/* loads gtag + applies consent early */}
         <ConsentProvider />
         {/* Inject Organization + WebSite JSON-LD */}
-        <OrganizationJsonLd /> 
-        
+        <OrganizationJsonLd />
+
         {/* Invisible anchor so '/#home' targets the very top */}
         <div id="home" className="sr-only" aria-hidden="true" />
         {/* Sticky header on all pages */}

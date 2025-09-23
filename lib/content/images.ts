@@ -1,6 +1,6 @@
 import type { StaticImageData } from "next/image";
 
-/** Accept either a static import or a public path string. */
+/** Accept either a static import or a public/remote path string. */
 export type ImgSrc = StaticImageData | string;
 
 /** Optional focal hint for object-position tuning later. */
@@ -12,20 +12,48 @@ export interface HeroImage {
   alt: string;
   focal?: Focal;
 }
-
 export interface WhyImage {
   src: ImgSrc;
   alt: string;
 }
-
 export interface MachineImage {
   src: ImgSrc;
   alt: string;
 }
-// Map CSV "Type"/Name slugs → your canonical machine-image keys
-// Slugs derived from your CSV rows:
+
+/* --------------------------------------------------------------------------
+   Static imports (unlock intrinsic sizes + blurDataURL for placeholders)
+   NOTE: Paths are under /public; Next supports importing from there.
+---------------------------------------------------------------------------*/
+
+/* Hero */
+import hero01 from "@/public/images/hero/hero.jpg";
+import hero02 from "@/public/images/hero/hero-02.jpg";
+import hero03 from "@/public/images/hero/hero-03.jpg";
+
+/* Why section */
+import whyDefault from "@/public/images/misc/homepage-02.jpg";
+import whyAlt from "@/public/images/misc/homepage.jpg";
+
+/* Machines */
+import miniExcavator from "@/public/images/machines/mini-excavator.jpg";
+import mediumExcavator from "@/public/images/machines/medium-excavator.jpg";
+import largeExcavator from "@/public/images/machines/large-excavator.jpg";
+
+import skidTracks from "@/public/images/machines/skid-steer-loader-tracks.jpg";
+import skidTracksLg from "@/public/images/machines/lg-skid-steer-loader-tracks-02.jpg";
+import skidWheels from "@/public/images/machines/wheel-skid-steer-loader.jpg";
+
+import telehandler from "@/public/images/machines/telehandler.jpg";
+import compactor from "@/public/images/machines/compactor.jpg";
+import cementMixer from "@/public/images/machines/cement-mixer.jpg";
+import powerWasher from "@/public/images/machines/power-washer.jpg";
+
+/* Fallback (can remain a string path) */
+const FALLBACK_MACHINE_IMAGE = "/images/machines/_fallback.jpg" as const;
+
+/* CSV “Type”/Name slugs → canonical machine-image keys */
 const MACHINE_IMAGE_ALIASES: Record<string, string> = {
-  // CSV → canonical image key you already have in `imageContent.machines`
   "mini-bobcat-with-wheels": "wheel-skid-steer-loader",
   "mini-excavator": "mini-excavator",
   "medium-bobcat-skid-steer-w-tracks": "skid-steer-loader-tracks",
@@ -36,90 +64,98 @@ const MACHINE_IMAGE_ALIASES: Record<string, string> = {
   compactor: "compactor",
   "200-liter-concrete-mixer": "cement-mixer",
   "hyundai-petrol-powerwasher": "power-washer",
-  // "large-eletric-hammer": <no exact image yet>  // will fall back until we add one
 };
-
-/** One place to change the global machine fallback path. */
-const FALLBACK_MACHINE_IMAGE = "/images/machines/_fallback.jpg" as const;
 
 /**
  * Centralized image content used across Hero, Why section, catalog cards,
- * and machine detail pages. Replace paths as you drop real files.
+ * and machine detail pages.
  */
 export const imageContent = {
-  /** Hero stays file-based for fast LCP and easy swaps (hero | hero-02 | hero-03). */
+  /** Hero variants */
   hero: {
-    src: "/images/hero/hero.jpg",
-    alt: "Tracked excavator working on a job site at sunrise",
-    focal: "center",
-  } as HeroImage,
+    // Keep string alt + static src (StaticImageData)
+    variants: {
+      default: {
+        src: hero01,
+        alt: "Tracked excavator working at sunrise",
+        focal: "center",
+      } as HeroImage,
+      alt1: {
+        src: hero02,
+        alt: "Excavator silhouetted against the evening sky",
+        focal: "center",
+      } as HeroImage,
+      alt2: {
+        src: hero03,
+        alt: "Heavy machinery at a coastal job site",
+        focal: "center",
+      } as HeroImage,
+    },
+  },
 
-  /** Why section image variants (aka homepage visuals). */
+  /** Why section image variants */
   why: {
     default: {
-      src: "/images/misc/homepage-02.jpg",
+      src: whyDefault,
       alt: "Construction machinery operating on a sunny job site",
-    },
+    } as WhyImage,
     alt: {
-      src: "/images/misc/homepage.jpg",
+      src: whyAlt,
       alt: "Excavator and crew preparing a building site",
-    },
-  } satisfies Record<"default" | "alt", WhyImage>,
+    } as WhyImage,
+  } as Record<"default" | "alt", WhyImage>,
 
-  /**
-   * Machine images keyed by machine slug.
-   * Your additional -02/-03 (WebP/JPEG) files are available for quick swaps later.
-   */
+  /** Machine images keyed by canonical machine slug */
   machines: {
     // Excavators
     "mini-excavator": {
-      src: "/images/machines/mini-excavator.jpg",
+      src: miniExcavator,
       alt: "Mini excavator at a residential job site",
     },
     "medium-excavator": {
-      src: "/images/machines/medium-excavator.jpg",
+      src: mediumExcavator,
       alt: "Medium excavator working on a construction site",
     },
     "large-excavator": {
-      src: "/images/machines/large-excavator.jpg",
+      src: largeExcavator,
       alt: "Large excavator moving earth at a work site",
     },
 
     // Skid steers (tracks and wheels)
     "skid-steer-loader-tracks": {
-      src: "/images/machines/skid-steer-loader-tracks.jpg",
+      src: skidTracks,
       alt: "Compact track loader (skid steer with rubber tracks)",
     },
     "lg-skid-steer-loader-tracks": {
-      src: "/images/machines/lg-skid-steer-loader-tracks-02.jpg",
+      src: skidTracksLg,
       alt: "Large compact track loader with rubber tracks",
     },
     "wheel-skid-steer-loader": {
-      src: "/images/machines/wheel-skid-steer-loader.jpg",
+      src: skidWheels,
       alt: "Wheeled skid steer loader on site",
     },
 
     // Lifting
     telehandler: {
-      src: "/images/machines/telehandler.jpg",
+      src: telehandler,
       alt: "Telescopic handler lifting materials",
     },
 
     // Compaction
     compactor: {
-      src: "/images/machines/compactor.jpg",
+      src: compactor,
       alt: "Plate compactor for soil and base preparation",
     },
 
     // Concrete
     "cement-mixer": {
-      src: "/images/machines/cement-mixer.jpg",
+      src: cementMixer,
       alt: "Portable concrete mixer with drum",
     },
 
     // Cleaning
     "power-washer": {
-      src: "/images/machines/power-washer.jpg",
+      src: powerWasher,
       alt: "High-pressure power washer in outdoor use",
     },
   } as Record<string, MachineImage>,
@@ -130,7 +166,8 @@ export const imageContent = {
   },
 } as const;
 
-/* - helpers (normalization)  */
+/* ----------------------------- helpers ---------------------------------- */
+
 // Normalize arbitrary names/enums to a slug-like key.
 function toSlugLike(s: string): string {
   return String(s || "")
@@ -176,7 +213,7 @@ export function getMachineImage(slugOrType: string) {
   return {
     src: imageContent.fallback.machine,
     alt: "Construction machinery on site",
-  };
+  } satisfies MachineImage;
 }
 
 /**
@@ -202,7 +239,7 @@ export function resolveMachineImage(input: {
   // 3) Prefer DB URL if it's safe (remote SVGs/placeholder hosts are ignored)
   const url = (input.dbUrl ?? "").trim();
   if (url && isSafeRemoteImageUrl(url)) {
-    return { src: url, alt: hit.alt }; // reuse alt (or set `Image of ...` at callsite)
+    return { src: url, alt: hit.alt }; // reuse alt (or set “Image of ...” at callsite)
   }
 
   // 4) Map/local image or fallback
@@ -216,7 +253,6 @@ export function isSafeRemoteImageUrl(u: string): boolean {
 
   try {
     const host = new URL(u).hostname;
-    // Block obvious placeholder domains; expand as needed
     if (/(^|\.)placehold\.co$/i.test(host)) return false;
   } catch {
     return false; // invalid URL

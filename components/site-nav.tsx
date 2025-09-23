@@ -2,77 +2,22 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Menu } from "lucide-react";
 import { NAV_CONTENT } from "@/lib/content/nav";
 import Logo from "@/components/logo";
 import {
   Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
+  SheetContent, // kept to ensure consistent animation/layout; MobileMenu renders inside
   SheetTrigger,
 } from "@/components/ui/sheet";
 
-/** P4-style mobile menu: centered logo, bold spacing, white on primary. */
-function MobileMenu({ onClose }: { onClose: () => void }) {
-  return (
-    <SheetContent
-      side="right"
-      className="border-none bg-secondary-foreground text-primary-foreground"
-    >
-      <div className="flex h-full flex-col items-center justify-start pb-8 pt-12">
-        <SheetHeader>
-          <SheetTitle>
-            <div className="cursor-pointer" onClick={onClose}>
-              <Logo src="/assets/logo-bw.png" width={160} height={40} />
-            </div>
-          </SheetTitle>
-          <SheetDescription className="sr-only">
-            Navigation menu
-          </SheetDescription>
-        </SheetHeader>
+// Load the heavy mobile menu code only on demand (client-side).
+const MobileMenu = dynamic(() => import("@/components/nav/mobile-menu"), {
+  ssr: false,
+  loading: () => null, // no flicker; the Sheet opens when content is ready
+});
 
-        <ul className="mt-12 flex w-full flex-col justify-center gap-10 text-center">
-          {NAV_CONTENT.links.map((link) => (
-            <li
-              key={link.href}
-              className="text-md font-medium uppercase tracking-[1.2px] text-primary-foreground"
-            >
-              <Link
-                href={link.href}
-                prefetch={false}
-                className="cursor-pointer"
-                onClick={onClose}
-              >
-                {link.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-10">
-          <Link
-            href={NAV_CONTENT.primaryCta.href}
-            prefetch={false}
-            onClick={onClose}
-            className="inline-flex rounded-lg bg-accent px-10 py-2 text-md font-semibold text-primary-foreground border border-primary-foreground hover:bg-accent/80"
-          >
-            {NAV_CONTENT.primaryCta.label}
-          </Link>
-        </div>
-
-        {/* Optional socials/contacts could go here later */}
-      </div>
-    </SheetContent>
-  );
-}
-
-/**
- * SiteNav
- * Transparent over hero, solid on scroll.
- * Wider desktop padding; P4-style mobile sheet; dynamic trigger color.
- */
 export default function SiteNav() {
   const [open, setOpen] = useState(false);
   const [headerActive, setHeaderActive] = useState(false);
@@ -88,18 +33,19 @@ export default function SiteNav() {
     ? "border-b border-border/60 bg-surface/80 backdrop-blur supports-[backdrop-filter]:bg-surface/60"
     : "border-b border-transparent bg-transparent";
 
-  // Transparent header uses yellow; solid uses B&W.
   const logoSrc = headerActive
     ? "/assets/logo-bw.png"
     : "/assets/logo-yellow.png";
 
   return (
     <header className={`sticky top-0 z-50 transition-colors ${headerClasses}`}>
-      {/* Extra horizontal padding so the CTA isn't glued to the right edge */}
       <div className="container mx-auto px-4 md:px-6 lg:px-8 xl:px-10">
-        <div className="flex min-h-[72px] items-center justify-between md:min-h-[88px]">
-          {/* Brand */}
-          <Logo src={logoSrc} width={160} height={48} />
+        {/* Taller row + padding to avoid any clipping */}
+        <div className="flex min-h-[120px] items-center justify-between py-2">
+          {/* Reserved logo box prevents reflow when swapping src */}
+          <div className="h-14 w-[160px] shrink-0 flex items-center">
+            <Logo src={logoSrc} width={160} height={48} />
+          </div>
 
           {/* Desktop nav */}
           <nav className="hidden items-center gap-6 md:flex">
@@ -117,14 +63,12 @@ export default function SiteNav() {
               ))}
             </ul>
 
-            {/* Small USP badge */}
             {NAV_CONTENT.uspShort ? (
               <span className="hidden rounded-full border border-border px-3 py-1 text-xs text-muted-foreground lg:inline uppercase">
                 {NAV_CONTENT.uspShort}
               </span>
             ) : null}
 
-            {/* Primary CTA */}
             <Link
               href={NAV_CONTENT.primaryCta.href}
               prefetch={false}
@@ -134,17 +78,23 @@ export default function SiteNav() {
             </Link>
           </nav>
 
-          {/* Mobile trigger — white over hero, regular when solid */}
-          <div className="md:hidden">
+          {/* Mobile trigger (bundle-splitting: MobileMenu loads only when needed) */}
+          <div className="md:hidden shrink-0">
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger
                 aria-label="Open menu"
-                className="inline-flex h-18 w-18 items-center justify-center"
+                className="inline-flex h-12 w-12 items-center justify-center"
               >
-                {" "}
-                <Menu className="h-10 w-10 mr-8" />
+                <Menu className="h-8 w-8" />
               </SheetTrigger>
-              <MobileMenu onClose={() => setOpen(false)} />
+              {/* Keep <SheetContent> SSR to reserve space/animation shell; actual menu is lazy */}
+              <SheetContent
+                side="right"
+                className="p-0 border-0 bg-transparent"
+              >
+                {/* When the dynamic chunk is ready, render full menu */}
+                <MobileMenu onClose={() => setOpen(false)} />
+              </SheetContent>
             </Sheet>
           </div>
         </div>

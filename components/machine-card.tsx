@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
@@ -11,8 +11,10 @@ import { resolveMachineImage } from "@/lib/content/images";
 function getCategoryOrType(m: unknown): string {
   if (m && typeof m === "object") {
     const r = m as Record<string, unknown>;
-    const cat = typeof r["category"] === "string" ? (r["category"] as string) : undefined;
-    const typ = typeof r["type"] === "string" ? (r["type"] as string) : undefined;
+    const cat =
+      typeof r["category"] === "string" ? (r["category"] as string) : undefined;
+    const typ =
+      typeof r["type"] === "string" ? (r["type"] as string) : undefined;
     return cat ?? typ ?? "";
   }
   return "";
@@ -20,9 +22,11 @@ function getCategoryOrType(m: unknown): string {
 
 interface MachineCardProps {
   machine: SerializableMachine;
+  /** Hint to load this card's image sooner (used for first row only). */
+  eager?: boolean;
 }
 
-export function MachineCard({ machine }: MachineCardProps) {
+export function MachineCard({ machine, eager = false }: MachineCardProps) {
   // Derived display values
   const displayName = toTitleCase(machine.name);
 
@@ -53,15 +57,21 @@ export function MachineCard({ machine }: MachineCardProps) {
   if (showPickup) specs.push(MACHINE_CARD_COPY.labels.pickupAvailable);
   const specsLine = specs.join(" • ");
 
-  // Always resolve via our internal map; ignore DB/CSV links to avoid Next/Image host errors
+  // Resolve local/static or remote image (remote is guarded)
   const img = resolveMachineImage({
     type: categoryOrType,
     name: machine.name ?? "",
     dbUrl: null, // explicitly ignore external URLs on cards
   });
 
-  const srcToUse = img.src;
+  const srcToUse = img.src as StaticImageData | string;
   const altToUse = img.alt;
+
+  // If we have a static import, use a blur placeholder for nicer perceived loading
+  const isStatic =
+    typeof srcToUse === "object" &&
+    srcToUse !== null &&
+    "src" in (srcToUse as any);
 
   return (
     <div className="group relative h-[492px] w-full overflow-hidden">
@@ -82,7 +92,15 @@ export function MachineCard({ machine }: MachineCardProps) {
         src={srcToUse}
         alt={altToUse}
         fill
-        sizes="(min-width:1024px) 33vw, (min-width:640px) 50vw, 100vw"
+        /* 1 / 2 / 4 columns on base / md / xl */
+        sizes="(min-width:1280px) 25vw, (min-width:768px) 50vw, 100vw"
+        /* Nudge the first row only */
+        loading={eager ? "eager" : "lazy"}
+        fetchPriority={eager ? "high" : "auto"}
+        /* Blur only when StaticImageData is available (auto blurDataURL) */
+        placeholder={isStatic ? "blur" : "empty"}
+        /* Mild quality trim; WebP handles compression well */
+        quality={78}
         className="object-cover transition-transform duration-500 group-hover:scale-105"
       />
 
@@ -98,7 +116,7 @@ export function MachineCard({ machine }: MachineCardProps) {
           {/* Top row: name + CTA */}
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="font-semibold tracking-tight">{displayName}</h4>
+              <h3 className="font-semibold tracking-tight">{displayName}</h3>
               <p
                 className="max-w-[14rem] truncate text-xs uppercase tracking-wider text-muted-foreground"
                 title={displayType}

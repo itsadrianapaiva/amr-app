@@ -28,7 +28,7 @@ export const FOOTER_CONTENT: FooterContent = {
   addressLines: ["Algarve, Portugal"],
 
   // No phone yet — placeholder for layout; set to null to hide completely.
-  phoneDisplay: "000 000 000", // "Your phone here",
+  phoneDisplay: "934 014 611", // "Your phone here",
   // Set when ready (e.g., "hello@amr.pt"); null hides the email row.
   email: "support@amr-rentals.com", //add correct one later
 
