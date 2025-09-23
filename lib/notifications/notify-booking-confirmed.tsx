@@ -3,22 +3,21 @@ import "server-only";
 import type { ReactElement } from "react";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/emails/mailer";
-import BookingConfirmedEmail from "@/lib/emails/templates/booking-confirmed";
-import BookingInternalEmail from "@/lib/emails/templates/booking-internal";
-import { buildInvoiceLinkSnippet } from "../emails/invoice-link";
+import { buildInvoiceLinkSnippet } from "@/lib/emails/invoice-link";
 
-/** Narrow, explicit input. Keep this module single-purpose. */
+// extracted mailers
+import {
+  buildCustomerEmail,
+  type CustomerConfirmedView,
+} from "@/lib/notifications/mailers/customer-confirmed";
+import {
+  buildInternalEmail,
+  type InternalConfirmedView,
+  type NotifySource as MailerNotifySource,
+} from "@/lib/notifications/mailers/internal-confirmed";
+
+/** Call-site type stays the same for webhooks and ops. */
 export type NotifySource = "customer" | "ops";
-
-/** Env-backed config with safe defaults for dev/dry-run. */
-const COMPANY_NAME = process.env.COMPANY_NAME || "Algarve Machinery Rental";
-const COMPANY_EMAIL =
-  process.env.EMAIL_REPLY_TO ||
-  process.env.SUPPORT_EMAIL ||
-  "support@amr-rentals.com";
-const SUPPORT_PHONE = process.env.SUPPORT_PHONE || "351934014611";
-const COMPANY_WEBSITE =
-  process.env.COMPANY_WEBSITE || "https://amr-rentals.com";
 
 /** Admin recipients (comma-separated) for internal notifications. */
 const ADMIN_TO = (
@@ -30,14 +29,7 @@ const ADMIN_TO = (
   .map((s) => s.trim())
   .filter(Boolean);
 
-/** Logistics (customer “what happens next”). */
-const WAREHOUSE_ADDRESS = process.env.WAREHOUSE_ADDRESS || "AMR Warehouse";
-const WAREHOUSE_HOURS = process.env.WAREHOUSE_HOURS || "Mon–Fri 09:00–17:00";
-
-/** Public URL for Ops deep links in internal mail. */
-const APP_URL = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "";
-
-/** Utilities */
+/** Utilities (tiny and local) */
 function toYmdUTC(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
@@ -81,8 +73,8 @@ function makeAddonsList(input: {
   return items.length ? items.join(" · ") : "None";
 }
 
-/** Lightweight record for email rendering */
-type BookingEmailView = {
+/** Common lean view built once, then mapped to each mailer’s view type. */
+type BookingCommonView = {
   id: number;
   machineId: number;
   machineName: string;
@@ -94,14 +86,15 @@ type BookingEmailView = {
   customerPhone?: string | null;
   siteAddress?: string;
   addonsList: string;
-  totals: { subtotalExVat: string; vatAmount: string; totalInclVat: string };
+  subtotalExVat: string;
+  vatAmount: string;
+  totalInclVat: string;
   depositAmount: string;
   invoiceNumber?: string | null;
-  invoicePdfUrl?: string; // signed proxy URL, if present
+  invoicePdfUrl?: string; // signed proxy URL if present
 };
 
-/** Map DB row → light view model */
-function toEmailView(b: any): BookingEmailView {
+function toCommonView(b: any): BookingCommonView {
   const startYmd = toYmdUTC(b.startDate);
   const endYmd = toYmdUTC(b.endDate);
   const machineName = b.machine?.name ?? `Machine #${b.machineId}`;
@@ -119,6 +112,7 @@ function toEmailView(b: any): BookingEmailView {
   });
   const hasInvoice = !!b.invoiceNumber && !!b.invoicePdfUrl;
   const signed = hasInvoice ? buildInvoiceLinkSnippet(b.id) : undefined;
+
   return {
     id: b.id,
     machineId: b.machineId,
@@ -131,96 +125,29 @@ function toEmailView(b: any): BookingEmailView {
     customerPhone: b.customerPhone || undefined,
     siteAddress: siteAddress || undefined,
     addonsList,
-    totals,
+    subtotalExVat: totals.subtotalExVat,
+    vatAmount: totals.vatAmount,
+    totalInclVat: totals.totalInclVat,
     depositAmount,
     invoiceNumber: b.invoiceNumber || undefined,
     invoicePdfUrl: signed?.url,
   };
 }
 
-/** Build React elements (kept tiny and pure) */
-function buildCustomerEmail(view: BookingEmailView): ReactElement {
-  return (
-    <BookingConfirmedEmail
-      companyName={COMPANY_NAME}
-      companyEmail={COMPANY_EMAIL}
-      supportPhone={SUPPORT_PHONE}
-      companySite={COMPANY_WEBSITE}
-      customerName={view.customerName || undefined}
-      bookingId={view.id}
-      machineName={view.machineName}
-      startYmd={view.startYmd}
-      endYmd={view.endYmd}
-      rentalDays={view.rentalDays}
-      addonsList={view.addonsList}
-      deliverySelected={false /* legacy flag not shown in template */}
-      pickupSelected={false /* legacy flag not shown in template */}
-      siteAddress={view.siteAddress || null}
-      subtotalExVat={view.totals.subtotalExVat}
-      vatAmount={view.totals.vatAmount}
-      totalInclVat={view.totals.totalInclVat}
-      depositAmount={view.depositAmount}
-      invoicePdfUrl={view.invoicePdfUrl /* may be undefined */}
-      warehouseAddress={WAREHOUSE_ADDRESS}
-      warehouseHours={WAREHOUSE_HOURS}
-      callByDateTimeLocal={null}
-      machineAccessNote={null}
-    />
-  );
-}
-
-function buildInternalEmail(
-  view: BookingEmailView,
-  source: NotifySource
-): ReactElement {
-  return (
-    <BookingInternalEmail
-      companyName={COMPANY_NAME}
-      adminEmail={COMPANY_EMAIL}
-      source={source}
-      bookingId={view.id}
-      machineId={view.machineId}
-      machineName={view.machineName}
-      startYmd={view.startYmd}
-      endYmd={view.endYmd}
-      rentalDays={view.rentalDays}
-      customerName={view.customerName || undefined}
-      customerEmail={view.customerEmail || undefined}
-      customerPhone={view.customerPhone || undefined}
-      siteAddress={view.siteAddress || undefined}
-      addonsList={view.addonsList}
-      deliverySelected={false}
-      pickupSelected={false}
-      heavyLeadTimeApplies={[5, 6, 7].includes(view.machineId)}
-      geofenceStatus={"inside"}
-      subtotalExVat={view.totals.subtotalExVat}
-      vatAmount={view.totals.vatAmount}
-      totalInclVat={view.totals.totalInclVat}
-      depositAmount={view.depositAmount}
-      opsUrlForBooking={APP_URL ? `${APP_URL}/ops` : "#"}
-      stripePiId={undefined}
-      stripePiUrl={undefined}
-      invoiceNumber={view.invoiceNumber || undefined}
-      invoicePdfUrl={view.invoicePdfUrl}
-      googleCalendarEventId={undefined}
-      googleHtmlLink={undefined}
-    />
-  );
-}
-
 /**
  * notifyBookingConfirmed
  * Policy:
- * - Send confirmation email exactly once.
+ * - Send confirmation exactly once.
  * - If invoice exists at that time, include link AND mark invoiceEmailSentAt,
- *   so later notify-invoice-ready will no-op (max two emails rule).
- * - Always send internal email.
+ *   so later notify-invoice-ready will no-op (max two emails for customer).
+ * - Always send internal email (duplicate internal sends from multiple Stripe events
+ *   are acceptable for now; we can add a DB flag later if needed).
  */
 export async function notifyBookingConfirmed(
   bookingId: number,
   source: NotifySource
 ): Promise<void> {
-  // 1) Fetch lean booking
+  // 1) Load minimal fields
   const b = await db.booking.findUnique({
     where: { id: bookingId },
     select: {
@@ -248,7 +175,7 @@ export async function notifyBookingConfirmed(
   });
   if (!b) return;
 
-  const view = toEmailView(b);
+  const viewCommon = toCommonView(b);
   const isInternalPlaceholder = (b.customerEmail || "")
     .toLowerCase()
     .endsWith("@internal.local");
@@ -257,20 +184,33 @@ export async function notifyBookingConfirmed(
   // 2) Customer confirmation — atomic claim
   let customerPromise: Promise<unknown> = Promise.resolve();
   if (source !== "ops" && b.customerEmail && !isInternalPlaceholder) {
-    // If invoice exists now, claim both confirmation and invoice email in one shot.
     const data: Record<string, Date> = { confirmationEmailSentAt: new Date() };
     const where: any = { id: b.id, confirmationEmailSentAt: null };
 
     if (hasInvoiceNow) {
       data.invoiceEmailSentAt = new Date();
-      // Note: do NOT add invoiceEmailSentAt:null to the WHERE clause; we want to allow the
-      // case where invoice email was already sent by a race (rare) without blocking confirm.
     }
 
     const claim = await db.booking.updateMany({ where, data });
 
     if (claim.count === 1) {
-      const react = buildCustomerEmail(view);
+      // Map to the customer mailer’s view
+      const customerView: CustomerConfirmedView = {
+        id: viewCommon.id,
+        machineName: viewCommon.machineName,
+        startYmd: viewCommon.startYmd,
+        endYmd: viewCommon.endYmd,
+        rentalDays: viewCommon.rentalDays,
+        customerName: viewCommon.customerName,
+        siteAddress: viewCommon.siteAddress || null,
+        subtotalExVat: viewCommon.subtotalExVat,
+        vatAmount: viewCommon.vatAmount,
+        totalInclVat: viewCommon.totalInclVat,
+        depositAmount: viewCommon.depositAmount,
+        invoicePdfUrl: viewCommon.invoicePdfUrl, // optional
+      };
+
+      const react: ReactElement = buildCustomerEmail(customerView);
       customerPromise = sendEmail({
         to: b.customerEmail,
         subject: "Your AMR booking is confirmed: next steps",
@@ -280,14 +220,38 @@ export async function notifyBookingConfirmed(
   }
 
   // 3) Internal email — always
-  const internalReact = buildInternalEmail(view, source);
-  const internalSubject = `New CONFIRMED booking #${view.id}: ${view.machineName} · ${view.startYmd}–${view.endYmd}`;
+  const internalView: InternalConfirmedView = {
+    id: viewCommon.id,
+    machineId: viewCommon.machineId,
+    machineName: viewCommon.machineName,
+    startYmd: viewCommon.startYmd,
+    endYmd: viewCommon.endYmd,
+    rentalDays: viewCommon.rentalDays,
+    customerName: viewCommon.customerName || undefined,
+    customerEmail: viewCommon.customerEmail || undefined,
+    customerPhone: viewCommon.customerPhone || undefined,
+    siteAddress: viewCommon.siteAddress || undefined,
+    addonsList: viewCommon.addonsList,
+    subtotalExVat: viewCommon.subtotalExVat,
+    vatAmount: viewCommon.vatAmount,
+    totalInclVat: viewCommon.totalInclVat,
+    depositAmount: viewCommon.depositAmount,
+    invoiceNumber: viewCommon.invoiceNumber || undefined,
+    invoicePdfUrl: viewCommon.invoicePdfUrl,
+  };
+
+  const internalReact: ReactElement = buildInternalEmail(
+    internalView,
+    source as MailerNotifySource
+  );
+  const internalSubject = `New CONFIRMED booking #${viewCommon.id}: ${viewCommon.machineName} · ${viewCommon.startYmd}–${viewCommon.endYmd}`;
+
   const internalPromise = sendEmail({
     to: ADMIN_TO,
     subject: internalSubject,
     react: internalReact,
   });
 
-  // 4) Fire both in parallel; swallow individual failures
+  // 4) Fire both in parallel; contain failures
   await Promise.allSettled([customerPromise, internalPromise]);
 }
