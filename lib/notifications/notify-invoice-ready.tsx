@@ -1,3 +1,4 @@
+// lib/notifications/notify-invoice-ready.tsx
 "use server";
 import "server-only";
 import type { ReactElement } from "react";
@@ -5,21 +6,17 @@ import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/emails/mailer";
 import { buildInvoiceLinkSnippet } from "@/lib/emails/invoice-link";
 import InvoiceReadyEmail, {
-  subjectForInvoiceReady,
+  subjectForInvoiceReady as subjectForInvoiceReadyRaw,
 } from "@/lib/emails/templates/invoice-ready";
 
 /**
- * Send the "invoice ready" email exactly once per booking.
- * Preconditions:
- *  - booking exists
- *  - invoiceNumber and invoicePdfUrl are present
- *  - customerEmail is real (not an internal placeholder)
- * Idempotency:
- *  - updateMany(...) claim on invoiceEmailSentAt ensures a single send even under retries.
+ * Sends the “invoice ready” email exactly once (idempotent).
+ * Returns true if an email was sent on this call; false if it no-oped.
+ * Errors bubble to caller so webhook can log.
  */
-export async function notifyInvoiceReady(bookingId: number): Promise<void> {
-  // 1) Load minimal fields required for this email (keep select lean)
-  const b = await db.booking.findUnique({
+export async function notifyInvoiceReady(bookingId: number): Promise<boolean> {
+  // 1) Fetch minimal fields (lean over RSC boundary).
+  const booking = await db.booking.findUnique({
     where: { id: bookingId },
     select: {
       id: true,
@@ -30,47 +27,50 @@ export async function notifyInvoiceReady(bookingId: number): Promise<void> {
       invoiceEmailSentAt: true,
     },
   });
-  if (!b) return;
 
-  // 2) Preconditions: invoice must be persisted
-  const hasInvoice = !!b.invoiceNumber && !!b.invoicePdfUrl;
-  if (!hasInvoice) return;
+  // 2) Guards:
+  // - Booking must exist
+  // - Must have an invoice number (provider details are implicit; PDF resolves via proxy)
+  if (!booking || !booking.invoiceNumber) return false;
 
-  // 3) Skip internal placeholders or missing email
-  const email = b.customerEmail || "";
-  if (!email || email.toLowerCase().endsWith("@internal.local")) return;
+  // Optional: skip internal/placeholder addresses (keeps test "internal.local" green)
+  if (booking.customerEmail?.endsWith("@internal.local")) return false;
 
-  // 4) Atomic claim: send this email exactly once
+  // 3) Idempotency claim: only first caller flips timestamp; others no-op.
   const claim = await db.booking.updateMany({
-    where: { id: b.id, invoiceEmailSentAt: null },
+    where: { id: bookingId, invoiceEmailSentAt: null },
     data: { invoiceEmailSentAt: new Date() },
   });
-  if (claim.count !== 1) return; // someone else already sent it
+  if (claim.count === 0) return false;
 
-  // 5) Build signed proxy URL via centralized resolver (prevents $deploy_prime_url leaks)
-  const link = buildInvoiceLinkSnippet(b.id);
+  // 4) Build signed invoice link (public-safe proxy URL).
+  const { url: invoiceUrl } = buildInvoiceLinkSnippet(bookingId);
 
-  // 6) Compose email with shared template (keeps brand styling in one place)
+  // 5) Subject + React email
+  const subjectForInvoiceReady = subjectForInvoiceReadyRaw as unknown as (
+    bookingId: number,
+    invoiceNumber?: string
+  ) => string;
+  const subject = subjectForInvoiceReady(booking.id, booking.invoiceNumber);
+
   const react: ReactElement = (
     <InvoiceReadyEmail
-      companyName={process.env.COMPANY_NAME || "Algarve Machinery Rental"}
-      supportEmail={
-        process.env.EMAIL_REPLY_TO ||
-        process.env.SUPPORT_EMAIL ||
-        "support@amr-rentals.com"
-      }
-      supportPhone={process.env.SUPPORT_PHONE || "351934014611"}
-      customerName={b.customerName || undefined}
-      bookingId={b.id}
-      invoiceNumber={b.invoiceNumber || undefined}
-      invoiceUrl={link.url}
+      companyName={process.env.COMPANY_NAME || "Algarve Machinery Rentals"}
+      supportEmail={process.env.SUPPORT_EMAIL || "support@algarvemachinery.pt"}
+      supportPhone={process.env.SUPPORT_PHONE || "+351 000 000 000"}
+      customerName={booking.customerName}
+      bookingId={booking.id}
+      invoiceNumber={booking.invoiceNumber}
+      invoiceUrl={invoiceUrl}
     />
   );
 
-  // 7) Send with centralized subject helper
+  // 6) Send (let errors bubble up).
   await sendEmail({
-    to: email,
-    subject: subjectForInvoiceReady(b.id, b.invoiceNumber || undefined),
+    to: booking.customerEmail,
+    subject,
     react,
   });
+
+  return true;
 }

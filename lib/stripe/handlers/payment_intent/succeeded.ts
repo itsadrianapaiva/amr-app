@@ -117,8 +117,10 @@ export async function onPaymentIntentSucceeded(
   // 6) Then notify “invoice ready” (idempotent; runs only once when invoice exists)
   log("invoice_ready:start", { bookingId });
   try {
-    await notifyInvoiceReady(bookingId); // no-ops if invoice fields missing or email already sent
-    log("invoice_ready:done", { bookingId });
+    const sent = await notifyInvoiceReady(bookingId);
+    if (sent) {
+      log("invoice_ready:done", { bookingId });
+    }
   } catch (err) {
     log("invoice_ready:error", {
       bookingId,
