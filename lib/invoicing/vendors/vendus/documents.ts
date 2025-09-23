@@ -38,7 +38,6 @@ function pick<T = string>(obj: any, ...keys: string[]): T | undefined {
 
 /** Map our InvoiceCreateInput into a Vendus ClientInput (tolerant to field names). */
 function mapInvoiceToClientInput(input: InvoiceCreateInput): ClientInput {
-  // Always present per your form: name, email; NIF optional; address if delivery/billing chosen.
   const fiscalId =
     pick<string>(input, "customerNIF") ??
     pick<string>(input, "billingTaxId") ??
@@ -83,10 +82,23 @@ function mapInvoiceToClientInput(input: InvoiceCreateInput): ClientInput {
   };
 }
 
-/** Thin adapter around our existing http() so clients.ts can stay DI-friendly and unit-testable. */
+/** Build query string from a record, skipping null/undefined/"" */
+function toQueryString(rec?: Record<string, unknown>): string {
+  if (!rec) return "";
+  const usp = new URLSearchParams();
+  for (const [k, v] of Object.entries(rec)) {
+    if (v === null || v === undefined) continue;
+    const s = String(v).trim();
+    if (!s) continue;
+    usp.append(k, s);
+  }
+  const qs = usp.toString();
+  return qs ? `?${qs}` : "";
+}
+
+/** Thin adapter around our http(): GET uses query string (no mode), POST uses JSON body (with mode). */
 const vendusCore: VendusCore = {
   async request<T>(
-    // your http() only supports GET/POST; narrow here to avoid TS2345
     method: "GET" | "POST",
     path: string,
     opts?: {
@@ -96,12 +108,22 @@ const vendusCore: VendusCore = {
       contentType?: string;
     }
   ): Promise<T> {
-    // Our core http() accepts a single payload; for GET provide { mode, query }, for POST merge json + mode.
-    const payload: Record<string, unknown> = { mode: MODE as VendusModeT };
-    if (opts?.query) payload.query = opts.query;
-    if (opts?.json) Object.assign(payload, opts.json);
-    if (opts?.contentType) payload.contentType = opts.contentType;
-    return http<T>(method, path, payload);
+    if (method === "GET") {
+      // IMPORTANT: Vendus does NOT accept `mode` as a GET param. Never include it.
+      const qs = toQueryString(opts?.query);
+      return http<T>("GET", `${path}${qs}`, undefined); // no body, no content-type
+    }
+
+    // POST: include `mode` in the JSON body (Vendus expects it here)
+    const payload =
+      opts?.json && typeof opts.json === "object"
+        ? {
+            ...(opts.json as Record<string, unknown>),
+            mode: MODE as VendusModeT,
+          }
+        : { mode: MODE as VendusModeT };
+
+    return http<T>("POST", path, payload);
   },
   log(msg: string, extra?: Record<string, unknown>) {
     console.info(msg, extra);
@@ -148,7 +170,6 @@ export async function createCreditNoteDocument(params: {
 }): Promise<CreditNoteRecord> {
   const { registerId, input } = params;
 
-  // Guard: credit notes must specify at least one line (we don't yet support "full credit" fetch).
   const lines = input.lines;
   if (!lines || lines.length === 0) {
     throw new Error(
@@ -156,10 +177,9 @@ export async function createCreditNoteDocument(params: {
     );
   }
 
-  // v1.1 requires "items" top-level; convert our lines using the v1.1 mapper.
   const items = toVendusItems(lines);
   const payload = {
-    type: "NC" as const, // Nota de crédito
+    type: "NC" as const,
     mode: MODE,
     date: lisbonYmd(new Date()),
     register_id: registerId,

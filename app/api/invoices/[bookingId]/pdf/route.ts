@@ -12,6 +12,64 @@ function safeFilename(s: string): string {
   return s.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 80);
 }
 
+/** Detect if URL is Vendus and return a *fetchable* URL with proper params applied. */
+function prepareVendusUrl(raw: string): string {
+  const u = new URL(raw);
+  const host = u.hostname.toLowerCase();
+  const isVendus = host === "www.vendus.pt" || host.endsWith(".vendus.pt");
+  if (!isVendus) return raw;
+
+  // Ensure correct working mode for detail/pdf GETs:
+  // Vendus requires `mode` to match how the doc was created (normal|tests).
+  const mode = (process.env.VENDUS_MODE || "").toLowerCase();
+  if (mode === "tests" || mode === "normal") {
+    if (!u.searchParams.has("mode")) u.searchParams.set("mode", mode);
+  }
+
+  // Optional escape hatch: some setups prefer query auth. Leave off by default.
+  if (process.env.VENDUS_FORCE_QUERY_AUTH === "1") {
+    const key = (process.env.VENDUS_API_KEY || "").trim();
+    if (key) u.searchParams.set("api_key", key);
+  }
+
+  return u.toString();
+}
+
+/** Vendus auth headers: HTTP Basic with API key as user and EMPTY password. */
+function vendusAuthHeadersFor(urlStr: string): HeadersInit | undefined {
+  try {
+    const u = new URL(urlStr);
+    const host = u.hostname.toLowerCase();
+    const isVendus = host === "www.vendus.pt" || host.endsWith(".vendus.pt");
+    if (!isVendus) return undefined;
+
+    const apiKey = (process.env.VENDUS_API_KEY || "").trim();
+    const basicFixed = (process.env.VENDUS_AUTH_BASIC || "").trim();
+    const bearer = (process.env.VENDUS_BEARER_TOKEN || "").trim();
+
+    let Authorization: string | undefined;
+
+    if (apiKey) {
+      const raw = Buffer.from(`${apiKey}:`).toString("base64");
+      Authorization = `Basic ${raw}`;
+    } else if (basicFixed) {
+      Authorization = basicFixed.startsWith("Basic ")
+        ? basicFixed
+        : `Basic ${basicFixed}`;
+    } else if (bearer) {
+      Authorization = bearer.startsWith("Bearer ")
+        ? bearer
+        : `Bearer ${bearer}`;
+    }
+
+    return Authorization
+      ? { accept: "application/pdf", authorization: Authorization }
+      : { accept: "application/pdf" };
+  } catch {
+    return undefined;
+  }
+}
+
 export async function GET(
   req: Request,
   ctx: { params: { bookingId: string } }
@@ -47,11 +105,17 @@ export async function GET(
       );
     }
 
-    // Server fetch of vendor PDF
-    const upstream = await fetch(booking.invoicePdfUrl, {
+    // Prepare upstream URL (adds mode/tests when needed) and headers.
+    const upstreamUrl = prepareVendusUrl(booking.invoicePdfUrl);
+    const authHeaders = vendusAuthHeadersFor(upstreamUrl);
+
+    const upstream = await fetch(upstreamUrl, {
       method: "GET",
       redirect: "follow",
-      headers: { accept: "application/pdf" },
+      headers: {
+        accept: "application/pdf",
+        ...(authHeaders || {}),
+      },
       cache: "no-store",
     });
 
