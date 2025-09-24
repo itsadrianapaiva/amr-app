@@ -22,6 +22,8 @@ export type InternalConfirmedView = {
   depositAmount: string;
   invoiceNumber?: string;
   invoicePdfUrl?: string;
+  deliverySelected?: boolean;
+  pickupSelected?: boolean;
 };
 
 export type NotifySource = "customer" | "ops";
@@ -58,8 +60,8 @@ export async function buildInternalEmail(
       customerPhone={view.customerPhone || undefined}
       siteAddress={view.siteAddress || undefined}
       addonsList={view.addonsList}
-      deliverySelected={false}
-      pickupSelected={false}
+      deliverySelected={Boolean(view.deliverySelected)}
+      pickupSelected={Boolean(view.pickupSelected)}
       heavyLeadTimeApplies={[5, 6, 7].includes(view.machineId)}
       geofenceStatus={"inside"}
       subtotalExVat={view.subtotalExVat}

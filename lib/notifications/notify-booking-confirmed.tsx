@@ -248,6 +248,8 @@ export async function notifyBookingConfirmed(
         invoicePdfUrl: invoiceNow
           ? buildInvoiceLinkSnippet(b.id).url
           : undefined,
+        deliverySelected: b.deliverySelected,
+        pickupSelected: b.pickupSelected,
       };
 
       const internalReact: ReactElement = await buildInternalEmail(
