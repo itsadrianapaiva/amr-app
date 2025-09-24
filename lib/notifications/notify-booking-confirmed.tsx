@@ -196,6 +196,8 @@ export async function notifyBookingConfirmed(
         totalInclVat: totals.totalInclVat,
         depositAmount,
         invoicePdfUrl: signedUrl,
+        deliverySelected: b.deliverySelected,
+        pickupSelected: b.pickupSelected,
       };
 
       // async builder (server fn)
@@ -246,6 +248,8 @@ export async function notifyBookingConfirmed(
         invoicePdfUrl: invoiceNow
           ? buildInvoiceLinkSnippet(b.id).url
           : undefined,
+        deliverySelected: b.deliverySelected,
+        pickupSelected: b.pickupSelected,
       };
 
       const internalReact: ReactElement = await buildInternalEmail(

@@ -47,8 +47,8 @@ export const LEGAL_PRIVACY: LegalDoc = {
       id: "controller",
       title: "Data Controller",
       body: [
-        'Company: Algarve Machinery Rental',
-        'Registered address: Avenida da Liberdade, Centro Comercial Granjinhos, Loja 446, 4710-249, Braga, Portugal',
+        'Company: Trevo Cativante Unip Lda',
+        'Registered address: Espartal, lote I 13, 8670-119, Aljezur, Portugal',
         'Warehouse address: Barranco da Vaca, 8670-116, Aljezur, Portugal',
         'Warehouse hours: Mo–Fr 09:00–17:00',
         'Website: https://amr-rentals.com',
