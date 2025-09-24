@@ -1,4 +1,3 @@
-// lib/notifications/mailers/internal-confirmed.tsx
 "use server";
 import "server-only";
 import type { ReactElement } from "react";

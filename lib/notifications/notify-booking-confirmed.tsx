@@ -95,7 +95,7 @@ function makeAddonsList(input: {
  * - Send confirmation exactly once.
  * - If invoice exists at that time, include link AND mark invoiceEmailSentAt,
  *   so later notify-invoice-ready will no-op (max two emails for customer).
- * - Always send internal email.
+ * - Send internal email exactly once using internalEmailSentAt claim.
  */
 export async function notifyBookingConfirmed(
   bookingId: number,
@@ -124,6 +124,7 @@ export async function notifyBookingConfirmed(
       invoicePdfUrl: true,
       confirmationEmailSentAt: true,
       invoiceEmailSentAt: true,
+      internalEmailSentAt: true,
       machine: { select: { name: true, deposit: true } },
     },
   });
@@ -188,39 +189,52 @@ export async function notifyBookingConfirmed(
     }
   }
 
-  // 4) Internal email — always
-  const internalView: InternalConfirmedView = {
-    id: b.id,
-    machineId: b.machineId,
-    machineName,
-    startYmd,
-    endYmd,
-    rentalDays,
-    customerName: b.customerName || undefined,
-    customerEmail: b.customerEmail || undefined,
-    customerPhone: b.customerPhone || undefined,
-    siteAddress: siteAddress || undefined,
-    addonsList,
-    subtotalExVat: totals.subtotalExVat,
-    vatAmount: totals.vatAmount,
-    totalInclVat: totals.totalInclVat,
-    depositAmount,
-    invoiceNumber: b.invoiceNumber || undefined,
-    invoicePdfUrl: signed?.url,
-  };
+  // 4) Internal email — send exactly once via atomic claim
+  let internalPromise: Promise<unknown> = Promise.resolve();
+  {
+    // Try to flip internalEmailSentAt only if it's still null.
+    const internalClaim = await db.booking.updateMany({
+      where: { id: b.id, internalEmailSentAt: null },
+      data: { internalEmailSentAt: new Date() },
+    });
 
-  const internalReact: ReactElement = await buildInternalEmail(
-    internalView,
-    source as MailerNotifySource
-  );
+    if (internalClaim.count === 1) {
+      // We won the send; build and dispatch internal email.
+      const internalView: InternalConfirmedView = {
+        id: b.id,
+        machineId: b.machineId,
+        machineName,
+        startYmd,
+        endYmd,
+        rentalDays,
+        customerName: b.customerName || undefined,
+        customerEmail: b.customerEmail || undefined,
+        customerPhone: b.customerPhone || undefined,
+        siteAddress: siteAddress || undefined,
+        addonsList,
+        subtotalExVat: totals.subtotalExVat,
+        vatAmount: totals.vatAmount,
+        totalInclVat: totals.totalInclVat,
+        depositAmount,
+        invoiceNumber: b.invoiceNumber || undefined,
+        invoicePdfUrl: signed?.url,
+      };
 
-  const internalSubject = `New CONFIRMED booking #${b.id}: ${machineName} · ${startYmd}–${endYmd}`;
+      const internalReact: ReactElement = await buildInternalEmail(
+        internalView,
+        source as MailerNotifySource
+      );
 
-  const internalPromise = sendEmail({
-    to: ADMIN_TO,
-    subject: internalSubject,
-    react: internalReact,
-  });
+      const internalSubject = `New CONFIRMED booking #${b.id}: ${machineName} · ${startYmd}–${endYmd}`;
+
+      internalPromise = sendEmail({
+        to: ADMIN_TO,
+        subject: internalSubject,
+        react: internalReact,
+      });
+    }
+    // else: another concurrent path already sent it; no-op.
+  }
 
   // 5) Fire both in parallel; contain failures
   await Promise.allSettled([customerPromise, internalPromise]);
