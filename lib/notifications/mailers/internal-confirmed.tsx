@@ -2,7 +2,7 @@
 import "server-only";
 import type { ReactElement } from "react";
 import BookingInternalEmail from "@/lib/emails/templates/booking-internal";
-import { getInternalBranding } from "@/lib/emails/branding"; // NEW
+import { getInternalBranding } from "@/lib/emails/branding";
 
 export type InternalConfirmedView = {
   id: number;

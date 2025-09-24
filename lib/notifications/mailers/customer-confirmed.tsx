@@ -2,7 +2,7 @@
 import "server-only";
 import type { ReactElement } from "react";
 import BookingConfirmedEmail from "@/lib/emails/templates/booking-confirmed";
-import { getEmailBranding } from "@/lib/emails/branding"; // NEW
+import { getEmailBranding } from "@/lib/emails/branding"; 
 
 export type CustomerConfirmedView = {
   id: number;
