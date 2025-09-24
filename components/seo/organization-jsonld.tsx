@@ -1,36 +1,39 @@
+import "server-only";
 import React from "react";
+import { getCompanyProfile } from "@/lib/company/profile";
 
 /**
- * UPDATE TELEPHONE
  * Server Component that injects Organization + Website JSON-LD.
- * Keep it minimal and truthful. Update fields as needed.
- *
- * Usage (next step): render once in app/layout.tsx (inside <body>)
+ * Hydrates from live AMR profile (env + content) to avoid stale CEU data.
+ * Render once in app/layout.tsx (inside <body>).
  */
-export default function OrganizationJsonLd() {
+export default async function OrganizationJsonLd() {
+  const p = await getCompanyProfile();
+
+  // Prefer canonical site from profile; fall back to env/public; finally default.
   const site =
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") || "https://amr-rentals.com";
+    (p.website || process.env.NEXT_PUBLIC_SITE_URL || "https://amr-rentals.com")
+      .toString()
+      .replace(/\/+$/, "");
 
   const data = [
     {
       "@context": "https://schema.org",
       "@type": "Organization",
-      name: "AMR - Algarve Machinery Rental",
+      // Marketing / display name
+      name: p.name || "AMR - Algarve Machinery Rental",
+      // Registered legal name for compliance
+      legalName: p.legalName || "AMR - Machinery Rental",
       url: site,
-      legalName: "AMR - Machinery Rental",
-      email: "mailto:support@amr-rentals.com",
-      telephone: "+351-000-000-000",
+      // Contact points (keep minimal and truthful)
+      email: p.emailSupport ? `mailto:${p.emailSupport}` : undefined,
+      telephone: p.phone || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || undefined,
+      // Keep PostalAddress minimal to avoid brittle parsing until we store structured fields
       address: {
         "@type": "PostalAddress",
         addressCountry: "PT",
-        addressLocality: "Aljezur",
       },
-      sameAs: [
-        // Fill any that exist; keep empty array if none
-        // "https://www.facebook.com/…",
-        // "https://www.instagram.com/…",
-        // "https://www.linkedin.com/company/…",
-      ],
+      sameAs: [] as string[], // fill when social profiles are ready
       logo: {
         "@type": "ImageObject",
         url: `${site}/icon1.png`,
@@ -39,7 +42,7 @@ export default function OrganizationJsonLd() {
     {
       "@context": "https://schema.org",
       "@type": "WebSite",
-      name: "AMR - Algarve Machinery Rental",
+      name: p.name || "AMR - Algarve Machinery Rental",
       url: site,
       potentialAction: {
         "@type": "SearchAction",

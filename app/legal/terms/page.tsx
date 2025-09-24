@@ -1,4 +1,5 @@
-import { LEGAL_TERMS, LEGAL_LINKS } from "@/lib/content/legal";
+import { LEGAL_LINKS } from "@/lib/content/legal";
+import { getTermsDoc } from "@/lib/legal/build-terms";
 
 export const metadata = {
   title: "Terms & Conditions | AMR",
@@ -17,7 +18,7 @@ function formatDate(iso: string) {
 }
 
 export default async function TermsPage() {
-  const doc = LEGAL_TERMS;
+  const doc = await getTermsDoc();
 
   return (
     <main className="container mx-auto px-4 py-18 md:py-24 xl:py-30">
