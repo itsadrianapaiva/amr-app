@@ -17,7 +17,9 @@ if (!key) {
   process.exit(1);
 }
 if (!key.startsWith("sk_test_")) {
-  console.error("Refusing to run with a live key. Use a test key (sk_test_...).");
+  console.error(
+    "Refusing to run with a live key. Use a test key (sk_test_...)."
+  );
   process.exit(1);
 }
 
@@ -32,7 +34,7 @@ async function createTestPayment() {
   const pi = await stripe.paymentIntents.create({
     amount: 1234,
     currency: "eur",
-    confirmation_method: "automatic",
+    payment_method_types: ["card"],
     confirm: true,
     payment_method: "pm_card_visa", // Stripe test PM
     description: "AMR test payment for payout dry-run",
@@ -79,8 +81,12 @@ async function main() {
     info(`Available after payout: ${sumBalance(balanceAfter.available || [])}`);
     info(`Pending after payout:   ${sumBalance(balanceAfter.pending || [])}`);
   } else {
-    warn("Insufficient available balance for a test payout; this is normal right after charge.");
-    info("Payouts require *available* funds (not just pending). Try again later or with a larger prior balance.");
+    warn(
+      "Insufficient available balance for a test payout; this is normal right after charge."
+    );
+    info(
+      "Payouts require *available* funds (not just pending). Try again later or with a larger prior balance."
+    );
   }
 
   ok("Dry-run complete.");
