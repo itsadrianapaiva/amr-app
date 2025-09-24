@@ -98,6 +98,7 @@ model Booking {
   
   confirmationEmailSentAt    DateTime? @db.Timestamp(6)
   invoiceEmailSentAt         DateTime? @db.Timestamp(6)
+  internalEmailSentAt        DateTime? @db.Timestamp(6)
 
    /// Aggregated refund info (Stripe amounts are in cents).
   refundStatus         RefundStatus   @default(NONE)
