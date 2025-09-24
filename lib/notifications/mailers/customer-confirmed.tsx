@@ -2,6 +2,7 @@
 import "server-only";
 import type { ReactElement } from "react";
 import BookingConfirmedEmail from "@/lib/emails/templates/booking-confirmed";
+import { getEmailBranding } from "@/lib/emails/branding"; // NEW
 
 export type CustomerConfirmedView = {
   id: number;
@@ -18,17 +19,6 @@ export type CustomerConfirmedView = {
   invoicePdfUrl?: string;
 };
 
-const COMPANY_NAME = process.env.COMPANY_NAME || "Algarve Machinery Rental";
-const COMPANY_EMAIL =
-  process.env.EMAIL_REPLY_TO ||
-  process.env.SUPPORT_EMAIL ||
-  "support@amr-rentals.com";
-const SUPPORT_PHONE = process.env.SUPPORT_PHONE || "351934014611";
-const COMPANY_WEBSITE =
-  process.env.COMPANY_WEBSITE || "https://amr-rentals.com";
-const WAREHOUSE_ADDRESS = process.env.WAREHOUSE_ADDRESS || "AMR Warehouse";
-const WAREHOUSE_HOURS = process.env.WAREHOUSE_HOURS || "Mon–Fri 09:00–17:00";
-
 /**
  * buildCustomerEmail
  * Async to satisfy Next.js server action inference rules for exported server functions.
@@ -37,12 +27,22 @@ const WAREHOUSE_HOURS = process.env.WAREHOUSE_HOURS || "Mon–Fri 09:00–17:00"
 export async function buildCustomerEmail(
   view: CustomerConfirmedView
 ): Promise<ReactElement> {
+  // Centralized, consistent company/contact data
+  const {
+    companyName,
+    companyEmail,
+    supportPhone,
+    companySite,
+    warehouseAddress,
+    warehouseHours,
+  } = await getEmailBranding();
+
   return (
     <BookingConfirmedEmail
-      companyName={COMPANY_NAME}
-      companyEmail={COMPANY_EMAIL}
-      supportPhone={SUPPORT_PHONE}
-      companySite={COMPANY_WEBSITE}
+      companyName={companyName}
+      companyEmail={companyEmail}
+      supportPhone={supportPhone}
+      companySite={companySite}
       customerName={view.customerName || undefined}
       bookingId={view.id}
       machineName={view.machineName}
@@ -57,8 +57,8 @@ export async function buildCustomerEmail(
       totalInclVat={view.totalInclVat}
       depositAmount={view.depositAmount}
       invoicePdfUrl={view.invoicePdfUrl}
-      warehouseAddress={WAREHOUSE_ADDRESS}
-      warehouseHours={WAREHOUSE_HOURS}
+      warehouseAddress={warehouseAddress}
+      warehouseHours={warehouseHours}
       callByDateTimeLocal={null}
       machineAccessNote={null}
     />
