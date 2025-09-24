@@ -1,5 +1,12 @@
-// tests/unit/notifications/notify-booking-confirmed.spec.ts
-import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  type Mock,
+} from "vitest";
 
 // --- Mocks (isolate the orchestrator from DB, mail transport, and JSX templates) ---
 vi.mock("@/lib/db", () => {
@@ -23,13 +30,25 @@ vi.mock("@/lib/emails/mailer", () => {
 
 vi.mock("@/lib/notifications/mailers/customer-confirmed", () => {
   return {
-    buildCustomerEmail: vi.fn((_view: any) => ({ mocked: "customer-email" } as any)),
+    buildCustomerEmail: vi.fn(
+      (_view: any) => ({ mocked: "customer-email" }) as any
+    ),
   };
 });
 
 vi.mock("@/lib/notifications/mailers/internal-confirmed", () => {
   return {
-    buildInternalEmail: vi.fn((_view: any) => ({ mocked: "internal-email" } as any)),
+    buildInternalEmail: vi.fn(
+      (_view: any) => ({ mocked: "internal-email" }) as any
+    ),
+  };
+});
+
+vi.mock("@/lib/notifications/wait-for-invoice", () => {
+  return {
+    waitForInvoice: vi.fn(async () => null),
+    getCustomerInvoiceGraceMs: vi.fn(async () => 0),
+    getInternalInvoiceGraceMs: vi.fn(async () => 0),
   };
 });
 
@@ -41,7 +60,6 @@ import { buildCustomerEmail } from "@/lib/notifications/mailers/customer-confirm
 import { buildInternalEmail } from "@/lib/notifications/mailers/internal-confirmed";
 
 // ---- Helpers ----
-const asAny = <T>(v: unknown) => v as unknown as T;
 const mockCalls = (fn: unknown) => (fn as Mock).mock.calls;
 
 // Strongly-typed handles to mocked Prisma methods
@@ -69,6 +87,7 @@ function mkBooking(overrides: Partial<any> = {}) {
     invoicePdfUrl: null as string | null,
     confirmationEmailSentAt: null as Date | null,
     invoiceEmailSentAt: null as Date | null,
+    internalEmailSentAt: null as Date | null,
     machine: { name: "Mini excavator", deposit: 250 },
   };
   return { ...base, ...overrides };
@@ -79,7 +98,9 @@ beforeEach(() => {
   vi.clearAllMocks();
 
   bookingFindUnique().mockResolvedValue(mkBooking());
-  bookingUpdateMany().mockResolvedValue({ count: 1 });
+  bookingUpdateMany()
+    .mockResolvedValueOnce({ count: 1 }) // confirmationEmailSentAt claim
+    .mockResolvedValueOnce({ count: 1 }); // internalEmailSentAt claim
 });
 
 afterEach(() => {
@@ -95,69 +116,106 @@ describe("notifyBookingConfirmed", () => {
         invoicePdfUrl: "https://www.vendus.pt/ws/v1.1/documents/285147155.pdf",
       })
     );
+    // Claims: customer wins, internal wins (already set in beforeEach)
 
     // Act
     await notifyBookingConfirmed(999, "customer");
 
-    // Assert atomic claim data
-    expect(db.booking.updateMany).toHaveBeenCalledTimes(1);
-    const [args] = mockCalls(db.booking.updateMany)[0];
-    expect(args.where).toMatchObject({ id: 999, confirmationEmailSentAt: null });
-    expect(args.data.confirmationEmailSentAt).toBeInstanceOf(Date);
-    expect(args.data.invoiceEmailSentAt).toBeInstanceOf(Date);
+    // Assert: two atomic claims now (customer + internal)
+    expect(db.booking.updateMany).toHaveBeenCalledTimes(2);
+
+    const first = mockCalls(db.booking.updateMany)[0][0];
+    expect(first.where).toMatchObject({
+      id: 999,
+      confirmationEmailSentAt: null,
+    });
+    expect(first.data.confirmationEmailSentAt).toBeInstanceOf(Date);
+    expect(first.data.invoiceEmailSentAt).toBeInstanceOf(Date);
+
+    const second = mockCalls(db.booking.updateMany)[1][0];
+    expect(second.where).toMatchObject({ id: 999, internalEmailSentAt: null });
+    expect(second.data.internalEmailSentAt).toBeInstanceOf(Date);
 
     // Emails: one customer + one internal
     expect(buildCustomerEmail).toHaveBeenCalledTimes(1);
     expect(buildInternalEmail).toHaveBeenCalledTimes(1);
     expect(sendEmail).toHaveBeenCalledTimes(2);
+
     const tos = mockCalls(sendEmail).map((c) => c[0].to as string | string[]);
-    const flat = Array.isArray(tos[0]) ? (tos[0] as string[]) : tos.map((x) => x as string);
+    const flat = Array.isArray(tos[0])
+      ? (tos[0] as string[])
+      : tos.map((x) => x as string);
     expect(flat.join(",")).toContain("jane@example.com");
   });
 
   it("when invoice does NOT exist yet: sends confirmation only (no invoiceEmailSentAt set)", async () => {
     // Arrange: default mkBooking has no invoice
     bookingFindUnique().mockResolvedValue(mkBooking());
+    // Claims: customer wins, internal wins (from beforeEach)
 
     // Act
     await notifyBookingConfirmed(999, "customer");
 
-    // Assert: only confirmationEmailSentAt set
-    const [args] = mockCalls(db.booking.updateMany)[0];
-    expect(args.data.confirmationEmailSentAt).toBeInstanceOf(Date);
-    expect(Object.prototype.hasOwnProperty.call(args.data, "invoiceEmailSentAt")).toBe(false);
+    // Assert: first claim (customer): confirmationEmailSentAt only
+    const first = mockCalls(db.booking.updateMany)[0][0];
+    expect(first.data.confirmationEmailSentAt).toBeInstanceOf(Date);
+    expect(
+      Object.prototype.hasOwnProperty.call(first.data, "invoiceEmailSentAt")
+    ).toBe(false);
 
-    // Emails: still 2 (customer + internal)
+    // Second claim is internal; we don't need to reassert here beyond call count
+    expect(db.booking.updateMany).toHaveBeenCalledTimes(2);
+
+    // Emails: 2 (customer + internal)
     expect(buildCustomerEmail).toHaveBeenCalledTimes(1);
     expect(buildInternalEmail).toHaveBeenCalledTimes(1);
     expect(sendEmail).toHaveBeenCalledTimes(2);
   });
 
-  it("idempotency: when updateMany.count=0, no customer email; internal still sent", async () => {
-    // Arrange
-    bookingUpdateMany().mockResolvedValue({ count: 0 });
+  it("idempotency: when customer updateMany.count=0, no customer email; internal still sent", async () => {
+    // Arrange: override default claim chain for this test ONLY
+    bookingUpdateMany()
+      .mockReset() // 1) clear beforeEach’s two resolves
+      .mockResolvedValueOnce({ count: 0 }) // 2) customer claim loses (already sent)
+      .mockResolvedValueOnce({ count: 1 }); // 3) internal claim wins (send once)
+
     bookingFindUnique().mockResolvedValue(mkBooking());
 
     // Act
     await notifyBookingConfirmed(999, "customer");
 
-    // Assert
+    // Assert: both claims attempted
+    expect(db.booking.updateMany).toHaveBeenCalledTimes(2);
+
+    // Customer path skipped (no template/send)
     expect(buildCustomerEmail).not.toHaveBeenCalled();
-    expect(sendEmail).toHaveBeenCalledTimes(1); // internal only
+
+    // Internal path sent exactly one email
     expect(buildInternalEmail).toHaveBeenCalledTimes(1);
+    expect(sendEmail).toHaveBeenCalledTimes(1); // internal only
   });
 
   it("skips customer email for internal placeholder addresses; still sends internal", async () => {
-    // Arrange
-    bookingFindUnique().mockResolvedValue(mkBooking({ customerEmail: "x@internal.local" }));
+    // Arrange: customer email is placeholder (customer path short-circuits)
+    bookingFindUnique().mockResolvedValue(
+      mkBooking({ customerEmail: "x@internal.local" })
+    );
+
+    // For this scenario, only the internal claim should occur; ensure a single resolve
+    bookingUpdateMany()
+      .mockReset() // reset chain for this test
+      .mockResolvedValueOnce({ count: 1 }); // internal internalEmailSentAt claim
 
     // Act
     await notifyBookingConfirmed(999, "customer");
 
-    // Assert
-    expect(db.booking.updateMany).not.toHaveBeenCalled();
+    // Assert: only one updateMany call (internal claim)
+    expect(db.booking.updateMany).toHaveBeenCalledTimes(1);
+    const only = mockCalls(db.booking.updateMany)[0][0];
+    expect(only.where).toMatchObject({ id: 999, internalEmailSentAt: null });
+
     expect(buildCustomerEmail).not.toHaveBeenCalled();
     expect(buildInternalEmail).toHaveBeenCalledTimes(1);
-    expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect(sendEmail).toHaveBeenCalledTimes(1); // internal only
   });
 });
