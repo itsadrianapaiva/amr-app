@@ -214,7 +214,5 @@ export const RENTAL_CONDITIONS: RentalConditionsDoc = {
   ],
   links: [
     LEGAL_LINKS.complaintsBook,
-    // Optional: add a final static PDF link once generated:
-    // { label: "Download PDF", href: "/docs/general-rental-conditions.pdf" },
   ],
 };
