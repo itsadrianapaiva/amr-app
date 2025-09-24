@@ -44,14 +44,11 @@ vi.mock("@/lib/notifications/mailers/internal-confirmed", () => {
   };
 });
 
-// NEW — mock the invoice wait helper so unit tests don't sleep
 vi.mock("@/lib/notifications/wait-for-invoice", () => {
   return {
-    // Return null instantly unless a test overrides it
-    waitForInvoice: vi.fn(async (_bookingId: number, _ms: number) => null),
-    // Hard-zero the grace windows for tests
-    CUSTOMER_EMAIL_INVOICE_GRACE_MS: 0,
-    INTERNAL_EMAIL_INVOICE_GRACE_MS: 0,
+    waitForInvoice: vi.fn(async () => null),
+    getCustomerInvoiceGraceMs: vi.fn(async () => 0),
+    getInternalInvoiceGraceMs: vi.fn(async () => 0),
   };
 });
 
