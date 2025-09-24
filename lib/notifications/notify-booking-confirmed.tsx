@@ -17,8 +17,8 @@ import {
 
 import {
   waitForInvoice,
-  CUSTOMER_EMAIL_INVOICE_GRACE_MS,
-  INTERNAL_EMAIL_INVOICE_GRACE_MS,
+  getCustomerInvoiceGraceMs,
+  getInternalInvoiceGraceMs,
 } from "@/lib/notifications/wait-for-invoice";
 
 /** Call-site type stays the same for webhooks and ops. */
@@ -165,12 +165,10 @@ export async function notifyBookingConfirmed(
   // 3) Customer confirmation — atomic claim
   let customerPromise: Promise<unknown> = Promise.resolve();
   if (source !== "ops" && b.customerEmail && !isInternalPlaceholder) {
-    // Try to include invoice for the customer as well
+    // use async getter (complies with "use server" export rule)
+    const customerGraceMs = await getCustomerInvoiceGraceMs();
     if (!invoiceNow) {
-      const waited = await waitForInvoice(
-        b.id,
-        CUSTOMER_EMAIL_INVOICE_GRACE_MS
-      );
+      const waited = await waitForInvoice(b.id, customerGraceMs);
       if (waited) invoiceNow = waited;
     }
 
@@ -214,11 +212,9 @@ export async function notifyBookingConfirmed(
   // 4) Internal email — send exactly once via atomic claim
   let internalPromise: Promise<unknown> = Promise.resolve();
   {
+    const internalGraceMs = await getInternalInvoiceGraceMs();
     if (!invoiceNow) {
-      const waited = await waitForInvoice(
-        b.id,
-        INTERNAL_EMAIL_INVOICE_GRACE_MS
-      );
+      const waited = await waitForInvoice(b.id, internalGraceMs);
       if (waited) invoiceNow = waited;
     }
 
