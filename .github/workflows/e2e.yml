@@ -47,6 +47,18 @@ jobs:
       VENDUS_API_KEY: ${{ secrets.VENDUS_API_KEY }}
       VENDUS_URL: ${{ secrets.VENDUS_URL }}
 
+      COMPANY_NAME: "AMR Machinery Rentals"
+      COMPANY_LEGAL_NAME: "AMR – Algarve & Alentejo Machinery Rentals, Lda."
+      COMPANY_NIF: "123456789"
+      COMPANY_ADDRESS_LINE1: "Estrada Nacional 125, Sítio do Malheiro"
+      COMPANY_ADDRESS_LINE2: ""
+      COMPANY_POSTAL_CODE: "8500-000"
+      COMPANY_CITY: "Portimão"
+      COMPANY_COUNTRY: "PT"
+
+      SUPPORT_EMAIL: "support@amr-rentals.com"
+      SUPPORT_PHONE: "+351 934 014 611"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
