@@ -44,6 +44,17 @@ vi.mock("@/lib/notifications/mailers/internal-confirmed", () => {
   };
 });
 
+// NEW — mock the invoice wait helper so unit tests don't sleep
+vi.mock("@/lib/notifications/wait-for-invoice", () => {
+  return {
+    // Return null instantly unless a test overrides it
+    waitForInvoice: vi.fn(async (_bookingId: number, _ms: number) => null),
+    // Hard-zero the grace windows for tests
+    CUSTOMER_EMAIL_INVOICE_GRACE_MS: 0,
+    INTERNAL_EMAIL_INVOICE_GRACE_MS: 0,
+  };
+});
+
 // SUT
 import { notifyBookingConfirmed } from "@/lib/notifications/notify-booking-confirmed";
 import { db } from "@/lib/db";
