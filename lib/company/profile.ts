@@ -1,5 +1,4 @@
-// lib/company/profile.ts
-"use server";
+import "server-only";
 
 /**
  * Company Profile Facade
@@ -8,15 +7,15 @@
  */
 
 export type CompanyProfile = {
-  name: string; // COMPANY_NAME
-  legalName: string; // COMPANY_LEGAL_NAME
-  nif: string; // COMPANY_NIF (Portuguese NIF/NIPC)
-  addressOneLine: string; // COMPANY_LEGAL_ADDRESS or CONTACTS.location
-  emailSupport?: string; // SUPPORT_EMAIL or CONTACTS.support.email
-  phone?: string; // SUPPORT_PHONE or CONTACTS.support.whatsapp.display/e164
-  website?: string; // COMPANY_WEBSITE
+  name: string;            // COMPANY_NAME
+  legalName: string;       // COMPANY_LEGAL_NAME
+  nif: string;             // COMPANY_NIF (Portuguese NIF/NIPC)
+  addressOneLine: string;  // COMPANY_LEGAL_ADDRESS or CONTACTS.location
+  emailSupport?: string;   // SUPPORT_EMAIL or CONTACTS.support.email
+  phone?: string;          // SUPPORT_PHONE or CONTACTS.support.whatsapp.display/e164
+  website?: string;        // COMPANY_WEBSITE
   warehouseAddress?: string; // WAREHOUSE_ADDRESS
-  warehouseHours?: string; // WAREHOUSE_HOURS
+  warehouseHours?: string;   // WAREHOUSE_HOURS
 };
 
 const isProd = process.env.NODE_ENV === "production";
@@ -65,12 +64,9 @@ export async function getCompanyProfile(): Promise<CompanyProfile> {
   const fromContacts = await loadFromContacts();
 
   const envName = readEnv("COMPANY_NAME", true) ?? "Algarve Machinery Rental";
-  const envLegal =
-    readEnv("COMPANY_LEGAL_NAME", true) ?? "Trevo Cativante Unip Lda";
+  const envLegal = readEnv("COMPANY_LEGAL_NAME", true) ?? "Trevo Cativante Unip Lda";
   const envNif = readEnv("COMPANY_NIF", true) ?? "000000000";
-  const envAddr =
-    readEnv("COMPANY_LEGAL_ADDRESS", true) ??
-    "Address, 0000-000 City, Portugal";
+  const envAddr = readEnv("COMPANY_LEGAL_ADDRESS", true) ?? "Address, 0000-000 City, Portugal";
 
   return {
     name: envName,
