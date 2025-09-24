@@ -196,6 +196,8 @@ export async function notifyBookingConfirmed(
         totalInclVat: totals.totalInclVat,
         depositAmount,
         invoicePdfUrl: signedUrl,
+        deliverySelected: b.deliverySelected,
+        pickupSelected: b.pickupSelected,
       };
 
       // async builder (server fn)

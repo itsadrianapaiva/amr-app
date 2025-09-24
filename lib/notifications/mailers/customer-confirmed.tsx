@@ -17,6 +17,8 @@ export type CustomerConfirmedView = {
   totalInclVat: string;
   depositAmount: string;
   invoicePdfUrl?: string;
+  deliverySelected?: boolean;
+  pickupSelected?: boolean;
 };
 
 /**
@@ -49,8 +51,8 @@ export async function buildCustomerEmail(
       startYmd={view.startYmd}
       endYmd={view.endYmd}
       rentalDays={view.rentalDays}
-      deliverySelected={false}
-      pickupSelected={false}
+      deliverySelected={Boolean(view.deliverySelected)}
+      pickupSelected={Boolean(view.pickupSelected)}
       siteAddress={view.siteAddress || null}
       subtotalExVat={view.subtotalExVat}
       vatAmount={view.vatAmount}
