@@ -8,12 +8,13 @@ type LogoVariant = "nav" | "footer";
 type LogoSizing = "auto" | "fixed";
 
 type LogoProps = {
-  width?: number;   // used only when sizing="fixed"
-  height?: number;  // used only to compute aspect when sizing="fixed"
+  width?: number;
+  height?: number;
+  /** If provided, wraps the image in a link. Leave undefined to render a plain <img>. */
   href?: string | null;
   alt?: string;
   src?: string | StaticImageData;
-  className?: string;   // applied to outer wrapper for both modes
+  className?: string;
   variant?: LogoVariant;
   sizing?: LogoSizing;
   priority?: boolean;
@@ -22,7 +23,7 @@ type LogoProps = {
 export default function Logo({
   width = 160,
   height = 48,
-  href = undefined,
+  href = undefined, // no default link (prevents nested anchors)
   alt = "AMR logo",
   src = logoYellowPng,
   className,
@@ -32,47 +33,42 @@ export default function Logo({
 }: LogoProps) {
   const sizes = variant === "nav" ? "160px" : "(min-width:1280px) 400px, 60vw";
 
-  // --- fixed mode: wrapper + fill to avoid "width or height modified" warning ---
-  if (sizing === "fixed") {
-    // derive aspect from static import if available; else from provided width/height
-    const intrinsicW =
-      typeof src === "object" && "width" in src ? (src as StaticImageData).width : undefined;
-    const intrinsicH =
-      typeof src === "object" && "height" in src ? (src as StaticImageData).height : undefined;
-    const aspect = (intrinsicW && intrinsicH ? intrinsicW / intrinsicH : width / Math.max(height, 1)) || 1;
+  // Classes:
+  // - Always keep h-auto to preserve aspect ratio.
+  // - For nav/mobile we keep w-auto (current look stays unchanged).
+  // - For footer we *don't* force w-auto; width is controlled via inline style (see below).
+  const classes = [
+    "block select-none h-auto",
+    variant !== "footer" ? "w-auto" : null,
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
-    const wrapper = (
-      <span
-        className={["block select-none", className].filter(Boolean).join(" ")}
-        style={{
-          position: "relative",
-          inlineSize: `${width}px`,         // keep your exact visual width
-          aspectRatio: String(aspect),      // height derives coherently — no one-sided resize
-        }}
-      >
-        <Image
-          src={src}
-          alt={alt}
-          fill
-          sizes={sizes}
-          priority={priority}
-          decoding="async"
-          draggable={false}
-          style={{ objectFit: "contain" }}  // preserve proportions inside the box
-        />
-      </span>
-    );
+  // Style:
+  // - nav/mobile (sizing="fixed"): exact pixel width, height:auto (keeps your current look).
+  // - footer (sizing="fixed"): width:100% so it grows to the container, but capped by maxWidth=<width>px.
+  //   This restores the previous “adjust to container up to 320px” behavior and fixes the tiny footer logo.
+  // - "auto": width:auto + height:auto (unchanged).
+  const style: React.CSSProperties =
+    sizing === "fixed"
+      ? variant === "footer"
+        ? {
+            width: "100%",
+            maxWidth: `${width}px`,
+            height: "auto",
+          }
+        : {
+            width: `${width}px`,
+            height: "auto",
+          }
+      : {
+          width: "auto",
+          height: "auto",
+          maxWidth: "100%",
+          maxHeight: "100%",
+        };
 
-    return href ? (
-      <Link href={href} prefetch={false} aria-label={alt || "Go to link"} className="inline-flex items-center">
-        {wrapper}
-      </Link>
-    ) : (
-      wrapper
-    );
-  }
-
-  // --- auto mode: keep your previous behavior exactly ---
   const img = (
     <Image
       src={src}
@@ -82,19 +78,19 @@ export default function Logo({
       priority={priority}
       sizes={sizes}
       decoding="async"
-      className={["block select-none w-auto h-auto", className].filter(Boolean).join(" ")}
+      className={classes}
       draggable={false}
-      style={{
-        width: "auto",
-        height: "auto",
-        maxWidth: "100%",
-        maxHeight: "100%",
-      }}
+      style={style}
     />
   );
 
   return href ? (
-    <Link href={href} prefetch={false} aria-label={alt || "Go to link"} className="inline-flex items-center">
+    <Link
+      href={href}
+      // keep clean navigation decisions outside this component
+      aria-label={alt || "Go to link"}
+      className="inline-flex items-center"
+    >
       {img}
     </Link>
   ) : (

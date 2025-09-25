@@ -94,8 +94,6 @@ export function MachineCard({ machine, eager = false }: MachineCardProps) {
         fill
         /* 1 / 2 / 4 columns on base / md / xl */
         sizes="(min-width:1280px) 25vw, (min-width:768px) 50vw, 100vw"
-        /* Keep first row eager for UX, but don't strong-arm the network into a preload */
-        loading={eager ? "eager" : "lazy"}
         placeholder={isStatic ? "blur" : "empty"}
         quality={78}
         className="object-cover transition-transform duration-500 group-hover:scale-105"

@@ -1,6 +1,7 @@
 import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import ScrollLink from "@/components/nav/scroll-link";
 
 /* Static imports unlock intrinsic size + blur + preload for priority */
 import hero01 from "@/public/images/hero/hero.jpg";
@@ -33,6 +34,15 @@ function buildWhatsAppHref(e164?: string | null) {
   if (!e164) return null;
   const digits = e164.replace(/[^\d]/g, "");
   return digits ? `https://wa.me/${digits}` : null;
+}
+
+function isSectionHref(href?: string) {
+  if (!href) return false;
+  return href.startsWith("#") || href.startsWith("/#");
+}
+function toSectionId(href?: string) {
+  if (!href) return "";
+  return href.replace("/#", "").replace("#", "");
 }
 
 export default function Hero({
@@ -97,14 +107,32 @@ export default function Hero({
           </p>
 
           <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row fade-in fade-in-400">
-            <Link href={primaryHref} prefetch={false}>
-              <Button
-                size="lg"
-                className="bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+            {isSectionHref(primaryHref) ? (
+              // ScrollLink renders a <button>; to avoid button-in-button,
+              // render the shadcn Button "asChild" so it becomes a <span>.
+              <ScrollLink
+                to={toSectionId(primaryHref)}
+                offset={112}
+                ariaLabel={primaryLabel}
               >
-                {primaryLabel}
-              </Button>
-            </Link>
+                <Button
+                  asChild
+                  size="lg"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+                >
+                  <span>{primaryLabel}</span>
+                </Button>
+              </ScrollLink>
+            ) : (
+              <Link href={primaryHref}>
+                <Button
+                  size="lg"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+                >
+                  {primaryLabel}
+                </Button>
+              </Link>
+            )}
 
             {whatsappHref && (
               <a
