@@ -95,7 +95,6 @@ export default function MobileMenu({ onClose }: { onClose: () => void }) {
                 ) : (
                   <Link
                     href={link.href}
-                    prefetch={false}
                     className="cursor-pointer"
                     onClick={onClose}
                   >
@@ -121,7 +120,6 @@ export default function MobileMenu({ onClose }: { onClose: () => void }) {
           ) : (
             <Link
               href={NAV_CONTENT.primaryCta.href}
-              prefetch={false}
               onClick={onClose}
               className="inline-flex rounded-lg bg-accent px-10 py-2 text-md font-semibold text-primary-foreground border border-primary-foreground hover:bg-accent/80"
             >

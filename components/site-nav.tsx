@@ -51,9 +51,9 @@ export default function SiteNav() {
   return (
     <header className={`sticky top-0 z-50 transition-colors ${headerClasses}`}>
       <div className="container mx-auto px-4 md:px-6 lg:px-8 xl:px-10">
-        <div className="flex min-h-[120px] items-center justify-between py-2">
+        <div className="flex min-h-[120px] items-center justify-between">
           {/* Reserved logo box prevents reflow when swapping src */}
-          <div className="h-16 w-[160px] shrink-0 flex items-center">
+          <div className="w-[160px] shrink-0 flex items-center">
             <button
               type="button"
               onClick={handleHomeClick}
@@ -101,7 +101,6 @@ export default function SiteNav() {
                     ) : (
                       <Link
                         href={link.href}
-                        prefetch={false}
                         className="text-sm text-muted-foreground hover:text-foreground uppercase tracking-wider"
                       >
                         {link.label}
@@ -131,7 +130,6 @@ export default function SiteNav() {
             ) : (
               <Link
                 href={NAV_CONTENT.primaryCta.href}
-                prefetch={false}
                 className="ml-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground border border-primary-foreground hover:opacity-90"
               >
                 {NAV_CONTENT.primaryCta.label}
@@ -146,7 +144,7 @@ export default function SiteNav() {
                 aria-label="Open menu"
                 className="inline-flex h-12 w-12 items-center justify-center"
               >
-                <Menu className="h-8 w-8" />
+                <Menu className="h-10 w-10" />
               </SheetTrigger>
               <MobileMenu onClose={() => setOpen(false)} />
             </Sheet>
