@@ -1,4 +1,3 @@
-// lib/notifications/notify-invoice-ready.tsx
 "use server";
 import "server-only";
 import type { ReactElement } from "react";

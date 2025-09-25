@@ -1,4 +1,5 @@
-import { LEGAL_PRIVACY, LEGAL_LINKS } from "@/lib/content/legal";
+import { LEGAL_LINKS } from "@/lib/content/legal";
+import { getPrivacyDoc } from "@/lib/legal/build-privacy";
 
 // Optional metadata for SEO; pages are Server Components by default (no "use client").
 export const metadata = {
@@ -18,7 +19,7 @@ function formatDate(iso: string) {
 }
 
 export default async function PrivacyPage() {
-  const doc = LEGAL_PRIVACY;
+  const doc = await getPrivacyDoc();
 
   return (
     <main className="container mx-auto px-4 py-18 md:py-24 xl:py-30">

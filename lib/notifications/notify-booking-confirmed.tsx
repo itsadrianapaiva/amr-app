@@ -15,6 +15,12 @@ import {
   type NotifySource as MailerNotifySource,
 } from "@/lib/notifications/mailers/internal-confirmed";
 
+import {
+  waitForInvoice,
+  getCustomerInvoiceGraceMs,
+  getInternalInvoiceGraceMs,
+} from "@/lib/notifications/wait-for-invoice";
+
 /** Call-site type stays the same for webhooks and ops. */
 export type NotifySource = "customer" | "ops";
 
@@ -92,10 +98,9 @@ function makeAddonsList(input: {
 /**
  * notifyBookingConfirmed
  * Policy:
- * - Send confirmation exactly once.
- * - If invoice exists at that time, include link AND mark invoiceEmailSentAt,
- *   so later notify-invoice-ready will no-op (max two emails for customer).
- * - Always send internal email.
+ * - Send customer confirmation once, optionally after a short wait to include invoice.
+ * - If invoice exists at that time, include link and mark invoiceEmailSentAt.
+ * - Send internal email once, also after a short wait to try to include invoice.
  */
 export async function notifyBookingConfirmed(
   bookingId: number,
@@ -124,6 +129,7 @@ export async function notifyBookingConfirmed(
       invoicePdfUrl: true,
       confirmationEmailSentAt: true,
       invoiceEmailSentAt: true,
+      internalEmailSentAt: true,
       machine: { select: { name: true, deposit: true } },
     },
   });
@@ -145,8 +151,12 @@ export async function notifyBookingConfirmed(
     deliverySelected: b.deliverySelected,
     pickupSelected: b.pickupSelected,
   });
-  const hasInvoiceNow = !!b.invoiceNumber && !!b.invoicePdfUrl;
-  const signed = hasInvoiceNow ? buildInvoiceLinkSnippet(b.id) : undefined;
+
+  // Prepare invoice info. We may improve it with a grace wait below.
+  let invoiceNow =
+    b.invoiceNumber && b.invoicePdfUrl
+      ? { number: b.invoiceNumber, pdfUrl: b.invoicePdfUrl }
+      : null;
 
   const isInternalPlaceholder = (b.customerEmail || "")
     .toLowerCase()
@@ -155,13 +165,24 @@ export async function notifyBookingConfirmed(
   // 3) Customer confirmation — atomic claim
   let customerPromise: Promise<unknown> = Promise.resolve();
   if (source !== "ops" && b.customerEmail && !isInternalPlaceholder) {
+    // use async getter (complies with "use server" export rule)
+    const customerGraceMs = await getCustomerInvoiceGraceMs();
+    if (!invoiceNow) {
+      const waited = await waitForInvoice(b.id, customerGraceMs);
+      if (waited) invoiceNow = waited;
+    }
+
     const data: Record<string, Date> = { confirmationEmailSentAt: new Date() };
     const where: any = { id: b.id, confirmationEmailSentAt: null };
-    if (hasInvoiceNow) data.invoiceEmailSentAt = new Date();
+    if (invoiceNow) data.invoiceEmailSentAt = new Date();
 
     const claim = await db.booking.updateMany({ where, data });
 
     if (claim.count === 1) {
+      const signedUrl = invoiceNow
+        ? buildInvoiceLinkSnippet(b.id).url
+        : undefined;
+
       const customerView: CustomerConfirmedView = {
         id: b.id,
         machineName,
@@ -174,7 +195,9 @@ export async function notifyBookingConfirmed(
         vatAmount: totals.vatAmount,
         totalInclVat: totals.totalInclVat,
         depositAmount,
-        invoicePdfUrl: signed?.url,
+        invoicePdfUrl: signedUrl,
+        deliverySelected: b.deliverySelected,
+        pickupSelected: b.pickupSelected,
       };
 
       // async builder (server fn)
@@ -188,39 +211,62 @@ export async function notifyBookingConfirmed(
     }
   }
 
-  // 4) Internal email — always
-  const internalView: InternalConfirmedView = {
-    id: b.id,
-    machineId: b.machineId,
-    machineName,
-    startYmd,
-    endYmd,
-    rentalDays,
-    customerName: b.customerName || undefined,
-    customerEmail: b.customerEmail || undefined,
-    customerPhone: b.customerPhone || undefined,
-    siteAddress: siteAddress || undefined,
-    addonsList,
-    subtotalExVat: totals.subtotalExVat,
-    vatAmount: totals.vatAmount,
-    totalInclVat: totals.totalInclVat,
-    depositAmount,
-    invoiceNumber: b.invoiceNumber || undefined,
-    invoicePdfUrl: signed?.url,
-  };
+  // 4) Internal email — send exactly once via atomic claim
+  let internalPromise: Promise<unknown> = Promise.resolve();
+  {
+    const internalGraceMs = await getInternalInvoiceGraceMs();
+    if (!invoiceNow) {
+      const waited = await waitForInvoice(b.id, internalGraceMs);
+      if (waited) invoiceNow = waited;
+    }
 
-  const internalReact: ReactElement = await buildInternalEmail(
-    internalView,
-    source as MailerNotifySource
-  );
+    // Try to flip internalEmailSentAt only if it's still null.
+    const internalClaim = await db.booking.updateMany({
+      where: { id: b.id, internalEmailSentAt: null },
+      data: { internalEmailSentAt: new Date() },
+    });
 
-  const internalSubject = `New CONFIRMED booking #${b.id}: ${machineName} · ${startYmd}–${endYmd}`;
+    if (internalClaim.count === 1) {
+      // We won the send; build and dispatch internal email.
+      const internalView: InternalConfirmedView = {
+        id: b.id,
+        machineId: b.machineId,
+        machineName,
+        startYmd,
+        endYmd,
+        rentalDays,
+        customerName: b.customerName || undefined,
+        customerEmail: b.customerEmail || undefined,
+        customerPhone: b.customerPhone || undefined,
+        siteAddress: siteAddress || undefined,
+        addonsList,
+        subtotalExVat: totals.subtotalExVat,
+        vatAmount: totals.vatAmount,
+        totalInclVat: totals.totalInclVat,
+        depositAmount,
+        invoiceNumber: invoiceNow?.number || undefined,
+        invoicePdfUrl: invoiceNow
+          ? buildInvoiceLinkSnippet(b.id).url
+          : undefined,
+        deliverySelected: b.deliverySelected,
+        pickupSelected: b.pickupSelected,
+      };
 
-  const internalPromise = sendEmail({
-    to: ADMIN_TO,
-    subject: internalSubject,
-    react: internalReact,
-  });
+      const internalReact: ReactElement = await buildInternalEmail(
+        internalView,
+        source as MailerNotifySource
+      );
+
+      const internalSubject = `New CONFIRMED booking #${b.id}: ${machineName} · ${startYmd}–${endYmd}`;
+
+      internalPromise = sendEmail({
+        to: ADMIN_TO,
+        subject: internalSubject,
+        react: internalReact,
+      });
+    }
+    // else: another concurrent path already sent it; no-op.
+  }
 
   // 5) Fire both in parallel; contain failures
   await Promise.allSettled([customerPromise, internalPromise]);
