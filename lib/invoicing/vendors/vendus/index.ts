@@ -1,4 +1,3 @@
-// lib/invoicing/vendors/vendus/index.ts
 import "server-only";
 import type {
   InvoicingProvider,
