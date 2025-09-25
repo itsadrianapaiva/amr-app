@@ -79,6 +79,7 @@ export default function WhyBook() {
                 placeholder={isStatic ? "blur" : "empty"}
                 quality={78}
                 className="block"
+                style={{ width: "auto", height: "auto" }}
               />
             </div>
           </div>
