@@ -39,12 +39,15 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
         {/* Top grid: stacks on mobile, four columns on xl */}
         <div className="grid gap-12 py-8 px-20 lg:px-0 md:grid-cols-2 xl:grid-cols-4 xl:gap-10 xl:py-20">
           {/* Logo */}
-          <div className="flex items-start justify-center xl:justify-start">
+          <div className="flex items-start justify-start lg:justify-center xl:justify-start">
             <Logo
               src="/assets/logo-yellow.png"
-              width={400}
-              height={56}
+              width={320} // middle ground
+              height={45}
+              variant="footer"
+              sizing="fixed" // <-- this makes width take effect
               alt={FOOTER_CONTENT.companyName}
+              className="max-w-full"
             />
           </div>
 

@@ -8,7 +8,7 @@ import { NAV_CONTENT } from "@/lib/content/nav";
 import Logo from "@/components/logo";
 import {
   Sheet,
-  SheetContent, // kept to ensure consistent animation/layout; MobileMenu renders inside
+  SheetContent, 
   SheetTrigger,
 } from "@/components/ui/sheet";
 
@@ -44,7 +44,13 @@ export default function SiteNav() {
         <div className="flex min-h-[120px] items-center justify-between py-2">
           {/* Reserved logo box prevents reflow when swapping src */}
           <div className="h-14 w-[160px] shrink-0 flex items-center">
-            <Logo src={logoSrc} width={160} height={48} />
+            <Logo
+              src={logoSrc}
+              width={200} // medium: larger than 160, smaller than footer
+              height={60} // keeps ~3:1 aspect ratio
+              variant="nav"
+              sizing="fixed" // ensure the width takes effect visually
+            />
           </div>
 
           {/* Desktop nav */}

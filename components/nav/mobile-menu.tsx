@@ -25,7 +25,13 @@ export default function MobileMenu({ onClose }: { onClose: () => void }) {
         <SheetHeader>
           <SheetTitle>
             <div className="cursor-pointer" onClick={onClose}>
-              <Logo src="/assets/logo-bw.png" width={160} height={40} />
+              <Logo
+                src="/assets/logo-bw.png"
+                width={200} // medium: larger than nav, smaller than footer
+                height={66} // keeps ~3.33:1 ratio consistent with header usage
+                variant="nav" // sizing hint is fine to reuse "nav"
+                sizing="fixed" // ensures the width renders at 220px
+              />
             </div>
           </SheetTitle>
           <SheetDescription className="sr-only">
@@ -33,7 +39,7 @@ export default function MobileMenu({ onClose }: { onClose: () => void }) {
           </SheetDescription>
         </SheetHeader>
 
-        <ul className="mt-12 flex w-full flex-col justify-center gap-10 text-center">
+        <ul className="mt-10 flex w-full flex-col justify-center gap-10 text-center">
           {NAV_CONTENT.links.map((link) => (
             <li
               key={link.href}
