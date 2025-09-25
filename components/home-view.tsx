@@ -14,6 +14,7 @@ const ContactSection = dynamic(() => import("./contact-section"), {
 
 import { HOME_HERO } from "@/lib/content/home";
 import type { SerializableMachine } from "@/lib/types";
+import DeferredScroll from "./nav/deferred-scroll";
 
 interface HomeViewProps {
   machines: SerializableMachine[];
@@ -87,6 +88,8 @@ function SectionAnchor({ id }: { id: string }) {
 export function HomeView({ machines }: HomeViewProps) {
   return (
     <main>
+      <DeferredScroll />
+
       {/* Section: Hero (LCP target, kept eager) */}
       <Hero {...HOME_HERO} />
 

@@ -1,102 +1,100 @@
 "use client";
 
-import React, { useCallback } from "react";
+import { useCallback } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 type ScrollLinkProps = {
-  /** Section id (without '#'). Example: "contact" */
-  to: string;
-  children: React.ReactNode;
+  to: string; // target section id, e.g. "catalog"
+  offset?: number; // sticky header offset
   className?: string;
-  /** Close sheets/menus after scroll (optional) */
-  onClick?: () => void;
-  /** Sticky header offset in px (e.g., 96–120) */
-  offset?: number;
-  /** "smooth" (default) or "auto" */
-  behavior?: ScrollBehavior;
-  /** Optional aria-label for accessibility */
   ariaLabel?: string;
+  onClick?: () => void;
+  children: React.ReactNode;
 };
 
+const STORAGE_KEY = "amr:scrollTarget";
+
 /**
- * ScrollLink
- * JS on: prevents navigation, smooth-scrolls, keeps URL clean (no #).
- * JS off: still navigates via href (#) as a fallback.
- *
- * Uses forwardRef so Radix/Slots can attach a ref safely.
+ * Scroll to an element by id or [data-section="<id>"].
+ * Returns true if scrolled locally, false if element not found.
  */
-const ScrollLink = React.forwardRef<HTMLAnchorElement, ScrollLinkProps>(
-  (
-    {
-      to,
-      children,
-      className,
-      onClick,
-      offset = 0,
-      behavior = "smooth",
-      ariaLabel,
-    },
-    ref
-  ) => {
-    const handleClick = useCallback(
-      (e: React.MouseEvent<HTMLAnchorElement>) => {
-        // Keep URL clean by preventing default navigation
-        e.preventDefault();
+function tryLocalScroll(id: string, offset = 0): boolean {
+  const el =
+    document.getElementById(id) ||
+    (document.querySelector(`[data-section="${id}"]`) as HTMLElement | null);
 
-        // Prefer #id, fallback to [data-section="..."]
-        let el = document.getElementById(to);
-        if (!el) {
-          el =
-            document.querySelector<HTMLElement>(
-              `[data-section="${CSS.escape(to)}"]`
-            ) || null;
-        }
+  if (!el) return false;
 
-        if (!el) {
-          // eslint-disable-next-line no-console
-          console.warn(
-            `[ScrollLink] No element found for id or data-section="${to}"`
-          );
-          return;
-        }
+  const top = Math.max(
+    0,
+    el.getBoundingClientRect().top + window.scrollY - (offset ?? 0)
+  );
 
-        const rect = el.getBoundingClientRect();
-        const absoluteTop = rect.top + window.scrollY - offset;
-
-        // Smooth scroll without changing URL
-        window.scrollTo({ top: absoluteTop, behavior });
-
-        // Accessibility: shift focus to the section (does not re-scroll)
-        window.setTimeout(
-          () => {
-            const prevTabIndex = el!.getAttribute("tabindex");
-            el!.setAttribute("tabindex", "-1");
-            el!.focus({ preventScroll: true });
-            if (prevTabIndex === null) el!.removeAttribute("tabindex");
-          },
-          behavior === "smooth" ? 300 : 0
-        );
-
-        onClick?.();
-      },
-      [to, offset, behavior, onClick]
-    );
-
-    // Fallback for no-JS environments still works
-    const href = `/#${to}`;
-
-    return (
-      <a
-        ref={ref}
-        href={href}
-        className={className}
-        onClick={handleClick}
-        aria-label={ariaLabel}
-      >
-        {children}
-      </a>
-    );
+  window.scrollTo({ top, behavior: "smooth" });
+  // Optionally shift focus for a11y (if element is focusable)
+  if ("focus" in el) {
+    (el as HTMLElement).focus?.({ preventScroll: true });
   }
-);
+  return true;
+}
 
-ScrollLink.displayName = "ScrollLink";
-export default ScrollLink;
+export default function ScrollLink({
+  to,
+  offset = 0,
+  className,
+  ariaLabel,
+  onClick,
+  children,
+}: ScrollLinkProps) {
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const handleClick = useCallback(() => {
+    onClick?.();
+
+    // 1) Try to scroll in-place
+    if (tryLocalScroll(to, offset)) return;
+
+    // 2) If target not present on this page and we are NOT on home,
+    //    store intent and navigate to "/" without hash pollution.
+    if (pathname !== "/") {
+      try {
+        sessionStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({ id: to, offset, ts: Date.now() })
+        );
+      } catch {
+        // Storage may be disabled — ignore and just navigate home.
+      }
+      router.push("/", { scroll: true });
+      return;
+    }
+
+    // 3) Already on "/" but target not mounted yet (lazy sections):
+    //    store intent for when it mounts (home listener will consume it).
+    try {
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ id: to, offset, ts: Date.now() })
+      );
+    } catch {
+      // ignore
+    }
+  }, [to, offset, onClick, pathname, router]);
+
+  // Render as a button to avoid <a> default behavior and keep URL clean.
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      aria-label={ariaLabel}
+      className={className}
+      data-scrolllink={to}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Export the storage key so Home can implement a tiny "DeferredScroll" effect
+export { STORAGE_KEY as AMR_SCROLL_STORAGE_KEY };
