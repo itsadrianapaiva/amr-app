@@ -52,7 +52,6 @@ export default function WhyBook() {
               {/* CTA */}
               <Link
                 href={WHY_BOOK.cta.href}
-                prefetch={false}
                 className="inline-flex rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
               >
                 {WHY_BOOK.cta.label}

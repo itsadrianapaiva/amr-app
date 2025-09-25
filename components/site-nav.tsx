@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { Menu } from "lucide-react";
 import { NAV_CONTENT } from "@/lib/content/nav";
 import Logo from "@/components/logo";
+import { AMR_LOGO_YELLOW, AMR_LOGO_BW } from "@/components/logo";
 import { Sheet, SheetTrigger } from "@/components/ui/sheet";
 import ScrollLink from "@/components/nav/scroll-link";
 
@@ -33,9 +34,7 @@ export default function SiteNav() {
     ? "border-b border-border/60 bg-surface/80 backdrop-blur supports-[backdrop-filter]:bg-surface/60"
     : "border-b border-transparent bg-transparent";
 
-  const logoSrc = headerActive
-    ? "/assets/logo-bw.png"
-    : "/assets/logo-yellow.png";
+  const logoSrc = headerActive ? AMR_LOGO_BW : AMR_LOGO_YELLOW;
 
   const isInPage = (href: string) => href.startsWith("/#");
   const sectionId = (href: string) => href.slice(2); // "/#catalog" -> "catalog"

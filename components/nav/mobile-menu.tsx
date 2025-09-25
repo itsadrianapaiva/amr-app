@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Logo from "@/components/logo";
+import { AMR_LOGO_BW } from "@/components/logo";
 import { NAV_CONTENT } from "@/lib/content/nav";
 import {
   SheetContent,
@@ -11,18 +12,11 @@ import {
 } from "@/components/ui/sheet";
 import ScrollLink from "@/components/nav/scroll-link";
 
-// Match the desktop sticky header overlap
 const STICKY_OFFSET = 112;
 
-/**
- * MobileMenu
- * - Lives inside a <Sheet> provided by the caller.
- * - Pure presentational; caller controls open/close state.
- */
 export default function MobileMenu({ onClose }: { onClose: () => void }) {
-  // Helpers to detect in-page targets like "/#contact"
   const isInPage = (href: string) => href.startsWith("/#");
-  const sectionId = (href: string) => href.slice(2); // "/#faq" -> "faq"
+  const sectionId = (href: string) => href.slice(2);
 
   return (
     <SheetContent
@@ -30,9 +24,15 @@ export default function MobileMenu({ onClose }: { onClose: () => void }) {
       className="border-none bg-secondary-foreground text-primary-foreground"
     >
       <div className="flex h-full flex-col items-center justify-start pb-8 pt-12">
-        <SheetHeader>
-          <SheetTitle>
-            {/* Clean URL scroll-to-home, and close the menu */}
+        <SheetHeader className="w-full px-2">
+          {/* Give Radix a semantic title for a11y (hidden visually) */}
+          <SheetTitle className="sr-only">Navigation menu</SheetTitle>
+          <SheetDescription className="sr-only">
+            Choose a section to navigate
+          </SheetDescription>
+
+          {/* Render the logo OUTSIDE SheetTitle to avoid ref cloning issues */}
+          <div className="mt-2 flex justify-center">
             <ScrollLink
               to="home"
               offset={STICKY_OFFSET}
@@ -40,20 +40,16 @@ export default function MobileMenu({ onClose }: { onClose: () => void }) {
               className="cursor-pointer inline-flex"
               onClick={onClose}
             >
-              {/* Render plain <img> (no internal link) */}
               <Logo
                 href={undefined}
-                src="/assets/logo-bw.png"
+                src={AMR_LOGO_BW}
                 width={220}
                 height={66}
                 variant="nav"
                 sizing="fixed"
               />
             </ScrollLink>
-          </SheetTitle>
-          <SheetDescription className="sr-only">
-            Navigation menu
-          </SheetDescription>
+          </div>
         </SheetHeader>
 
         <ul className="mt-12 flex w-full flex-col justify-center gap-10 text-center">
@@ -87,7 +83,6 @@ export default function MobileMenu({ onClose }: { onClose: () => void }) {
         </ul>
 
         <div className="mt-10">
-          {/* Primary CTA: if in-page, scroll-clean + close; else normal link */}
           {isInPage(NAV_CONTENT.primaryCta.href) ? (
             <ScrollLink
               to={sectionId(NAV_CONTENT.primaryCta.href)}

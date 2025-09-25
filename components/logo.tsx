@@ -1,4 +1,3 @@
-// components/logo.tsx
 import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 
@@ -24,7 +23,7 @@ type LogoProps = {
 export default function Logo({
   width = 160,
   height = 48,
-  href = undefined, // ⟵ changed: no default link anymore
+  href = undefined, // no default link (prevents nested anchors)
   alt = "AMR logo",
   src = logoYellowPng,
   className,
@@ -34,8 +33,15 @@ export default function Logo({
 }: LogoProps) {
   const sizes = variant === "nav" ? "160px" : "(min-width:1280px) 400px, 60vw";
 
-  const classes = ["block select-none", className].filter(Boolean).join(" ");
+  // Always include w-auto h-auto on the <img> to satisfy Next's aspect-ratio guard.
+  // Then add any caller classes.
+  const classes = ["block select-none w-auto h-auto", className]
+    .filter(Boolean)
+    .join(" ");
 
+  // Inline style defines our sizing mode:
+  // - fixed: pixel width + height:auto (caller controls exact width)
+  // - auto : width:auto + height:auto (intrinsic sizing)
   const style =
     sizing === "fixed"
       ? ({ width: `${width}px`, height: "auto" } as const)
@@ -57,7 +63,6 @@ export default function Logo({
     />
   );
 
-  // Only wrap with a link when href is explicitly provided.
   return href ? (
     <Link
       href={href}
