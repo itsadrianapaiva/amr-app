@@ -102,7 +102,11 @@ export default function ContactSection() {
   }
 
   return (
-    <section id={CONTACTS.id} className="px-4 py-16 md:py-24 md:px-8 lg:px-12">
+    <section
+      id={CONTACTS.id}
+      data-section="contact"
+      className="px-4 py-16 md:py-24 md:px-8 lg:px-12"
+    >
       <div className="container mx-auto">
         <div className="w-full border-t-4 border-primary p-4 shadow-custom xl:h-[730px] xl:p-8 xl:px-[90px] xl:py-[36px]">
           <div className="flex h-full flex-col gap-[40px] xl:flex-row xl:gap-[90px]">

@@ -1,3 +1,4 @@
+// components/logo.tsx
 import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 
@@ -10,24 +11,20 @@ type LogoSizing = "auto" | "fixed";
 type LogoProps = {
   width?: number;
   height?: number;
-  href?: string;
+  /** If provided, wraps the image in a link. Leave undefined to render a plain <img>. */
+  href?: string | null;
   alt?: string;
   src?: string | StaticImageData;
   className?: string;
   variant?: LogoVariant;
-  /** 
-   * "auto"  => keep CSS width/height auto (good for header; avoids Next warning)
-   * "fixed" => apply pixel width (lets callers control exact rendered size)
-   */
   sizing?: LogoSizing;
-  /** Allow callers to force priority when the logo is actually LCP (rare). */
   priority?: boolean;
 };
 
 export default function Logo({
   width = 160,
   height = 48,
-  href = "/#home",
+  href = undefined, // ⟵ changed: no default link anymore
   alt = "AMR logo",
   src = logoYellowPng,
   className,
@@ -35,14 +32,10 @@ export default function Logo({
   sizing = "auto",
   priority = false,
 }: LogoProps) {
-  const sizes =
-    variant === "nav" ? "160px" : "(min-width:1280px) 400px, 60vw";
+  const sizes = variant === "nav" ? "160px" : "(min-width:1280px) 400px, 60vw";
 
   const classes = ["block select-none", className].filter(Boolean).join(" ");
 
-  // Apply width strategy:
-  // - auto  : keep width/height auto to avoid Next warning in cases with Tailwind img reset
-  // - fixed : use pixel width so parent can dial exact visual size (footer)
   const style =
     sizing === "fixed"
       ? ({ width: `${width}px`, height: "auto" } as const)
@@ -64,11 +57,12 @@ export default function Logo({
     />
   );
 
+  // Only wrap with a link when href is explicitly provided.
   return href ? (
     <Link
       href={href}
       prefetch={false}
-      aria-label="Go to home"
+      aria-label={alt || "Go to link"}
       className="inline-flex items-center"
     >
       {img}

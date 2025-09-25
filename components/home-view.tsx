@@ -67,6 +67,19 @@ function LazySection({
   );
 }
 
+/** Always-present, zero-height anchor so in-page scrolling works with lazy sections. */
+function SectionAnchor({ id }: { id: string }) {
+  return (
+    <div
+      id={id}
+      data-section={id}
+      aria-hidden="true"
+      // Optional: if you switch to native anchor scrolling, scroll-margin helps.
+      // className="scroll-mt-28"
+    />
+  );
+}
+
 /**
  * HomeView
  * Composition-only wrapper: each UI section lives in its own component.
@@ -80,16 +93,24 @@ export function HomeView({ machines }: HomeViewProps) {
       {/* Section: Catalog (near fold; keep eager for UX/SEO) */}
       <CatalogSection machines={machines} />
 
+      {/* ---- Lazy sections need static anchors to enable reliable in-page scroll ---- */}
+
+      {/* Anchor for "about" BEFORE the lazy chunk */}
+      <SectionAnchor id="about" />
       {/* Section: Why book — lazy mount with reserved space */}
       <LazySection minHeight={420}>
         <WhyBook />
       </LazySection>
 
+      {/* Anchor for "faq" BEFORE the lazy chunk */}
+      <SectionAnchor id="faq" />
       {/* Section: FAQ — lazy mount; SSR still enabled so content is indexable */}
       <LazySection minHeight={520}>
         <Faq />
       </LazySection>
 
+      {/* Anchor for "contact" BEFORE the lazy chunk */}
+      <SectionAnchor id="contact" />
       {/* Section: Contact — lazy */}
       <LazySection minHeight={460}>
         <ContactSection />
