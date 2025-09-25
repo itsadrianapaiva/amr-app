@@ -8,68 +8,88 @@ export const revalidate = 0;
 
 type TokenPayload = { bid: number }; // minimal payload for MVP
 
+function noStore(): Record<string, string> {
+  return { "cache-control": "no-store, max-age=0" };
+}
+
 function safeFilename(s: string): string {
   return s.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 80);
 }
 
-/** Detect if URL is Vendus and return a *fetchable* URL with proper params applied. */
+/** Normalize Vendus base URL, ending at /ws (no trailing slash). */
+function vendusBase(): string {
+  const raw =
+    process.env.VENDUS_BASE_URL ||
+    process.env.VENDUS_URL ||
+    "https://www.vendus.pt/ws";
+  return raw.replace(/\/+$/, "");
+}
+
+/** Deterministic direct PDF URL as a last resort. */
+function vendusDirectPdfUrl(providerId: string): string {
+  return `${vendusBase()}/v1.1/documents/${encodeURIComponent(providerId)}.pdf`;
+}
+
+/** Is a URL pointing at Vendus? */
+function isVendusUrl(urlStr: string): boolean {
+  try {
+    const h = new URL(urlStr).hostname.toLowerCase();
+    return h === "www.vendus.pt" || h.endsWith(".vendus.pt");
+  } catch {
+    return false;
+  }
+}
+
+/** Add mode and optional query auth if the target host is Vendus. */
 function prepareVendusUrl(raw: string): string {
   const u = new URL(raw);
-  const host = u.hostname.toLowerCase();
-  const isVendus = host === "www.vendus.pt" || host.endsWith(".vendus.pt");
-  if (!isVendus) return raw;
+  if (!isVendusUrl(raw)) return raw;
 
-  // Ensure correct working mode for detail/pdf GETs:
-  // Vendus requires `mode` to match how the doc was created (normal|tests).
   const mode = (process.env.VENDUS_MODE || "").toLowerCase();
-  if (mode === "tests" || mode === "normal") {
-    if (!u.searchParams.has("mode")) u.searchParams.set("mode", mode);
+  if ((mode === "tests" || mode === "normal") && !u.searchParams.has("mode")) {
+    u.searchParams.set("mode", mode);
   }
-
-  // Optional escape hatch: some setups prefer query auth. Leave off by default.
   if (process.env.VENDUS_FORCE_QUERY_AUTH === "1") {
     const key = (process.env.VENDUS_API_KEY || "").trim();
     if (key) u.searchParams.set("api_key", key);
   }
-
   return u.toString();
 }
 
-/** Vendus auth headers: HTTP Basic with API key as user and EMPTY password. */
+/** Vendus auth headers: HTTP Basic with API key as username and EMPTY password. */
 function vendusAuthHeadersFor(urlStr: string): HeadersInit | undefined {
   try {
-    const u = new URL(urlStr);
-    const host = u.hostname.toLowerCase();
-    const isVendus = host === "www.vendus.pt" || host.endsWith(".vendus.pt");
-    if (!isVendus) return undefined;
-
+    if (!isVendusUrl(urlStr)) return undefined;
     const apiKey = (process.env.VENDUS_API_KEY || "").trim();
-    const basicFixed = (process.env.VENDUS_AUTH_BASIC || "").trim();
-    const bearer = (process.env.VENDUS_BEARER_TOKEN || "").trim();
-
-    let Authorization: string | undefined;
-
-    if (apiKey) {
-      const raw = Buffer.from(`${apiKey}:`).toString("base64");
-      Authorization = `Basic ${raw}`;
-    } else if (basicFixed) {
-      Authorization = basicFixed.startsWith("Basic ")
-        ? basicFixed
-        : `Basic ${basicFixed}`;
-    } else if (bearer) {
-      Authorization = bearer.startsWith("Bearer ")
-        ? bearer
-        : `Bearer ${bearer}`;
-    }
-
-    return Authorization
-      ? { accept: "application/pdf", authorization: Authorization }
-      : { accept: "application/pdf" };
+    if (!apiKey) return { accept: "application/pdf" };
+    const basic = Buffer.from(`${apiKey}:`).toString("base64");
+    return { accept: "application/pdf", authorization: `Basic ${basic}` };
   } catch {
     return undefined;
   }
 }
 
+/** True when a response is a PDF stream. */
+function isPdfResponse(res: Response): boolean {
+  const ct = res.headers.get("content-type") || "";
+  return res.ok && res.body != null && ct.includes("application/pdf");
+}
+
+async function safePreview(res: Response): Promise<string> {
+  try {
+    const ct = res.headers.get("content-type") || "";
+    if (ct.includes("application/pdf")) return "pdf";
+    const text = await res.text();
+    return text.slice(0, 200);
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Try streaming first (with server-side auth), then redirect if needed.
+ * This avoids browser login prompts while still giving us an escape hatch.
+ */
 export async function GET(
   req: Request,
   ctx: { params: { bookingId: string } }
@@ -95,74 +115,94 @@ export async function GET(
 
     const booking = await db.booking.findUnique({
       where: { id },
-      select: { invoicePdfUrl: true, invoiceNumber: true },
+      select: {
+        invoiceProvider: true,
+        invoiceProviderId: true,
+        invoicePdfUrl: true,
+        invoiceNumber: true,
+      },
     });
 
-    if (!booking || !booking.invoicePdfUrl) {
+    if (!booking) {
       return NextResponse.json(
-        { ok: false, error: "Invoice PDF not available" },
+        { ok: false, error: "Booking not found" },
         { status: 404, headers: noStore() }
       );
     }
 
-    // Prepare upstream URL (adds mode/tests when needed) and headers.
-    const upstreamUrl = prepareVendusUrl(booking.invoicePdfUrl);
-    const authHeaders = vendusAuthHeadersFor(upstreamUrl);
+    // 1) Choose the candidate URL
+    const candidate =
+      booking.invoicePdfUrl ||
+      (booking.invoiceProvider === "vendus" && booking.invoiceProviderId
+        ? vendusDirectPdfUrl(booking.invoiceProviderId)
+        : null);
 
-    const upstream = await fetch(upstreamUrl, {
-      method: "GET",
-      redirect: "follow",
-      headers: {
-        accept: "application/pdf",
-        ...(authHeaders || {}),
-      },
-      cache: "no-store",
-    });
+    if (candidate) {
+      const upstreamUrl = prepareVendusUrl(candidate);
+      const headers = vendusAuthHeadersFor(upstreamUrl);
 
-    if (!upstream.ok || !upstream.body) {
-      const preview = await safePreview(upstream);
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Failed to fetch invoice PDF from provider",
-          status: upstream.status,
-          preview,
-        },
-        { status: 502, headers: noStore() }
+      // 2) Attempt authenticated streaming (prevents browser auth prompt)
+      try {
+        const upstream = await fetch(upstreamUrl, {
+          method: "GET",
+          redirect: "follow",
+          headers: {
+            accept: "application/pdf",
+            ...(headers || {}),
+          },
+          cache: "no-store",
+        });
+
+        if (isPdfResponse(upstream)) {
+          const fileName =
+            (booking.invoiceNumber &&
+              safeFilename(`${booking.invoiceNumber}.pdf`)) ||
+            `booking-${id}.pdf`;
+
+          return new NextResponse(upstream.body as any, {
+            status: 200,
+            headers: {
+              "content-type": "application/pdf",
+              "cache-control": "private, no-store",
+              "content-disposition": `inline; filename="${fileName}"`,
+            },
+          });
+        }
+
+        // 3) If we didn’t get a PDF (401/403/404, HTML, etc.), fall through to redirect
+      } catch {
+        // Network/auth error → try redirect next
+      }
+
+      // 4) Redirect fallback (may still succeed if .pdf accepts query auth)
+      const redir = NextResponse.redirect(upstreamUrl, { status: 302 });
+      redir.headers.set("cache-control", "private, no-store");
+      redir.headers.set(
+        "x-filename-hint",
+        (booking.invoiceNumber &&
+          safeFilename(`${booking.invoiceNumber}.pdf`)) ||
+          `booking-${id}.pdf`
       );
+      return redir;
     }
 
-    const fileName =
-      (booking.invoiceNumber && safeFilename(`${booking.invoiceNumber}.pdf`)) ||
-      `booking-${id}.pdf`;
-
-    return new NextResponse(upstream.body as any, {
-      status: 200,
-      headers: {
-        "content-type": "application/pdf",
-        "cache-control": "private, no-store",
-        "content-disposition": `inline; filename="${fileName}"`,
+    // No candidate URL at all → diagnostic JSON
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Could not resolve invoice PDF link",
+        provider: booking.invoiceProvider || null,
+        providerId: booking.invoiceProviderId || null,
+        invoiceNumber: booking.invoiceNumber || null,
+        hint:
+          "No stored PDF URL and no provider id available. Issue the invoice or verify persistence.",
       },
-    });
+      { status: 502, headers: noStore() }
+    );
   } catch {
     return NextResponse.json(
       { ok: false, error: "Unexpected server error" },
       { status: 500, headers: noStore() }
     );
-  }
-}
-
-function noStore(): Record<string, string> {
-  return { "cache-control": "no-store, max-age=0" };
-}
-
-async function safePreview(res: Response): Promise<string> {
-  try {
-    const ct = res.headers.get("content-type") || "";
-    if (ct.includes("application/pdf")) return "pdf";
-    const text = await res.text();
-    return text.slice(0, 200);
-  } catch {
-    return "";
   }
 }
