@@ -9,11 +9,10 @@ import Logo from "@/components/logo";
 import { AMR_LOGO_YELLOW, AMR_LOGO_BW } from "@/components/logo";
 import { Sheet, SheetTrigger } from "@/components/ui/sheet";
 import ScrollLink from "@/components/nav/scroll-link";
+import { usePathname, useRouter } from "next/navigation";
 
-// Tune to your sticky header height
 const STICKY_OFFSET = 112;
 
-// Load the heavy mobile menu code only on demand (client-side).
 const MobileMenu = dynamic(() => import("@/components/nav/mobile-menu"), {
   ssr: false,
   loading: () => null,
@@ -22,6 +21,8 @@ const MobileMenu = dynamic(() => import("@/components/nav/mobile-menu"), {
 export default function SiteNav() {
   const [open, setOpen] = useState(false);
   const [headerActive, setHeaderActive] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     const onScroll = () => setHeaderActive(window.scrollY > 8);
@@ -39,55 +40,76 @@ export default function SiteNav() {
   const isInPage = (href: string) => href.startsWith("/#");
   const sectionId = (href: string) => href.slice(2); // "/#catalog" -> "catalog"
 
+  const handleHomeClick = () => {
+    if (pathname === "/") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    router.push("/", { scroll: true }); // clean URL, top of page
+  };
+
   return (
     <header className={`sticky top-0 z-50 transition-colors ${headerClasses}`}>
       <div className="container mx-auto px-4 md:px-6 lg:px-8 xl:px-10">
         <div className="flex min-h-[120px] items-center justify-between py-2">
           {/* Reserved logo box prevents reflow when swapping src */}
           <div className="h-16 w-[160px] shrink-0 flex items-center">
-            {/* URL-clean home scroll: wrap Logo with ScrollLink; disable Logo's internal link */}
-            <ScrollLink
-              to="home"
-              offset={STICKY_OFFSET}
-              ariaLabel="Go to home"
-              className="inline-flex items-center"
+            <button
+              type="button"
+              onClick={handleHomeClick}
+              aria-label="Go to home"
+              className="inline-flex items-center cursor-pointer"
             >
               <Logo
-                href={undefined} // disable internal <Link> inside Logo
+                href={undefined}
                 src={logoSrc}
                 width={200}
                 height={60}
                 variant="nav"
                 sizing="fixed"
               />
-            </ScrollLink>
+            </button>
           </div>
 
           {/* Desktop nav */}
           <nav className="hidden items-center gap-6 md:flex">
             <ul className="flex items-center gap-6">
-              {NAV_CONTENT.links.map((link) => (
-                <li key={link.href}>
-                  {isInPage(link.href) ? (
-                    <ScrollLink
-                      to={sectionId(link.href)}
-                      offset={STICKY_OFFSET}
-                      className="text-sm text-muted-foreground hover:text-foreground uppercase tracking-wider"
-                      ariaLabel={`Go to ${sectionId(link.href)} section`}
-                    >
-                      {link.label}
-                    </ScrollLink>
-                  ) : (
-                    <Link
-                      href={link.href}
-                      prefetch={false}
-                      className="text-sm text-muted-foreground hover:text-foreground uppercase tracking-wider"
-                    >
-                      {link.label}
-                    </Link>
-                  )}
-                </li>
-              ))}
+              {NAV_CONTENT.links.map((link) => {
+                const isHomeInPage =
+                  isInPage(link.href) && sectionId(link.href) === "home";
+
+                return (
+                  <li key={link.href}>
+                    {isHomeInPage ? (
+                      <button
+                        type="button"
+                        onClick={handleHomeClick}
+                        className="text-sm text-muted-foreground hover:text-foreground uppercase tracking-wider cursor-pointer"
+                        aria-label="Go to home"
+                      >
+                        {link.label}
+                      </button>
+                    ) : isInPage(link.href) ? (
+                      <ScrollLink
+                        to={sectionId(link.href)}
+                        offset={STICKY_OFFSET}
+                        className="text-sm text-muted-foreground hover:text-foreground uppercase tracking-wider"
+                        ariaLabel={`Go to ${sectionId(link.href)} section`}
+                      >
+                        {link.label}
+                      </ScrollLink>
+                    ) : (
+                      <Link
+                        href={link.href}
+                        prefetch={false}
+                        className="text-sm text-muted-foreground hover:text-foreground uppercase tracking-wider"
+                      >
+                        {link.label}
+                      </Link>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
 
             {NAV_CONTENT.uspShort ? (
@@ -96,7 +118,7 @@ export default function SiteNav() {
               </span>
             ) : null}
 
-            {/* Primary CTA: scroll cleanly if it's an in-page link */}
+            {/* Primary CTA unchanged */}
             {isInPage(NAV_CONTENT.primaryCta.href) ? (
               <ScrollLink
                 to={sectionId(NAV_CONTENT.primaryCta.href)}

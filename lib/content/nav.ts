@@ -36,7 +36,7 @@ export type NavContent = {
  */
 export const NAV_CONTENT: NavContent = {
   links: [
-    { label: "Home", href: "/#home" },
+    { label: "HOME", href: "/#home" },
     { label: "Catalog", href: "/#catalog" },
     { label: "About", href: "/#about" },
     { label: "FAQ", href: "/#faq" },

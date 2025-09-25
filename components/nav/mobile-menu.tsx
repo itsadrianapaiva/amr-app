@@ -11,12 +11,25 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import ScrollLink from "@/components/nav/scroll-link";
+import { usePathname, useRouter } from "next/navigation";
 
 const STICKY_OFFSET = 112;
 
 export default function MobileMenu({ onClose }: { onClose: () => void }) {
   const isInPage = (href: string) => href.startsWith("/#");
   const sectionId = (href: string) => href.slice(2);
+
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const handleHomeClick = () => {
+    onClose();
+    if (pathname === "/") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    router.push("/", { scroll: true }); // clean URL, scroll top; no hash
+  };
 
   return (
     <SheetContent
@@ -25,20 +38,18 @@ export default function MobileMenu({ onClose }: { onClose: () => void }) {
     >
       <div className="flex h-full flex-col items-center justify-start pb-8 pt-12">
         <SheetHeader className="w-full px-2">
-          {/* Give Radix a semantic title for a11y (hidden visually) */}
           <SheetTitle className="sr-only">Navigation menu</SheetTitle>
           <SheetDescription className="sr-only">
             Choose a section to navigate
           </SheetDescription>
 
-          {/* Render the logo OUTSIDE SheetTitle to avoid ref cloning issues */}
+          {/* Logo uses the same Home rule */}
           <div className="mt-2 flex justify-center">
-            <ScrollLink
-              to="home"
-              offset={STICKY_OFFSET}
-              ariaLabel="Go to home"
-              className="cursor-pointer inline-flex"
-              onClick={onClose}
+            <button
+              type="button"
+              onClick={handleHomeClick}
+              aria-label="Go to home"
+              className="inline-flex cursor-pointer"
             >
               <Logo
                 href={undefined}
@@ -48,38 +59,52 @@ export default function MobileMenu({ onClose }: { onClose: () => void }) {
                 variant="nav"
                 sizing="fixed"
               />
-            </ScrollLink>
+            </button>
           </div>
         </SheetHeader>
 
         <ul className="mt-12 flex w-full flex-col justify-center gap-10 text-center">
-          {NAV_CONTENT.links.map((link) => (
-            <li
-              key={link.href}
-              className="text-md font-medium uppercase tracking-[1.2px] text-primary-foreground"
-            >
-              {isInPage(link.href) ? (
-                <ScrollLink
-                  to={sectionId(link.href)}
-                  offset={STICKY_OFFSET}
-                  className="cursor-pointer"
-                  onClick={onClose}
-                  ariaLabel={`Go to ${sectionId(link.href)} section`}
-                >
-                  {link.label}
-                </ScrollLink>
-              ) : (
-                <Link
-                  href={link.href}
-                  prefetch={false}
-                  className="cursor-pointer"
-                  onClick={onClose}
-                >
-                  {link.label}
-                </Link>
-              )}
-            </li>
-          ))}
+          {NAV_CONTENT.links.map((link) => {
+            const isHomeInPage =
+              isInPage(link.href) && sectionId(link.href) === "home";
+
+            return (
+              <li
+                key={link.href}
+                className="text-md font-medium uppercase tracking-[1.2px] text-primary-foreground"
+              >
+                {isHomeInPage ? (
+                  <button
+                    type="button"
+                    onClick={handleHomeClick}
+                    className="cursor-pointer"
+                    aria-label="Go to home"
+                  >
+                    {link.label}
+                  </button>
+                ) : isInPage(link.href) ? (
+                  <ScrollLink
+                    to={sectionId(link.href)}
+                    offset={STICKY_OFFSET}
+                    className="cursor-pointer"
+                    onClick={onClose}
+                    ariaLabel={`Go to ${sectionId(link.href)} section`}
+                  >
+                    {link.label}
+                  </ScrollLink>
+                ) : (
+                  <Link
+                    href={link.href}
+                    prefetch={false}
+                    className="cursor-pointer"
+                    onClick={onClose}
+                  >
+                    {link.label}
+                  </Link>
+                )}
+              </li>
+            );
+          })}
         </ul>
 
         <div className="mt-10">
