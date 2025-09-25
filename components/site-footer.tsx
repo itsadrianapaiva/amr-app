@@ -48,12 +48,12 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
           <div className="flex items-start justify-start lg:justify-center xl:justify-start">
             <Logo
               src="/assets/logo-yellow.png"
-              width={320}
+              width={300}
               height={45}
               variant="footer"
               sizing="fixed"
               alt={FOOTER_CONTENT.companyName}
-              className="block w-auto h-auto"
+              className="max-w-full"
             />
           </div>
 

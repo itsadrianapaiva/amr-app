@@ -1,3 +1,4 @@
+// components/logo.tsx
 import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 
@@ -10,7 +11,6 @@ type LogoSizing = "auto" | "fixed";
 type LogoProps = {
   width?: number;
   height?: number;
-  /** If provided, wraps the image in a link. Leave undefined to render a plain <img>. */
   href?: string | null;
   alt?: string;
   src?: string | StaticImageData;
@@ -23,7 +23,7 @@ type LogoProps = {
 export default function Logo({
   width = 160,
   height = 48,
-  href = undefined, // no default link (prevents nested anchors)
+  href = undefined,
   alt = "AMR logo",
   src = logoYellowPng,
   className,
@@ -33,23 +33,11 @@ export default function Logo({
 }: LogoProps) {
   const sizes = variant === "nav" ? "160px" : "(min-width:1280px) 400px, 60vw";
 
-  // Classes:
-  // - Always keep h-auto to preserve aspect ratio.
-  // - For nav/mobile we keep w-auto (current look stays unchanged).
-  // - For footer we *don't* force w-auto; width is controlled via inline style (see below).
-  const classes = [
-    "block select-none h-auto",
-    variant !== "footer" ? "w-auto" : null,
-    className,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  // NOTE: remove w-auto / h-auto so CSS classes don't fight our inline sizing.
+  // Next's warning is often triggered when class-based width/height differs from inline.
+  const classes = ["block select-none", className].filter(Boolean).join(" ");
 
-  // Style:
-  // - nav/mobile (sizing="fixed"): exact pixel width, height:auto (keeps your current look).
-  // - footer (sizing="fixed"): width:100% so it grows to the container, but capped by maxWidth=<width>px.
-  //   This restores the previous “adjust to container up to 320px” behavior and fixes the tiny footer logo.
-  // - "auto": width:auto + height:auto (unchanged).
+  // Inline styles ALWAYS set BOTH width and height to keep aspect guard happy.
   const style: React.CSSProperties =
     sizing === "fixed"
       ? variant === "footer"
@@ -78,19 +66,14 @@ export default function Logo({
       priority={priority}
       sizes={sizes}
       decoding="async"
-      className={classes}
       draggable={false}
+      className={classes}
       style={style}
     />
   );
 
   return href ? (
-    <Link
-      href={href}
-      // keep clean navigation decisions outside this component
-      aria-label={alt || "Go to link"}
-      className="inline-flex items-center"
-    >
+    <Link href={href} aria-label={alt || "Go to link"} className="inline-flex items-center">
       {img}
     </Link>
   ) : (
