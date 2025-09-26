@@ -68,6 +68,9 @@ export function buildFullCheckoutSessionParams(
   return {
     mode: "payment",
 
+    // Explicit locale avoids Stripe's dynamic locale chunk probe (./en warning).
+    locale: "en",
+
     // Create a Customer so future ops/emails reconcile cleanly.
     customer_creation: "always",
     customer_email: customerEmail,
