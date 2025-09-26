@@ -97,12 +97,12 @@ export default function WhyBook() {
                 height={492}
                 loading="lazy"
                 decoding="async"
-                fetchPriority="low"
+                fetchPriority="auto"
                 /* Right column is ~420–444px on xl. Below xl it can span ~90vw. */
                 sizes="(min-width:1280px) 444px, (min-width:1024px) 50vw, 90vw"
                 /* Blur when using StaticImageData from our static imports */
                 placeholder={isStatic ? "blur" : "empty"}
-                quality={78}
+                quality={72}
                 className="block"
                 style={{ width: "auto", height: "auto" }}
               />

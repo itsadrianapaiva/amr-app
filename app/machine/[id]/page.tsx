@@ -2,7 +2,7 @@ import { getMachineById } from "@/lib/data";
 import { getDisabledDateRangesForMachine } from "@/lib/availability.server";
 import { serializeMachine } from "@/lib/serializers";
 import { notFound } from "next/navigation";
-import Image from "next/image";
+import Image, { type StaticImageData } from "next/image";
 import { MachineSpecs } from "@/components/machine-specs";
 import Pretitle from "@/components/ui/pretitle";
 import { BookingForm } from "@/components/booking-form";
@@ -90,6 +90,12 @@ export default async function MachineDetailPage({
     dbUrl: null, // avoid external hosts in Next/Image on detail page
   });
 
+  // Detect StaticImageData to enable blur placeholder & intrinsic sizing hints
+  const isStatic =
+    typeof img.src === "object" &&
+    img.src !== null &&
+    "src" in (img.src as StaticImageData);
+
   // Normalize Next/Image StaticImageData to string for JSON-LD
   const imageSrc =
     typeof img.src === "string" ? img.src : (img.src as { src: string }).src;
@@ -118,11 +124,26 @@ export default async function MachineDetailPage({
                 src={img.src}
                 alt={img.alt}
                 fill
-                /* Use max-width logic: on small screens take full viewport width, otherwise cap around our content column width */
-                sizes="(max-width: 1024px) 100vw, 960px"
-                /* Detail pages land with this hero-like image above the fold; make it LCP-friendly */
+                /**
+                 * Width hint: full width on small screens, ~960px cap on large.
+                 * Using min-width query keeps the order consistent with other components.
+                 */
+                sizes="(min-width:1024px) 960px, 100vw"
+                /**
+                 * This is typically the page LCP on detail routes.
+                 * Keep it as the only priority image here.
+                 */
                 priority
                 fetchPriority="high"
+                /**
+                 * With AVIF/WebP enabled globally, 72 trims bytes with minimal visual loss.
+                 */
+                quality={72}
+                /**
+                 * Smooth perceived loading for static imports; no effect on LCP calculation.
+                 */
+                placeholder={isStatic ? "blur" : "empty"}
+                decoding="async"
                 className="object-cover"
               />
             </div>

@@ -18,9 +18,12 @@ const nextConfig = {
   ],
 
   images: {
-    // AVIF encoders can 500 in some serverless setups.
-    // Keep WebP (big win) and fall back to JPEG automatically.
-    formats: ["image/webp"],
+    /**
+     * Re-enable AVIF with WebP fallback.
+     * AVIF yields smaller bytes for photographic assets; if a given environment
+     * ever struggles with AVIF encoding, Next.js will transparently serve WebP/JPEG.
+     */
+    formats: ["image/avif", "image/webp"],
 
     // Keep these aligned with our layouts to avoid wasteful variants.
     deviceSizes: [360, 640, 768, 1024, 1280, 1536, 1920],
