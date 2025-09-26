@@ -87,7 +87,6 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
                   <Link
                     href={`mailto:${FOOTER_CONTENT.email}`}
                     className="underline opacity-90 hover:no-underline"
-                    prefetch={false}
                   >
                     {FOOTER_CONTENT.email}
                   </Link>
@@ -103,15 +102,14 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
                     to={toSectionId(FOOTER_CONTENT.footerCta.href)}
                     offset={112}
                     ariaLabel={FOOTER_CONTENT.footerCta.label}
-                    className="inline-flex rounded-lg bg-primary px-12 py-2 text-sm font-semibold text-primary-foreground hover:bg-accent/80"
+                    className="inline-flex rounded-lg bg-primary px-12 py-2 text-sm font-semibold text-primary-foreground hover:bg-accent/80 cursor-pointer"
                   >
                     {FOOTER_CONTENT.footerCta.label}
                   </ScrollLink>
                 ) : (
                   <Link
                     href={FOOTER_CONTENT.footerCta.href}
-                    prefetch={false}
-                    className="inline-flex rounded-lg bg-primary px-12 py-2 text-sm font-semibold text-primary-foreground hover:bg-accent/80"
+                    className="inline-flex rounded-lg bg-primary px-12 py-2 text-sm font-semibold text-primary-foreground hover:bg-accent/80 cursor-pointer"
                   >
                     {FOOTER_CONTENT.footerCta.label}
                   </Link>
@@ -135,7 +133,7 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
                       to="catalog"
                       offset={112}
                       ariaLabel={`View ${label} in catalog`}
-                      className="underline hover:no-underline"
+                      className="underline hover:no-underline cursor-pointer"
                     >
                       {label}
                     </ScrollLink>
@@ -169,15 +167,14 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
                       to={toSectionId(l.href)}
                       offset={112}
                       ariaLabel={`Go to ${toSectionId(l.href)} section`}
-                      className="underline hover:no-underline"
+                      className="underline hover:no-underline cursor-pointer"
                     >
                       {l.label}
                     </ScrollLink>
                   ) : (
                     <Link
                       href={l.href}
-                      prefetch={false}
-                      className="underline hover:no-underline"
+                      className="underline hover:no-underline cursor-pointer"
                     >
                       {l.label}
                     </Link>
