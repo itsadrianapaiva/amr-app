@@ -1,6 +1,9 @@
-// app/legal/general-conditions/page.tsx
-import { RENTAL_CONDITIONS } from "@/lib/content/rental-conditions";
-import { LEGAL_LINKS } from "@/lib/content/legal";
+import { getGeneralConditionsDoc } from "@/lib/legal/build-general-conditions";
+import {
+  LEGAL_LINKS,
+  type LegalLink,
+  type LegalSection,
+} from "@/lib/content/legal";
 import PrintButton from "@/components/print-button";
 
 // SEO metadata
@@ -21,7 +24,7 @@ function formatDate(iso: string) {
 }
 
 export default async function GeneralConditionsPage() {
-  const doc = RENTAL_CONDITIONS;
+  const doc = await getGeneralConditionsDoc();
 
   return (
     <main className="container mx-auto px-4 py-18 md:py-24 xl:py-30">
