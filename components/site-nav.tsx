@@ -53,7 +53,7 @@ export default function SiteNav() {
       <div className="container mx-auto px-4 md:px-6 lg:px-8 xl:px-10">
         <div className="flex min-h-[120px] items-center justify-between">
           {/* Reserved logo box prevents reflow when swapping src */}
-          <div className="w-[160px] shrink-0 flex items-center">
+          <div className="shrink-0 flex items-center w-[200px] h-[60px] p-4">
             <button
               type="button"
               onClick={handleHomeClick}
