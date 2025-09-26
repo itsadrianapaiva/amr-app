@@ -2,6 +2,8 @@ import "server-only";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import Ga4Purchase from "@/components/analytics/ga4-purchase";
+import ScrollLink from "@/components/nav/scroll-link";
+import { Button } from "@/components/ui/button";
 
 /**
  * Tiny helper to format a Date as YYYY-MM-DD in the Lisbon timezone,
@@ -59,9 +61,25 @@ export default async function CustomerSuccessPage({
             your browser history or check your inbox for the confirmation email.
           </p>
         </div>
-        <Link href="/" className="underline">
-          Back to homepage
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="rounded-md bg-black px-4 py-2 text-white cursor-pointer"
+          >
+            Go to homepage
+          </Link>
+          {/* Hashless in-page scroll to catalog */}
+          <ScrollLink
+            to="catalog"
+            offset={112}
+            ariaLabel="Browse machines"
+            className="inline-flex"
+          >
+            <Button className="rounded-md px-4 py-2 text-sm font-medium cursor-pointer">
+              Browse machines
+            </Button>
+          </ScrollLink>
+        </div>
       </div>
     );
   }
@@ -85,12 +103,23 @@ export default async function CustomerSuccessPage({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/" className="rounded-md bg-black px-4 py-2 text-white">
+          <Link
+            href="/"
+            className="rounded-md bg-black px-4 py-2 text-white cursor-pointer"
+          >
             Go to homepage
           </Link>
-          <Link href="/#catalog" className="underline">
-            Browse machines
-          </Link>
+          {/* Hashless in-page scroll to catalog */}
+          <ScrollLink
+            to="catalog"
+            offset={112}
+            ariaLabel="Browse machines"
+            className="inline-flex"
+          >
+            <Button className="rounded-md px-4 py-2 text-sm font-medium cursor-pointer">
+              Browse machines
+            </Button>
+          </ScrollLink>
         </div>
       </div>
     );
@@ -133,18 +162,27 @@ export default async function CustomerSuccessPage({
       </div>
 
       <div className="flex items-center gap-3">
-        <Link
-          href="/#catalog"
-          className="rounded-md bg-black px-4 py-2 text-white"
+        {/* Hashless in-page scroll to catalog */}
+        <ScrollLink
+          to="catalog"
+          offset={112}
+          ariaLabel="Back to catalog"
+          className="inline-flex"
         >
-          Back to catalog
-        </Link>
+          <Button className="rounded-md bg-black text-white px-4 py-2 text-md font-medium cursor-pointer">
+            Back to catalog
+          </Button>
+        </ScrollLink>
+
         {booking.machine?.id ? (
-          <Link href={`/machine/${booking.machine.id}`} className="underline">
+          <Link
+            href={`/machine/${booking.machine.id}`}
+            className="underline cursor-pointer"
+          >
             View machine
           </Link>
         ) : (
-          <Link href="/" className="underline">
+          <Link href="/" className="underline cursor-pointer">
             Go to homepage
           </Link>
         )}
