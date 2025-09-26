@@ -64,9 +64,8 @@ export default function SiteNav() {
                 href={undefined}
                 src={logoSrc}
                 width={200}
-                height={60}
                 variant="nav"
-                sizing="fixed"
+                sizing="auto"
               />
             </button>
           </div>

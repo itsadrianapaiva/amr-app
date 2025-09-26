@@ -55,9 +55,8 @@ export default function MobileMenu({ onClose }: { onClose: () => void }) {
                 href={undefined}
                 src={AMR_LOGO_BW}
                 width={220}
-                height={66}
                 variant="nav"
-                sizing="fixed"
+                sizing="auto"
               />
             </button>
           </div>

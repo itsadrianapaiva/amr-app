@@ -3,6 +3,7 @@
 import Link from "next/link";
 import ScrollLink from "@/components/nav/scroll-link";
 import Logo from "@/components/logo";
+import { AMR_LOGO_YELLOW } from "@/components/logo";
 import { FOOTER_CONTENT } from "@/lib/content/footer";
 import { MapPin, Phone, Mail } from "lucide-react";
 
@@ -47,13 +48,12 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
           {/* Logo  */}
           <div className="flex items-start justify-start lg:justify-center xl:justify-start">
             <Logo
-              src="/assets/logo-yellow.png"
+              src={AMR_LOGO_YELLOW}
               width={300}
-              height={45}
               variant="footer"
-              sizing="fixed"
+              sizing="auto"
               alt={FOOTER_CONTENT.companyName}
-              className="max-w-full"
+              className="block"
             />
           </div>
 
