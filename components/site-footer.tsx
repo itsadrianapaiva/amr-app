@@ -1,15 +1,22 @@
+"use client";
+
 import Link from "next/link";
+import ScrollLink from "@/components/nav/scroll-link";
 import Logo from "@/components/logo";
 import { FOOTER_CONTENT } from "@/lib/content/footer";
 import { MapPin, Phone, Mail } from "lucide-react";
 
-/**
- * SiteFooter — 4-column layout on xl:
- * [Logo] [Contact] [Categories] [Pages]
- * NOTE: Categories are injected via props to avoid DB calls here.
- */
+// helpers for section links
+function isSectionHref(href?: string) {
+  if (!href) return false;
+  return href.startsWith("#") || href.startsWith("/#");
+}
+function toSectionId(href?: string) {
+  if (!href) return "";
+  return href.replace("/#", "").replace("#", "");
+}
+
 type SiteFooterProps = {
-  /** Friendly category labels to show; if empty/undefined, the "Categories" column is hidden. */
   categories?: string[];
 };
 
@@ -36,25 +43,26 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
   return (
     <footer className="mt-10 bg-muted-foreground/10 text-primary-foreground xl:mt-32">
       <div className="container mx-auto">
-        {/* Top grid: stacks on mobile, four columns on xl */}
         <div className="grid gap-12 py-8 px-20 lg:px-0 md:grid-cols-2 xl:grid-cols-4 xl:gap-10 xl:py-20">
-          {/* Logo */}
-          <div className="flex items-start justify-center xl:justify-start">
+          {/* Logo  */}
+          <div className="flex items-start justify-start lg:justify-center xl:justify-start">
             <Logo
               src="/assets/logo-yellow.png"
-              width={400}
-              height={56}
+              width={300}
+              height={45}
+              variant="footer"
+              sizing="fixed"
               alt={FOOTER_CONTENT.companyName}
+              className="max-w-full"
             />
           </div>
 
-          {/* Contact */}
-          <div className="">
+          {/* Contact column */}
+          <div>
             <h4 className="mb-6 text-md font-semibold uppercase tracking-[1.2px]">
               Contact
             </h4>
             <ul className="flex flex-col gap-5 text-sm">
-              {/* Address */}
               <li className="flex items-start gap-3">
                 <MapPin className="mt-[2px] h-5 w-5 text-primary" />
                 <div className="opacity-90">
@@ -64,7 +72,6 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
                 </div>
               </li>
 
-              {/* Phone (optional) */}
               {FOOTER_CONTENT.phoneDisplay && (
                 <li className="flex items-center gap-3">
                   <Phone className="h-5 w-5 text-primary" />
@@ -74,13 +81,13 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
                 </li>
               )}
 
-              {/* Email (optional) */}
               {FOOTER_CONTENT.email && (
                 <li className="flex items-center gap-3">
                   <Mail className="h-5 w-5 text-primary" />
                   <Link
                     href={`mailto:${FOOTER_CONTENT.email}`}
                     className="underline opacity-90 hover:no-underline"
+                    prefetch={false}
                   >
                     {FOOTER_CONTENT.email}
                   </Link>
@@ -88,21 +95,32 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
               )}
             </ul>
 
-            {/* Small CTA (optional) */}
+            {/* Contact footer CTA — scroll to a section without '#' */}
             {FOOTER_CONTENT.footerCta && (
               <div className="mt-8">
-                <Link
-                  href={FOOTER_CONTENT.footerCta.href}
-                  prefetch={false}
-                  className="inline-flex rounded-lg bg-primary px-12 py-2 text-sm font-semibold text-primary-foreground hover:bg-accent/80"
-                >
-                  {FOOTER_CONTENT.footerCta.label}
-                </Link>
+                {isSectionHref(FOOTER_CONTENT.footerCta.href) ? (
+                  <ScrollLink
+                    to={toSectionId(FOOTER_CONTENT.footerCta.href)}
+                    offset={112}
+                    ariaLabel={FOOTER_CONTENT.footerCta.label}
+                    className="inline-flex rounded-lg bg-primary px-12 py-2 text-sm font-semibold text-primary-foreground hover:bg-accent/80"
+                  >
+                    {FOOTER_CONTENT.footerCta.label}
+                  </ScrollLink>
+                ) : (
+                  <Link
+                    href={FOOTER_CONTENT.footerCta.href}
+                    prefetch={false}
+                    className="inline-flex rounded-lg bg-primary px-12 py-2 text-sm font-semibold text-primary-foreground hover:bg-accent/80"
+                  >
+                    {FOOTER_CONTENT.footerCta.label}
+                  </Link>
+                )}
               </div>
             )}
           </div>
 
-          {/* Categories — shown only if provided */}
+          {/* Categories — unchanged layout, but no hashes or prefetch */}
           {categories && categories.length > 0 ? (
             <div>
               <h4 className="mb-6 text-md font-semibold uppercase tracking-[1.2px]">
@@ -111,23 +129,25 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
               <ul className="space-y-3 text-sm opacity-90">
                 {categories.map((label) => (
                   <li key={label}>
-                    <Link
-                      href={`/?category=${encodeURIComponent(label)}#catalog`}
-                      prefetch={false}
+                    {/* Keep your existing behavior here if you had a handler.
+                       If you were linking with "#catalog", switch to ScrollLink. */}
+                    <ScrollLink
+                      to="catalog"
+                      offset={112}
+                      ariaLabel={`View ${label} in catalog`}
                       className="underline hover:no-underline"
                     >
                       {label}
-                    </Link>
+                    </ScrollLink>
                   </li>
                 ))}
               </ul>
             </div>
           ) : (
-            // Keep grid alignment on xl (renders an empty slot)
             <div aria-hidden className="hidden xl:block" />
           )}
 
-          {/* Pages */}
+          {/* Pages — section links use ScrollLink, normal links keep Link (prefetch disabled) */}
           <div>
             <h4 className="mb-6 text-md font-semibold uppercase tracking-[1.2px]">
               Pages
@@ -144,6 +164,15 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
                     >
                       {l.label}
                     </a>
+                  ) : isSectionHref(l.href) ? (
+                    <ScrollLink
+                      to={toSectionId(l.href)}
+                      offset={112}
+                      ariaLabel={`Go to ${toSectionId(l.href)} section`}
+                      className="underline hover:no-underline"
+                    >
+                      {l.label}
+                    </ScrollLink>
                   ) : (
                     <Link
                       href={l.href}
@@ -166,7 +195,6 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
           <p className="opacity-80">
             &copy; {year} {owner}. All rights reserved.
           </p>
-
           {FOOTER_CONTENT.designedBy ? (
             <p className="opacity-80">
               Designed by{" "}

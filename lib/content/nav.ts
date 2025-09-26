@@ -36,11 +36,11 @@ export type NavContent = {
  */
 export const NAV_CONTENT: NavContent = {
   links: [
-    { label: "Home", href: "/#home" },
-    { label: "Catalog", href: "/#catalog" },
-    { label: "About", href: "/#about" },
+    { label: "HOME", href: "/#home" },
+    { label: "CATALOG", href: "/#catalog" },
+    { label: "ABOUT", href: "/#about" },
     { label: "FAQ", href: "/#faq" },
-    { label: "Contact", href: "/#contact" },
+    { label: "CONTACT", href: "/#contact" },
   ],
   primaryCta: {
     label: "Book now",

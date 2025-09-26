@@ -1,9 +1,21 @@
 import Link from "next/link";
 import Image, { type StaticImageData } from "next/image";
 import Pretitle from "@/components/ui/pretitle";
+import ScrollLink from "@/components/nav/scroll-link";
+import { Button } from "@/components/ui/button";
 import { WHY_BOOK } from "@/lib/content/why";
 import { imageContent } from "@/lib/content/images";
 import { CheckCircle2 } from "lucide-react";
+
+/** Helpers to detect section links without hashes */
+function isSectionHref(href?: string) {
+  if (!href) return false;
+  return href.startsWith("#") || href.startsWith("/#");
+}
+function toSectionId(href?: string) {
+  if (!href) return "";
+  return href.replace("/#", "").replace("#", "");
+}
 
 /**
  * WhyBook
@@ -50,13 +62,26 @@ export default function WhyBook() {
               </ul>
 
               {/* CTA */}
-              <Link
-                href={WHY_BOOK.cta.href}
-                prefetch={false}
-                className="inline-flex rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-              >
-                {WHY_BOOK.cta.label}
-              </Link>
+              {isSectionHref(WHY_BOOK.cta.href) ? (
+                <ScrollLink
+                  to={toSectionId(WHY_BOOK.cta.href)}
+                  offset={112}
+                  ariaLabel={WHY_BOOK.cta.label}
+                >
+                  <Button
+                    asChild
+                    className="inline-flex rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 cursor-pointer"
+                  >
+                    <span>{WHY_BOOK.cta.label}</span>
+                  </Button>
+                </ScrollLink>
+              ) : (
+                <Link href={WHY_BOOK.cta.href}>
+                  <Button className="inline-flex rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 cursor-pointer">
+                    {WHY_BOOK.cta.label}
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
 
@@ -79,6 +104,7 @@ export default function WhyBook() {
                 placeholder={isStatic ? "blur" : "empty"}
                 quality={78}
                 className="block"
+                style={{ width: "auto", height: "auto" }}
               />
             </div>
           </div>

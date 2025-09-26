@@ -1,6 +1,7 @@
 import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import ScrollLink from "@/components/nav/scroll-link";
 
 /* Static imports unlock intrinsic size + blur + preload for priority */
 import hero01 from "@/public/images/hero/hero.jpg";
@@ -35,6 +36,15 @@ function buildWhatsAppHref(e164?: string | null) {
   return digits ? `https://wa.me/${digits}` : null;
 }
 
+function isSectionHref(href?: string) {
+  if (!href) return false;
+  return href.startsWith("#") || href.startsWith("/#");
+}
+function toSectionId(href?: string) {
+  if (!href) return "";
+  return href.replace("/#", "").replace("#", "");
+}
+
 export default function Hero({
   pretitle = "Instant online booking",
   title = "Rent pro-grade machinery in the Algarve",
@@ -62,7 +72,7 @@ export default function Hero({
         fill
         priority
         fetchPriority="high"
-        sizes="100vw"
+        sizes="(max-width: 1024px) 100vw, 1024px"
         quality={78}
         placeholder="blur"
         className="absolute inset-0 object-cover"
@@ -97,14 +107,32 @@ export default function Hero({
           </p>
 
           <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row fade-in fade-in-400">
-            <Link href={primaryHref} prefetch={false}>
-              <Button
-                size="lg"
-                className="bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+            {isSectionHref(primaryHref) ? (
+              // ScrollLink renders a <button>; to avoid button-in-button,
+              // render the shadcn Button "asChild" so it becomes a <span>.
+              <ScrollLink
+                to={toSectionId(primaryHref)}
+                offset={112}
+                ariaLabel={primaryLabel}
               >
-                {primaryLabel}
-              </Button>
-            </Link>
+                <Button
+                  asChild
+                  size="lg"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+                >
+                  <span>{primaryLabel}</span>
+                </Button>
+              </ScrollLink>
+            ) : (
+              <Link href={primaryHref}>
+                <Button
+                  size="lg"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+                >
+                  {primaryLabel}
+                </Button>
+              </Link>
+            )}
 
             {whatsappHref && (
               <a
