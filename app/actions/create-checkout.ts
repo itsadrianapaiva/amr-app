@@ -232,7 +232,7 @@ export async function createCheckoutAction(
     return { ok: true, url: session.url };
   } catch (e: any) {
     if (e instanceof LeadTimeError) {
-      const friendly = e.earliestAllowedDay.toLocaleDateString("en-GB", {
+      const friendly = e.earliestAllowedDay.toLocaleDateString("auto", {
         timeZone: "Europe/Lisbon",
         day: "2-digit",
         month: "2-digit",

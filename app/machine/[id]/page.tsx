@@ -124,17 +124,8 @@ export default async function MachineDetailPage({
                 src={img.src}
                 alt={img.alt}
                 fill
-                /**
-                 * Width hint: full width on small screens, ~960px cap on large.
-                 * Using min-width query keeps the order consistent with other components.
-                 */
-                sizes="(min-width:1024px) 960px, 100vw"
-                /**
-                 * This is typically the page LCP on detail routes.
-                 * Keep it as the only priority image here.
-                 */
-                priority
-                fetchPriority="high"
+                sizes="(max-width: 768px) 100vw, 1200px"
+                priority={false}
                 /**
                  * With AVIF/WebP enabled globally, 72 trims bytes with minimal visual loss.
                  */
