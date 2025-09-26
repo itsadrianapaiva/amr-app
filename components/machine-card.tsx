@@ -92,10 +92,21 @@ export function MachineCard({ machine, eager = false }: MachineCardProps) {
         src={srcToUse}
         alt={altToUse}
         fill
-        /* 1 / 2 / 4 columns on base / md / xl */
-        sizes="(min-width:1280px) 25vw, (min-width:768px) 50vw, 100vw"
+        /**
+         * Grid width hints (match 1/2/3/4 columns):
+         * - ≥1280px: 4 cols → ~25vw
+         * - ≥1024px: 3 cols → ~33vw
+         * - ≥768px:  2 cols → ~50vw
+         * - else:    1 col  → 100vw
+         */
+        sizes="(min-width:1280px) 25vw, (min-width:1024px) 33vw, (min-width:768px) 50vw, 100vw"
         placeholder={isStatic ? "blur" : "empty"}
-        quality={78}
+        /** Trim bytes (AVIF/WebP enabled in next.config.ts) */
+        quality={72}
+        /** Only the first visible row should preload aggressively */
+        priority={Boolean(eager)}
+        loading={eager ? "eager" : "lazy"}
+        decoding="async"
         className="object-cover transition-transform duration-500 group-hover:scale-105"
       />
 
