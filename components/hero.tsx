@@ -66,14 +66,17 @@ export default function Hero({
         backgroundClassName,
       ].join(" ")}
     >
+      {/* LCP: full-bleed background. One image, one priority. */}
       <Image
         src={heroImg}
         alt="Tracked excavator working on a job site"
         fill
         priority
         fetchPriority="high"
-        sizes="(max-width: 1024px) 100vw, 1024px"
-        quality={78}
+        /* Full-bleed background should advertise viewport width */
+        sizes="100vw"
+        /* With AVIF on, 72 gives good visual quality at smaller bytes */
+        quality={72}
         placeholder="blur"
         className="absolute inset-0 object-cover"
       />
