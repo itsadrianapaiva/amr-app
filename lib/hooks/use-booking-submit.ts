@@ -1,4 +1,3 @@
-// lib/hooks/use-booking-submit.ts
 "use client";
 
 import * as React from "react";
