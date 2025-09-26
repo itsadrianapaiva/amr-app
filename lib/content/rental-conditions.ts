@@ -204,7 +204,7 @@ export const RENTAL_CONDITIONS: RentalConditionsDoc = {
       id: "contacts",
       title: "Contacts",
       body: [
-        "Company: Trevo Cativante Unip Lda",
+        "Company: Algarve Modern Rentals and Services - Aluguer de Equipamentos, Unipessoal Lda",
         "Registered address: Espartal, lote I 13, 8670-119, Aljezur, Portugal",
         "Warehouse: Barranco da Vaca, 8670-116, Aljezur, Portugal",
         "Warehouse hours: Mo–Fr 09:00–17:00",
@@ -212,7 +212,5 @@ export const RENTAL_CONDITIONS: RentalConditionsDoc = {
       ],
     },
   ],
-  links: [
-    LEGAL_LINKS.complaintsBook,
-  ],
+  links: [LEGAL_LINKS.complaintsBook],
 };

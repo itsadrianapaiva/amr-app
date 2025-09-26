@@ -47,7 +47,7 @@ export const LEGAL_PRIVACY: LegalDoc = {
       id: "controller",
       title: "Data Controller",
       body: [
-        'Company: Trevo Cativante Unip Lda',
+        'Company: Algarve Modern Rentals and Services - Aluguer de Equipamentos, Unipessoal Lda',
         'Registered address: Espartal, lote I 13, 8670-119, Aljezur, Portugal',
         'Warehouse address: Barranco da Vaca, 8670-116, Aljezur, Portugal',
         'Warehouse hours: Mo–Fr 09:00–17:00',
