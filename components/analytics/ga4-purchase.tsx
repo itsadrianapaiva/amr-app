@@ -1,7 +1,8 @@
+// components/analytics/ga4-purchase.tsx
+// Add the two console.log lines marked 🔎
+
 "use client";
-
 import { useEffect, useRef } from "react";
-
 type Item = {
   item_id: string;
   item_name?: string;
@@ -24,13 +25,13 @@ function waitForGtag(maxMs = 5000): Promise<((...a: any[]) => void) | null> {
   return new Promise((resolve) => {
     const g = (window as any).gtag as ((...a: any[]) => void) | undefined;
     if (g) return resolve(g);
-    const started = Date.now();
+    const t0 = Date.now();
     const iv = setInterval(() => {
       const gg = (window as any).gtag as ((...a: any[]) => void) | undefined;
       if (gg) {
         clearInterval(iv);
         resolve(gg);
-      } else if (Date.now() - started > maxMs) {
+      } else if (Date.now() - t0 > maxMs) {
         clearInterval(iv);
         resolve(null);
       }
@@ -51,10 +52,18 @@ export default function Ga4Purchase(props: {
     if (typeof window === "undefined") return;
     if (!Number.isFinite(value)) return;
 
+    console.log("🔎 Ga4Purchase mount", {
+      transactionId,
+      value,
+      currency,
+      analyticsGranted: readAnalyticsConsent(),
+      hasGtag: typeof (window as any).gtag === "function",
+    });
+
     const fire = async () => {
       if (sentRef.current) return;
       const gtag = await waitForGtag();
-      if (!gtag) return; // gtag never loaded (ID missing) → noop
+      if (!gtag) return;
       gtag("event", "purchase", {
         transaction_id: transactionId,
         value,
@@ -62,9 +71,9 @@ export default function Ga4Purchase(props: {
         items,
       });
       sentRef.current = true;
+      console.log("🔎 Ga4Purchase fired", { transactionId, value });
     };
 
-    // If analytics already granted → send now; else wait for banner update
     if (readAnalyticsConsent()) {
       void fire();
     } else {
