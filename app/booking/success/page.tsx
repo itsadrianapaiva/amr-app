@@ -68,17 +68,21 @@ export default async function CustomerSuccessPage({
           >
             Go to homepage
           </Link>
-          {/* Hashless in-page scroll to catalog */}
-          <ScrollLink
-            to="catalog"
-            offset={112}
-            ariaLabel="Browse machines"
-            className="inline-flex"
+
+          {/* Hashless in-page scroll to catalog — use Button asChild to avoid nested <button> */}
+          <Button
+            asChild
+            className="rounded-md px-4 py-2 text-sm font-medium cursor-pointer"
           >
-            <Button className="rounded-md px-4 py-2 text-sm font-medium cursor-pointer">
+            <ScrollLink
+              to="catalog"
+              offset={112}
+              ariaLabel="Browse machines"
+              className="inline-flex"
+            >
               Browse machines
-            </Button>
-          </ScrollLink>
+            </ScrollLink>
+          </Button>
         </div>
       </div>
     );
@@ -109,17 +113,21 @@ export default async function CustomerSuccessPage({
           >
             Go to homepage
           </Link>
-          {/* Hashless in-page scroll to catalog */}
-          <ScrollLink
-            to="catalog"
-            offset={112}
-            ariaLabel="Browse machines"
-            className="inline-flex"
+
+          {/* Hashless in-page scroll to catalog — avoid nested <button> */}
+          <Button
+            asChild
+            className="rounded-md px-4 py-2 text-sm font-medium cursor-pointer"
           >
-            <Button className="rounded-md px-4 py-2 text-sm font-medium cursor-pointer">
+            <ScrollLink
+              to="catalog"
+              offset={112}
+              ariaLabel="Browse machines"
+              className="inline-flex"
+            >
               Browse machines
-            </Button>
-          </ScrollLink>
+            </ScrollLink>
+          </Button>
         </div>
       </div>
     );
@@ -162,17 +170,20 @@ export default async function CustomerSuccessPage({
       </div>
 
       <div className="flex items-center gap-3">
-        {/* Hashless in-page scroll to catalog */}
-        <ScrollLink
-          to="catalog"
-          offset={112}
-          ariaLabel="Back to catalog"
-          className="inline-flex"
+        {/* Hashless in-page scroll to catalog — avoid nested <button> */}
+        <Button
+          asChild
+          className="rounded-md bg-black text-white px-4 py-2 text-md font-medium cursor-pointer"
         >
-          <Button className="rounded-md bg-black text-white px-4 py-2 text-md font-medium cursor-pointer">
+          <ScrollLink
+            to="catalog"
+            offset={112}
+            ariaLabel="Back to catalog"
+            className="inline-flex"
+          >
             Back to catalog
-          </Button>
-        </ScrollLink>
+          </ScrollLink>
+        </Button>
 
         {booking.machine?.id ? (
           <Link
