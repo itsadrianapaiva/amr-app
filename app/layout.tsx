@@ -4,7 +4,7 @@ import SiteNav from "@/components/site-nav";
 import SiteFooter from "@/components/site-footer";
 // wrap chrome that we want to hide on certain routes (e.g., success)
 import LayoutChrome from "@/components/layout-chrome";
-
+import ConsentProvider from "@/components/consent-provider";
 import { getFooterCategories } from "@/lib/data/footer-categories";
 import { createDefaultMetadata } from "@/lib/seo/default-metadata";
 import OrganizationJsonLd from "@/components/seo/organization-jsonld";
@@ -84,13 +84,14 @@ export default async function RootLayout({
         )}
       </head>
       <body>
-        {/* loads gtag + applies consent early */}
-        {/* NOTE: ConsentProvider stays where it is so GA boots on every page */}
+        {/* GA + Consent Mode boot (loads gtag and applies consent) */}
+        <ConsentProvider />
+
+        {/* SEO JSON-LD */}
         <OrganizationJsonLd />
 
         {/* Invisible anchor so '/#home' targets the very top */}
         <div id="home" className="sr-only" aria-hidden="true" />
-
         {/* Sticky header on all pages */}
         <SiteNav />
 
