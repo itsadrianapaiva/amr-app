@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-type ConsentLevel = "all" | "functional";
+type ConsentPayload = { analytics: boolean; ads: boolean };
 
 // Small helpers kept inside this file to avoid extra imports.
 function getCookie(name: string) {
@@ -19,6 +19,26 @@ function setCookie(name: string, value: string, days = 180) {
   document.cookie = `${name}=${encodeURIComponent(
     value
   )}; Max-Age=${maxAge}; Path=/; SameSite=Lax`;
+}
+
+function writeConsentAndBroadcast(payload: ConsentPayload) {
+  setCookie("amr_consent", JSON.stringify(payload));
+  // Inform ConsentProvider + Ga4Purchase listeners immediately
+  window.dispatchEvent(new CustomEvent("amr:consent", { detail: payload }));
+}
+
+// Backward-compat migration for legacy values "all" | "functional"
+function migrateLegacyIfNeeded(raw: string) {
+  if (!raw) return false;
+  if (raw === "all") {
+    writeConsentAndBroadcast({ analytics: true, ads: false });
+    return true;
+  }
+  if (raw === "functional") {
+    writeConsentAndBroadcast({ analytics: false, ads: false });
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -39,13 +59,34 @@ export default function CookieConsentBanner({
   useEffect(() => {
     setMounted(true);
     const existing = getCookie("amr_consent");
-    setVisible(!existing);
+
+    // If we find legacy string values, migrate them to JSON and hide banner.
+    if (migrateLegacyIfNeeded(existing)) {
+      setVisible(false);
+      return;
+    }
+
+    // If we already have JSON consent, hide; otherwise show.
+    try {
+      const parsed = existing ? JSON.parse(existing) : null;
+      const hasJsonShape =
+        parsed && typeof parsed === "object" && "analytics" in parsed;
+      setVisible(!hasJsonShape);
+    } catch {
+      // Non-JSON garbage → show banner
+      setVisible(true);
+    }
   }, []);
 
   if (!mounted || !visible) return null;
 
-  const accept = (level: ConsentLevel) => {
-    setCookie("amr_consent", level);
+  const acceptAll = () => {
+    writeConsentAndBroadcast({ analytics: true, ads: true });
+    setVisible(false);
+  };
+
+  const functionalOnly = () => {
+    writeConsentAndBroadcast({ analytics: false, ads: false });
     setVisible(false);
   };
 
@@ -71,14 +112,10 @@ export default function CookieConsentBanner({
           </p>
 
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => accept("all")}>
+            <Button size="sm" onClick={acceptAll}>
               Allow all cookies
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => accept("functional")}
-            >
+            <Button size="sm" variant="outline" onClick={functionalOnly}>
               Functional only
             </Button>
           </div>

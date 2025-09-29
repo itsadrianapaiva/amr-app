@@ -6,39 +6,42 @@ import { test, expect } from "@playwright/test";
  * - Call the cron endpoint (with x-cron-secret when configured).
  * - Verify the booking flips to CANCELLED.
  *
- * Requirements:
- * - APP_URL (used by Playwright baseURL or via process.env.APP_URL)
- * - CRON_SECRET (if your cron route is secured; same value as Netlify env)
+ * Notes:
+ * - Switch to POST with JSON to match the route’s primary path.
+ * - Ensure end is derived from start (previous code used new Date()).
+ * - Poll briefly after cron to avoid timing flakes.
  */
 
 function fmt(d: Date) {
-  // YYYY-MM-DD for query params
+  // YYYY-MM-DD in UTC to keep it stable across CI timezones
   return d.toISOString().slice(0, 10);
 }
 
 test("expired holds get cancelled by cron", async ({ request }) => {
-  // --- Arrange: choose dates (any valid future window is fine)
+  // --- Arrange: choose a valid future window (3-day rental)
   const start = new Date();
-  start.setDate(start.getDate() + 3);
-  const end = new Date();
-  end.setDate(start.getDate() + 2); // 3-day rental window
+  start.setUTCDate(start.getUTCDate() + 3);
+
+  const end = new Date(start);          // derive from start, not from "now"
+  end.setUTCDate(end.getUTCDate() + 2); // +2 days → 3-day window
 
   // --- Arrange: create an already-expired hold (10 minutes in the past)
-  const createUrl = [
-    "/api/dev/create-booking",
-    `?expired=true`,
-    `&minutes=10`,
-    `&machineId=1`,
-    `&startDate=${fmt(start)}`,
-    `&endDate=${fmt(end)}`,
-    `&name=E2E Expired Hold`,
-    `&email=e2e+expired@example.com`,
-    `&phone=%2B351000000000`,
-    `&totalEuros=123`,
-  ].join("");
-
-  const createRes = await request.get(createUrl, {
-    headers: { "Cache-Control": "no-store" },
+  const createRes = await request.post("/api/dev/create-booking", {
+    headers: {
+      "Cache-Control": "no-store",
+      "content-type": "application/json",
+    },
+    data: JSON.stringify({
+      machineId: 1,
+      startDate: fmt(start),
+      endDate: fmt(end),
+      name: "E2E Expired Hold",
+      email: `e2e+expired_${Date.now()}@example.com`,
+      phone: "+351000000000",
+      totalEuros: 123,
+      expired: true,
+      minutes: 10,
+    }),
   });
   expect(createRes.ok()).toBeTruthy();
   const created = await createRes.json();
@@ -59,18 +62,25 @@ test("expired holds get cancelled by cron", async ({ request }) => {
   expect(cronRes.ok()).toBeTruthy();
   const cronJson = await cronRes.json();
   expect(cronJson?.ok).toBe(true);
-  // Optional sanity: at least 1 cancelled (could be >1 if previous tests left data)
   expect(typeof cronJson.cancelled).toBe("number");
 
-  // --- Assert: booking is now CANCELLED
-  const inspectUrl = `/api/dev/inspect-booking?id=${bookingId}&noCache=${Date.now()}`;
-  const inspectRes = await request.get(inspectUrl, {
-    headers: { "Cache-Control": "no-store" },
-  });
-  expect(inspectRes.ok()).toBeTruthy();
-  const inspected = await inspectRes.json();
+  // --- Assert: booking becomes CANCELLED (poll up to ~2s to avoid flakes)
+  const started = Date.now();
+  let cancelled = false;
+  while (Date.now() - started < 2000) {
+    const inspectRes = await request.get(
+      `/api/dev/inspect-booking?id=${bookingId}&noCache=${Date.now()}`,
+      { headers: { "Cache-Control": "no-store" } }
+    );
+    expect(inspectRes.ok()).toBeTruthy();
+    const inspected = await inspectRes.json();
+    const status = inspected?.booking?.status ?? inspected?.status;
+    if (status === "CANCELLED") {
+      cancelled = true;
+      break;
+    }
+    await new Promise((r) => setTimeout(r, 150));
+  }
 
-  // Example shape tolerance: { ok: true, booking: { id, status, ... } } or flat
-  const status = inspected?.booking?.status ?? inspected?.status;
-  expect(status).toBe("CANCELLED");
+  expect(cancelled).toBe(true);
 });
