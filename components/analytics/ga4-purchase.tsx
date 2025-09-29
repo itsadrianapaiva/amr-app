@@ -1,18 +1,6 @@
 "use client";
 
-/**
- * Minimal GA4 "purchase" event sender.
- * Mount this on your Stripe success page after you load/confirm the booking.
- *
- * Usage:
- *   <Ga4Purchase
- *     transactionId={booking.id.toString()}
- *     value={Number(booking.totalCost)} // gross EUR amount incl. VAT
- *     currency="EUR"
- *     items={[{ item_id: String(booking.machineId), item_name: booking.machine.name }]}
- *   />
- */
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 type Item = {
   item_id: string;
@@ -21,6 +9,35 @@ type Item = {
   price?: number;
 };
 
+function readAnalyticsConsent(): boolean {
+  try {
+    const m = document.cookie.match(/(?:^|;\s*)amr_consent=([^;]+)/);
+    if (!m) return false;
+    const obj = JSON.parse(decodeURIComponent(m[1])) as { analytics?: boolean };
+    return !!obj.analytics;
+  } catch {
+    return false;
+  }
+}
+
+function waitForGtag(maxMs = 5000): Promise<((...a: any[]) => void) | null> {
+  return new Promise((resolve) => {
+    const g = (window as any).gtag as ((...a: any[]) => void) | undefined;
+    if (g) return resolve(g);
+    const started = Date.now();
+    const iv = setInterval(() => {
+      const gg = (window as any).gtag as ((...a: any[]) => void) | undefined;
+      if (gg) {
+        clearInterval(iv);
+        resolve(gg);
+      } else if (Date.now() - started > maxMs) {
+        clearInterval(iv);
+        resolve(null);
+      }
+    }, 200);
+  });
+}
+
 export default function Ga4Purchase(props: {
   transactionId: string;
   value: number;
@@ -28,22 +45,41 @@ export default function Ga4Purchase(props: {
   items?: Item[];
 }) {
   const { transactionId, value, currency = "EUR", items = [] } = props;
+  const sentRef = useRef(false);
 
   useEffect(() => {
-    // Guard: require gtag and a valid value
-    const gtag = (window as any)?.gtag as
-      | ((...args: any[]) => void)
-      | undefined;
-    if (!gtag || !Number.isFinite(value)) return;
+    if (typeof window === "undefined") return;
+    if (!Number.isFinite(value)) return;
 
-    // GA4 purchase event spec
-    gtag("event", "purchase", {
-      transaction_id: transactionId,
-      value,
-      currency,
-      items,
-    });
-  }, [transactionId, value, currency, items]);
+    const fire = async () => {
+      if (sentRef.current) return;
+      const gtag = await waitForGtag();
+      if (!gtag) return; // gtag never loaded (ID missing) → noop
+      gtag("event", "purchase", {
+        transaction_id: transactionId,
+        value,
+        currency,
+        items,
+      });
+      sentRef.current = true;
+    };
+
+    // If analytics already granted → send now; else wait for banner update
+    if (readAnalyticsConsent()) {
+      void fire();
+    } else {
+      const onConsent = (e: Event) => {
+        const detail = (e as CustomEvent<{ analytics?: boolean }>).detail || {};
+        if (detail.analytics) {
+          void fire();
+          window.removeEventListener("amr:consent", onConsent as EventListener);
+        }
+      };
+      window.addEventListener("amr:consent", onConsent as EventListener);
+      return () =>
+        window.removeEventListener("amr:consent", onConsent as EventListener);
+    }
+  }, [transactionId, value, currency, JSON.stringify(items)]);
 
   return null;
 }
