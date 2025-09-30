@@ -1,15 +1,14 @@
-// app/layout.tsx
 import type { Metadata } from "next";
 import "./globals.css";
 import SiteNav from "@/components/site-nav";
 import SiteFooter from "@/components/site-footer";
-import WhatsAppFab from "@/components/whatsapp-fab";
-import { getFooterCategories } from "@/lib/data/footer-categories";
-import CookieConsentBanner from "@/components/cookie-consent";
-import { createDefaultMetadata } from "@/lib/seo/default-metadata";
+// wrap chrome that we want to hide on certain routes (e.g., success)
+import LayoutChrome from "@/components/layout-chrome";
 import ConsentProvider from "@/components/consent-provider";
+import { getFooterCategories } from "@/lib/data/footer-categories";
+import { createDefaultMetadata } from "@/lib/seo/default-metadata";
 import OrganizationJsonLd from "@/components/seo/organization-jsonld";
-import { unstable_cache } from "next/cache"; // NEW: cache helper
+import { unstable_cache } from "next/cache";
 
 /**
  * We compose brand-safe defaults (canonical, OG/Twitter, robots) from
@@ -39,10 +38,7 @@ const hasGA =
   !!process.env.NEXT_PUBLIC_GA4_ID || !!process.env.NEXT_PUBLIC_GADS_ID;
 const hasStripe = !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 
-/** Cache footer categories to reduce server work on every route.
- *  - Key: "footer-categories"
- *  - Revalidate hourly; adjust if you change categories more frequently.
- */
+/** Cache footer categories to reduce server work on every route. */
 const getFooterCategoriesCached = unstable_cache(
   async () => getFooterCategories(),
   ["footer-categories"],
@@ -52,7 +48,6 @@ const getFooterCategoriesCached = unstable_cache(
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  // Use cached value instead of hitting DB every request
   const footerCategories = await getFooterCategoriesCached();
 
   return (
@@ -89,26 +84,25 @@ export default async function RootLayout({
         )}
       </head>
       <body>
-        {/* loads gtag + applies consent early */}
+        {/* GA + Consent Mode boot (loads gtag and applies consent) */}
         <ConsentProvider />
-        {/* Inject Organization + WebSite JSON-LD */}
+
+        {/* SEO JSON-LD */}
         <OrganizationJsonLd />
 
         {/* Invisible anchor so '/#home' targets the very top */}
         <div id="home" className="sr-only" aria-hidden="true" />
         {/* Sticky header on all pages */}
         <SiteNav />
-        {/* Page content (HomeView renders <main/>) */}
+
+        {/* Page content */}
         {children}
+
         {/* Global footer on all pages */}
         <SiteFooter categories={footerCategories} />
-        {/* Floating WhatsApp button */}
-        <WhatsAppFab
-          iconSrc="/assets/whatsapp.png"
-          ariaLabel="Contact us on WhatsApp"
-        />
-        {/* Cookie consent banner (client component) */}
-        <CookieConsentBanner policyHref="/legal/privacy" />
+
+        {/* Centralized chrome (WhatsApp + Cookie banner), hidden on /booking/success */}
+        <LayoutChrome />
       </body>
     </html>
   );

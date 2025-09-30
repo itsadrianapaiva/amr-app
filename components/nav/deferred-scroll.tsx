@@ -1,4 +1,3 @@
-// components/nav/deferred-scroll.tsx
 "use client";
 
 import { useEffect } from "react";
