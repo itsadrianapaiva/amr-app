@@ -1,89 +1,153 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
-
 /**
- * Tiny JWT-like HMAC token:
- *   base64url(header).base64url(payload).base64url(HMAC)
- * header = { alg: "HS256", typ: "AMR" }
+ * Universal HMAC utilities using Web Crypto (Node 20+ and Edge).
+ * No "node:crypto" imports. Safe for middleware and server runtimes.
  */
 
-export type TokenPayload = Record<string, unknown> & {
-  iat?: number; // issued at (epoch seconds)
-  exp?: number; // expiry (epoch seconds)
+type SignedPayload = Record<string, unknown> & {
+  iat?: number;
+  exp?: number;
 };
 
-type VerifyOk = { ok: true; payload: TokenPayload };
-type VerifyErr = { ok: false; error: "malformed" | "bad_signature" | "expired" };
+// Use a lax cast so this compiles even if "dom" isn't present in all TS build targets.
+const subtle: SubtleCrypto | undefined = (globalThis as any)?.crypto?.subtle;
 
-const HEADER = { alg: "HS256", typ: "AMR" };
-export const DEFAULT_LEEWAY_SECONDS = 30;
-
-/** Current epoch seconds (isolated for tests). */
-export function nowEpoch(): number {
-  return Math.floor(Date.now() / 1000);
+/** Asserts Web Crypto availability early to avoid silent runtime traps. */
+function ensureSubtle(): SubtleCrypto {
+  if (!subtle) {
+    throw new Error(
+      "Web Crypto not available. Use Node 20+ or an environment that exposes globalThis.crypto.subtle."
+    );
+  }
+  return subtle;
 }
 
-/** base64url encode */
-function b64u(input: string | Buffer): string {
-  const raw = Buffer.isBuffer(input) ? input : Buffer.from(input, "utf8");
-  return raw.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+/** UTF-8 encode string to bytes. */
+function utf8(s: string): Uint8Array {
+  return new TextEncoder().encode(s);
 }
 
-/** base64url decode → Buffer (throws on invalid input) */
-function fromB64u(input: string): Buffer {
-  const pad = input.length % 4 === 0 ? "" : "=".repeat(4 - (input.length % 4));
-  const norm = input.replace(/-/g, "+").replace(/_/g, "/") + pad;
-  return Buffer.from(norm, "base64");
+/**
+ * Convert a Uint8Array to a *tight* ArrayBuffer.
+ * Avoids using `u8.buffer` (typed as ArrayBufferLike = ArrayBuffer | SharedArrayBuffer),
+ * which triggers TS complaints in strict setups. `slice()` creates a fresh view backed
+ * by a brand new ArrayBuffer of the exact length, so the type is guaranteed `ArrayBuffer`.
+ */
+function toArrayBuffer(u8: Uint8Array): ArrayBuffer {
+  return u8.slice().buffer;
 }
 
-/** HS256 HMAC bytes */
-function hmac256(data: string, secret: string): Buffer {
-  return createHmac("sha256", Buffer.from(secret, "utf8")).update(data).digest();
+/** Base64url encode bytes without padding. */
+function b64urlFromBytes(bytes: Uint8Array): string {
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(bytes)
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/g, "");
+  }
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  const base64 = btoa(bin);
+  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
-/** Sign a payload (adds iat if missing; exp is decided by session layer). */
-export function signToken(payload: TokenPayload, secret: string): string {
-  const header = b64u(JSON.stringify(HEADER));
-  const withIat = { iat: nowEpoch(), ...payload };
-  const body = b64u(JSON.stringify(withIat));
-  const toSign = `${header}.${body}`;
-  const sig = b64u(hmac256(toSign, secret));
-  return `${toSign}.${sig}`;
+/** Base64url encode a UTF-8 string. */
+function b64urlFromUtf8(s: string): string {
+  return b64urlFromBytes(utf8(s));
 }
 
-/** Verify structure, signature, and optional expiry. */
-export function verifyToken(token: string, secret: string): VerifyOk | VerifyErr {
-  const parts = token.split(".");
-  if (parts.length !== 3) return { ok: false, error: "malformed" };
+/** Base64url decode to bytes. */
+function bytesFromB64url(s: string): Uint8Array {
+  const base64 = s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4);
+  if (typeof Buffer !== "undefined") {
+    const buf = Buffer.from(base64, "base64");
+    return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+  }
+  const bin = atob(base64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
 
-  const [h, p, s] = parts;
+/** Constant-time equality for MAC comparison. */
+function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let res = 0;
+  for (let i = 0; i < a.length; i++) res |= a[i] ^ b[i];
+  return res === 0;
+}
 
-  // header
-  try {
-    const head = JSON.parse(fromB64u(h).toString("utf8"));
-    if (head?.alg !== "HS256" || head?.typ !== "AMR") return { ok: false, error: "malformed" };
-  } catch {
-    return { ok: false, error: "malformed" };
+/** Import HMAC key from a UTF-8 secret string. */
+async function importHmacKey(secret: string): Promise<CryptoKey> {
+  const s = ensureSubtle();
+  const keyData = toArrayBuffer(utf8(secret));
+  return s.importKey("raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
+}
+
+/** Compute HMAC SHA-256 over an input string. Returns raw bytes. */
+async function hmacSha256(input: string, secret: string): Promise<Uint8Array> {
+  const s = ensureSubtle();
+  const key = await importHmacKey(secret);
+  const data = toArrayBuffer(utf8(input));
+  const sig = await s.sign("HMAC", key, data);
+  return new Uint8Array(sig as ArrayBuffer);
+}
+
+/**
+ * Sign a JSON payload with HMAC SHA-256.
+ * Token format: base64url(JSON).base64url(signature)
+ * iat and exp are added if missing. exp = iat + ttlSeconds.
+ */
+export async function signToken(
+  payload: SignedPayload,
+  secret: string,
+  ttlSeconds = 7 * 24 * 60 * 60
+): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  const withTimes: SignedPayload = {
+    iat: payload.iat ?? now,
+    exp: payload.exp ?? now + ttlSeconds,
+    ...payload,
+  };
+  const json = JSON.stringify(withTimes);
+  const body = b64urlFromUtf8(json);
+  const sigBytes = await hmacSha256(body, secret);
+  const sig = b64urlFromBytes(sigBytes);
+  return `${body}.${sig}`;
+}
+
+/**
+ * Verify a token and return its JSON payload if valid and not expired.
+ * Returns a discriminated union for ergonomic checks.
+ */
+export async function verifyToken<T extends SignedPayload>(
+  token: string,
+  secret: string
+): Promise<{ ok: true; payload: T } | { ok: false; reason: string }> {
+  const dot = token.lastIndexOf(".");
+  if (dot <= 0) return { ok: false, reason: "Malformed token" };
+
+  const body = token.slice(0, dot);
+  const sigProvided = token.slice(dot + 1);
+
+  // Verify MAC.
+  const sigExpectedBytes = await hmacSha256(body, secret);
+  const sigProvidedBytes = bytesFromB64url(sigProvided);
+  if (!constantTimeEqual(sigExpectedBytes, sigProvidedBytes)) {
+    return { ok: false, reason: "Invalid signature" };
   }
 
-  // signature
+  // Parse payload and check exp.
   try {
-    const expected = b64u(hmac256(`${h}.${p}`, secret));
-    const a = fromB64u(s);
-    const b = fromB64u(expected);
-    if (a.length !== b.length || !timingSafeEqual(a, b)) return { ok: false, error: "bad_signature" };
-  } catch {
-    return { ok: false, error: "malformed" };
-  }
-
-  // payload + expiry
-  try {
-    const payload = JSON.parse(fromB64u(p).toString("utf8")) as TokenPayload;
-    const now = nowEpoch();
-    if (typeof payload.exp === "number" && now > payload.exp + DEFAULT_LEEWAY_SECONDS) {
-      return { ok: false, error: "expired" };
+    const jsonBytes = bytesFromB64url(body);
+    const json = new TextDecoder().decode(jsonBytes);
+    const payload = JSON.parse(json) as T;
+    const now = Math.floor(Date.now() / 1000);
+    if (typeof payload.exp === "number" && now > payload.exp) {
+      return { ok: false, reason: "Token expired" };
     }
     return { ok: true, payload };
   } catch {
-    return { ok: false, error: "malformed" };
+    return { ok: false, reason: "Invalid payload" };
   }
 }
