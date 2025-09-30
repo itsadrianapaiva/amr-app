@@ -8,6 +8,19 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mode: prod-sim
+            OPS_DASHBOARD_ENABLED: "0"
+            OPS_DISABLE_AUTH: "0"
+          - mode: staging-sim
+            OPS_DASHBOARD_ENABLED: "1"
+            OPS_DISABLE_AUTH: "1"
+          - mode: staging-auth
+            OPS_DASHBOARD_ENABLED: "1"
+            OPS_DISABLE_AUTH: "0"
 
     # Ephemeral Postgres for deterministic runs
     services:
@@ -50,9 +63,16 @@ jobs:
       COMPANY_NAME: "AMR Machinery Rentals"
       COMPANY_LEGAL_NAME: "AMR – Algarve & Alentejo Machinery Rentals, Lda."
       COMPANY_NIF: "123456789"
-      COMPANY_LEGAL_ADDRESS: "Estrada Nacional 125, Sítio do Malheiro, 8500-102 Lisboa, Portugal"
+      COMPANY_LEGAL_ADDRESS: "Barranco da Vaca, 8670-116, Aljezur, Portugal"
       SUPPORT_EMAIL: "support@amr-rentals.com"
-      SUPPORT_PHONE: "+351 934 014 611"
+      SUPPORT_PHONE:
+        "+351 934 014 611"
+
+        # Matrix-provided flags
+      OPS_DASHBOARD_ENABLED: ${{ matrix.mode == 'prod-sim' && '0' || '1' }}
+      OPS_DISABLE_AUTH: ${{ matrix.mode == 'staging-auth' && '0' || '1' }}
+      # Optional: tag the run so Playwright can branch by mode if needed
+      E2E_MODE: ${{ matrix.mode }}
 
     steps:
       - name: Checkout
@@ -97,11 +117,16 @@ jobs:
 
       - name: Run Playwright E2E and create HTML report
         run: npx playwright test --reporter=line
+        env:
+          # Surface the matrix mode in Playwright environment too
+          OPS_DASHBOARD_ENABLED: ${{ env.OPS_DASHBOARD_ENABLED }}
+          OPS_DISABLE_AUTH: ${{ env.OPS_DISABLE_AUTH }}
+          E2E_MODE: ${{ matrix.mode }}
 
       - name: Upload Playwright HTML report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.mode }}
           path: playwright-report
           retention-days: 7
