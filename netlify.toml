@@ -24,6 +24,9 @@
   APP_URL = "$URL"
   NEXT_PUBLIC_APP_URL = "$URL"
   RUN_MIGRATIONS = "1"
+  # Ops stays dark in production
+  OPS_DASHBOARD_ENABLED = "0"
+  OPS_DISABLE_AUTH = "0"
 
 # Applies to any branch deploy (feature/*, bugfix/*, etc.)
 [context.branch-deploy.environment]
@@ -37,11 +40,17 @@
   RUN_MIGRATIONS = "1"
   # Example: temporarily omit a key from scanner on this one branch
   SECRETS_SCAN_OMIT_KEYS = "STRIPE_SECRET_KEY"
+  # Ops is enabled on staging (with auth)
+  OPS_DASHBOARD_ENABLED = "1"
+  OPS_DISABLE_AUTH = "0"
 
 [context.deploy-preview.environment]
   APP_URL = "$DEPLOY_PRIME_URL"
   NEXT_PUBLIC_APP_URL = "$DEPLOY_PRIME_URL"
   RUN_MIGRATIONS = "0"
+  # Optional: previews can show Ops; auth can be disabled for fast smoke
+  OPS_DASHBOARD_ENABLED = "1"
+  OPS_DISABLE_AUTH = "1"
 
 # ---------- Build commands per context ----------
 # Production: run migrations, then build
@@ -59,3 +68,10 @@
 # Deploy previews: build only
 [context.deploy-preview]
   command = "next build"
+
+  # ---------- Global headers ----------
+# Prevent indexing of any /ops URLs across all contexts
+[[headers]]
+  for = "/ops-admin/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow, noarchive"
