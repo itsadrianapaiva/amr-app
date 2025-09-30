@@ -1,4 +1,3 @@
-// lib/auth/session.ts
 /**
  * Universal session helpers for the ops dashboard.
  * - No Next.js imports; safe in Edge and Node.

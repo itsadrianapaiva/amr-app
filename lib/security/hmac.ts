@@ -1,4 +1,3 @@
-// lib/security/hmac.ts
 /**
  * Universal HMAC utilities using Web Crypto (Node 20+ and Edge).
  * No "node:crypto" imports. Safe for middleware and server runtimes.
@@ -9,7 +8,8 @@ type SignedPayload = Record<string, unknown> & {
   exp?: number;
 };
 
-const subtle: SubtleCrypto | undefined = globalThis.crypto?.subtle;
+// Use a lax cast so this compiles even if "dom" isn't present in all TS build targets.
+const subtle: SubtleCrypto | undefined = (globalThis as any)?.crypto?.subtle;
 
 /** Asserts Web Crypto availability early to avoid silent runtime traps. */
 function ensureSubtle(): SubtleCrypto {
@@ -26,9 +26,18 @@ function utf8(s: string): Uint8Array {
   return new TextEncoder().encode(s);
 }
 
+/**
+ * Convert a Uint8Array to a *tight* ArrayBuffer.
+ * Avoids using `u8.buffer` (typed as ArrayBufferLike = ArrayBuffer | SharedArrayBuffer),
+ * which triggers TS complaints in strict setups. `slice()` creates a fresh view backed
+ * by a brand new ArrayBuffer of the exact length, so the type is guaranteed `ArrayBuffer`.
+ */
+function toArrayBuffer(u8: Uint8Array): ArrayBuffer {
+  return u8.slice().buffer;
+}
+
 /** Base64url encode bytes without padding. */
 function b64urlFromBytes(bytes: Uint8Array): string {
-  // Prefer Buffer in Node, btoa in Edge/browser workers.
   if (typeof Buffer !== "undefined") {
     return Buffer.from(bytes)
       .toString("base64")
@@ -38,7 +47,6 @@ function b64urlFromBytes(bytes: Uint8Array): string {
   }
   let bin = "";
   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  // btoa expects Latin1. Our bytes are raw, so this is OK.
   const base64 = btoa(bin);
   return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
@@ -72,15 +80,17 @@ function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
 /** Import HMAC key from a UTF-8 secret string. */
 async function importHmacKey(secret: string): Promise<CryptoKey> {
   const s = ensureSubtle();
-  return s.importKey("raw", utf8(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
+  const keyData = toArrayBuffer(utf8(secret));
+  return s.importKey("raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
 }
 
 /** Compute HMAC SHA-256 over an input string. Returns raw bytes. */
 async function hmacSha256(input: string, secret: string): Promise<Uint8Array> {
   const s = ensureSubtle();
   const key = await importHmacKey(secret);
-  const sig = await s.sign("HMAC", key, utf8(input));
-  return new Uint8Array(sig);
+  const data = toArrayBuffer(utf8(input));
+  const sig = await s.sign("HMAC", key, data);
+  return new Uint8Array(sig as ArrayBuffer);
 }
 
 /**
