@@ -1,106 +1,121 @@
 // middleware.ts
-import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import {
-  readSessionTokenFromCookieHeader,
-  verifySessionToken,
+  verifySessionFromCookie,
+  isAuthDisabled,
+  isOpsDashboardEnabled,
 } from "@/lib/auth/session";
 
-/**
- * Central guards:
- * 1) Dev-only endpoints (/dev/*, /api/dev/*) → keep your existing e2e-secret protection.
- * 2) Internal Ops Admin (/ops-admin, /ops-admin/*, /api/ops-admin/*) → feature-flag + cookie session.
- *
- * Notes:
- * - Public manager self-bookings under /ops are NOT touched here.
- * - Always set X-Robots-Tag: noindex on /ops-admin responses.
- */
+const E2E_HEADER = "x-e2e-secret";
+const E2E_SECRET = process.env.E2E_SECRET ?? "";
+const AUTH_COOKIE_SECRET = process.env.AUTH_COOKIE_SECRET ?? "";
 
-export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+// Paths we care about
+const OPS_PREFIX = "/ops-admin";
+const OPS_API_PREFIX = "/api/ops-admin";
+const DEV_PREFIX = "/dev";
+const DEV_API_PREFIX = "/api/dev";
 
-  // ----------------------------
-  // Guard (A): dev-only endpoints
-  // ----------------------------
-  if (pathname.startsWith("/dev/") || pathname.startsWith("/api/dev/")) {
-    // Local/CI: open dev endpoints
-    if (process.env.NODE_ENV !== "production") {
-      return NextResponse.next();
-    }
-    // Production (staging/prod): require secret header
-    const expected = process.env.E2E_SECRET;
-    const provided = req.headers.get("x-e2e-secret");
-    if (!expected || provided !== expected) {
-      return new NextResponse("Forbidden", { status: 403 });
-    }
-    return NextResponse.next();
-  }
-
-  // Guard (B): internal dashboard (/ops-admin)
-
-  const isOpsAdmin =
-    pathname === "/ops-admin" ||
-    pathname.startsWith("/ops-admin/") ||
-    pathname.startsWith("/api/ops-admin/");
-
-  if (!isOpsAdmin) {
-    // Fast-path: for all other routes do nothing
-    return NextResponse.next();
-  }
-
-  const addRobotsNoindex = (res: NextResponse) => {
-    res.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
-    return res;
-  };
-
-  // Feature flag: keep prod dark until explicitly enabled
-  const enabled = process.env.OPS_DASHBOARD_ENABLED === "1";
-  if (!enabled) {
-    return addRobotsNoindex(new NextResponse("Not Found", { status: 404 }));
-  }
-
-  // Optional: allow CI smoke or scripted checks via x-e2e-secret (no auth)
-  const e2eHeader = req.headers.get("x-e2e-secret");
-  if (e2eHeader && e2eHeader === process.env.E2E_SECRET) {
-    return addRobotsNoindex(NextResponse.next());
-  }
-
-  // When auth is disabled (staging-sim / previews), allow through
-  const authDisabled = process.env.OPS_DISABLE_AUTH === "1";
-  if (authDisabled) {
-    return addRobotsNoindex(NextResponse.next());
-  }
-
-  // Auth wall: require a valid amr_ops cookie
-  const cookieHeader = req.headers.get("cookie");
-  const token = readSessionTokenFromCookieHeader(cookieHeader);
-  const verified = token
-    ? verifySessionToken(token)
-    : { ok: false as const, error: "malformed" as const };
-
-  if (verified.ok) {
-    // Session is valid → allow
-    return addRobotsNoindex(NextResponse.next());
-  }
-
-  // If it’s an API route, respond with 401 instead of redirect
-  if (pathname.startsWith("/api/ops-admin/")) {
-    return addRobotsNoindex(new NextResponse("Unauthorized", { status: 401 }));
-  }
-
-  // Otherwise redirect to login with return URL
-  const next = encodeURIComponent(pathname);
-  const url = new URL(`/login?next=${next}`, req.url);
-  return addRobotsNoindex(NextResponse.redirect(url));
+/** Attach noindex headers for ops-admin surfaces. */
+function withNoIndex(res: NextResponse): NextResponse {
+  res.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  return res;
 }
 
-// Limit middleware to the exact paths we guard (keeps perf tight)
+/** Quick helpers */
+const isApiPath = (p: string) => p.startsWith("/api");
+const isOpsPath = (p: string) =>
+  p === OPS_PREFIX || p.startsWith(OPS_PREFIX + "/");
+const isOpsApiPath = (p: string) =>
+  p === OPS_API_PREFIX || p.startsWith(OPS_API_PREFIX + "/");
+const isDevPath = (p: string) =>
+  p === DEV_PREFIX || p.startsWith(DEV_PREFIX + "/");
+const isDevApiPath = (p: string) =>
+  p === DEV_API_PREFIX || p.startsWith(DEV_API_PREFIX + "/");
+
+/** 404 helper */
+function notFound(): NextResponse {
+  return new NextResponse("Not Found", { status: 404 });
+}
+
+/** 401 helper */
+function unauthorized(): NextResponse {
+  return new NextResponse("Unauthorized", { status: 401 });
+}
+
+export async function middleware(req: NextRequest) {
+  const { pathname, origin, search } = req.nextUrl;
+
+  // ----- Dev guard (unchanged): protect /dev and /api/dev in production via secret header
+  if (
+    process.env.NODE_ENV === "production" &&
+    (isDevPath(pathname) || isDevApiPath(pathname))
+  ) {
+    if (req.headers.get(E2E_HEADER) !== E2E_SECRET) {
+      return notFound();
+    }
+    return NextResponse.next();
+  }
+
+  // ----- Ops-admin guard only for /ops-admin and /api/ops-admin/*
+  if (!(isOpsPath(pathname) || isOpsApiPath(pathname))) {
+    // Not an ops-admin path → passthrough
+    return NextResponse.next();
+  }
+
+  // Always send noindex on any ops-admin path (pages and API)
+  // Even when returning errors/redirects we’ll attach it below.
+  const attachNoIndex = (res: NextResponse) => withNoIndex(res);
+
+  // If feature flag off → 404
+  if (!isOpsDashboardEnabled()) {
+    return attachNoIndex(notFound());
+  }
+
+  // e2e bypass supported everywhere (useful for CI legs)
+  if (req.headers.get(E2E_HEADER) === E2E_SECRET) {
+    return attachNoIndex(NextResponse.next());
+  }
+
+  // If auth is disabled by flag → allow
+  if (isAuthDisabled()) {
+    return attachNoIndex(NextResponse.next());
+  }
+
+  // At this point: feature ON and auth required → verify cookie
+  if (!AUTH_COOKIE_SECRET) {
+    // Misconfiguration safety net: if missing secret, block rather than silently allow
+    return attachNoIndex(unauthorized());
+  }
+
+  const cookieHeader = req.headers.get("cookie");
+  const ver = await verifySessionFromCookie(cookieHeader, AUTH_COOKIE_SECRET);
+
+  if (ver.ok) {
+    return attachNoIndex(NextResponse.next());
+  }
+
+  // Not authenticated:
+  if (isApiPath(pathname)) {
+    // API under /api/ops-admin → 401 JSON-ish plain text
+    return attachNoIndex(unauthorized());
+  } else {
+    // Page under /ops-admin → redirect to /login?next=…
+    const nextParam = encodeURIComponent(pathname + (search ?? ""));
+    const url = new URL(`/login?next=${nextParam}`, origin);
+    return attachNoIndex(NextResponse.redirect(url));
+  }
+}
+
+// Limit middleware to only the routes we actually need.
+// This reduces overhead on unrelated pages and avoids surprise interactions.
 export const config = {
   matcher: [
-    "/dev/:path*",
-    "/api/dev/:path*",
     "/ops-admin",
     "/ops-admin/:path*",
     "/api/ops-admin/:path*",
+    "/dev",
+    "/dev/:path*",
+    "/api/dev/:path*",
   ],
 };
