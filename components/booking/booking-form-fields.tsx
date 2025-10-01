@@ -12,6 +12,7 @@ import { BillingSection } from "@/components/booking/sections/billing-section";
 
 import { Button } from "@/components/ui/button";
 import type { BookingFormValues } from "@/lib/validation/booking";
+import Ga4Click from "../analytics/ga4-clicking";
 
 /**
  * BookingFormFields
@@ -126,9 +127,21 @@ export default function BookingFormFields(props: {
 
       {/* Submit block */}
       <div className="space-y-2">
-        <Button type="submit" disabled={isSubmitDisabled}>
-          Book Now
-        </Button>
+        {/* Wrap the submit button to emit a GA4 micro-conversion on click */}
+        <Ga4Click
+          event="booking_submit"
+          params={{
+            page: "booking",
+            intent: "checkout",
+            submitDisabled: isSubmitDisabled, // helps see if click happened while button was disabled
+          }}
+          once
+        >
+          <Button type="submit" disabled={isSubmitDisabled}>
+            Book Now
+          </Button>
+        </Ga4Click>
+
         {rootError && <p className="text-sm text-red-600">{rootError}</p>}
       </div>
     </div>
