@@ -5,6 +5,7 @@ import SiteFooter from "@/components/site-footer";
 // wrap chrome that we want to hide on certain routes (e.g., success)
 import LayoutChrome from "@/components/layout-chrome";
 import ConsentProvider from "@/components/consent-provider";
+import Ga4Pageview from "@/components/analytics/ga4-pageview";
 import { getFooterCategories } from "@/lib/data/footer-categories";
 import { createDefaultMetadata } from "@/lib/seo/default-metadata";
 import OrganizationJsonLd from "@/components/seo/organization-jsonld";
@@ -86,6 +87,8 @@ export default async function RootLayout({
       <body>
         {/* GA + Consent Mode boot (loads gtag and applies consent) */}
         <ConsentProvider />
+        <Ga4Pageview /> 
+
 
         {/* SEO JSON-LD */}
         <OrganizationJsonLd />
