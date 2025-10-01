@@ -37,6 +37,9 @@ function applyConsent(consent: ConsentState) {
     (window as any).dataLayer.push(args);
   }
 
+  // 🔎 DEBUG
+  console.log("🔎 [Consent] applyConsent()", { consent });
+
   // Start conservative (denied) then upgrade if consented
   gtag("consent", "default", {
     ad_user_data: "denied",
@@ -55,6 +58,8 @@ function applyConsent(consent: ConsentState) {
     updates.ad_storage = "granted";
   }
   if (Object.keys(updates).length) {
+    // 🔎 DEBUG
+    console.log("🔎 [Consent] consent update", updates);
     gtag("consent", "update", updates);
   }
 }
@@ -72,7 +77,13 @@ function ensureGtagLoaded(ga4Id?: string, gadsId?: string) {
 
   // Load the library using the first available id (GA4 preferred)
   const firstId = ga4Id || gadsId;
-  if (!firstId) return;
+  if (!firstId) {
+    // 🔎 DEBUG
+    console.warn("🔎 [Consent] No GA4 or GADS ID present. Skipping gtag load.");
+    return;
+  }
+  // 🔎 DEBUG
+  console.log("🔎 [Consent] ensureGtagLoaded()", { ga4Id, gadsId, firstId });
 
   const s = document.createElement("script");
   s.async = true;
@@ -82,8 +93,16 @@ function ensureGtagLoaded(ga4Id?: string, gadsId?: string) {
   gtag("js", new Date());
 
   // Configure each id present. Use send_page_view false if you later do manual pageview tracking.
-  if (ga4Id) gtag("config", ga4Id, { send_page_view: true });
-  if (gadsId) gtag("config", gadsId);
+  if (ga4Id) {
+    // 🔎 DEBUG
+    console.log("🔎 [Consent] gtag config GA4", ga4Id);
+    gtag("config", ga4Id, { send_page_view: true });
+  }
+  if (gadsId) {
+    // 🔎 DEBUG
+    console.log("🔎 [Consent] gtag config GADS", gadsId);
+    gtag("config", gadsId);
+  }
 }
 
 export default function ConsentProvider() {
@@ -95,6 +114,9 @@ export default function ConsentProvider() {
 
     const ga4 = process.env.NEXT_PUBLIC_GA4_ID;
     const gads = process.env.NEXT_PUBLIC_GADS_ID;
+
+    // 🔎 DEBUG
+    console.log("🔎 [Consent] boot", { ga4, gads });
 
     // 1) Apply current consent (cookie or empty → defaults to denied)
     const consent = readConsentFromCookie();
