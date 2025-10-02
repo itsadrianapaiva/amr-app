@@ -31,7 +31,7 @@ export default async function LoginPage({
         </p>
 
         {/* Server-only form: posts to our wrapper server action */}
-        <form action={onSubmit} method="post" className="grid gap-4">
+        <form action={onSubmit} className="grid gap-4">
           <input type="hidden" name="next" value={nextPath} />
 
           <label className="grid gap-1">
@@ -60,7 +60,7 @@ export default async function LoginPage({
 
           <button
             type="submit"
-            className="w-full rounded-lg h-10 px-4 border shadow-sm text-sm font-medium"
+            className="w-full rounded-lg h-10 px-4 border shadow-sm text-sm font-medium cursor-pointer text-primary-foreground hover:bg-primary/5"
           >
             Sign in
           </button>
