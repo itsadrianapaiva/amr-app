@@ -41,6 +41,13 @@ function notFound(): NextResponse {
 function unauthorized(): NextResponse {
   return new NextResponse("Unauthorized", { status: 401 });
 }
+// JSON 401 for APIs so curl never sees HTML
+function unauthorizedJson(): NextResponse {
+  return NextResponse.json(
+    { ok: false, reason: "unauthorized" },
+    { status: 401 }
+  );
+}
 
 export async function middleware(req: NextRequest) {
   const { pathname, origin, search } = req.nextUrl;
@@ -97,12 +104,12 @@ export async function middleware(req: NextRequest) {
   // Not authenticated:
   if (isApiPath(pathname)) {
     // API under /api/ops-admin → 401 JSON-ish plain text
-    return attachNoIndex(unauthorized());
+    return withNoIndex(unauthorizedJson());
   } else {
     // Page under /ops-admin → redirect to /login?next=…
     const nextParam = encodeURIComponent(pathname + (search ?? ""));
     const url = new URL(`/login?next=${nextParam}`, origin);
-    return attachNoIndex(NextResponse.redirect(url));
+    return withNoIndex(NextResponse.redirect(url));
   }
 }
 
