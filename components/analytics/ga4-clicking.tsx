@@ -1,5 +1,6 @@
 "use client";
 
+import { isGaDebug } from "@/lib/analytics";
 import React, { useRef, useCallback, cloneElement } from "react";
 
 type Ga4ClickProps = {
@@ -47,20 +48,23 @@ export default function Ga4Click({
       }
 
       if (once && sentRef.current) return;
+
       if (!readAnalyticsConsent()) {
-        console.log("🔎 Ga4Click: blocked by consent", { event, params }); // NEW
+        console.log("🔎 Ga4Click: blocked by consent", { event, params });
         return;
       }
 
       const gtag = await waitForGtag();
       if (!gtag) {
-        console.log("🔎 Ga4Click: gtag not ready", { event, params }); // NEW
+        console.log("🔎 Ga4Click: gtag not ready", { event, params });
         return;
       }
 
-      gtag("event", event, params);
+      const payload = { ...params, debug_mode: isGaDebug() };
+      gtag("event", event, payload);
+
       sentRef.current = true;
-      console.log("🔎 Ga4Click fired", { event, params }); // NEW
+      console.log("🔎 Ga4Click fired", { event, params });
     },
     [children, event, JSON.stringify(params), once]
   );

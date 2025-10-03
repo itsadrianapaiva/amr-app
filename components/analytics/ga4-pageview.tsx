@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { isGaDebug } from "@/lib/analytics";
 
 /**
  * Fires GA4 page_view on every client-side navigation (Next.js App Router).
@@ -41,7 +42,7 @@ export default function Ga4Pageview() {
       if (!gtag) return;
       gtag("event", "amr_debug_ping", {
         source: "Ga4Pageview",
-        debug_mode: true,
+        debug_mode: isGaDebug(),
       });
       pingedRef.current = true;
     })();
@@ -63,6 +64,7 @@ export default function Ga4Pageview() {
           typeof window !== "undefined" ? window.location.href : undefined,
         page_path,
         page_title: document.title,
+        debug_mode: isGaDebug(),
       });
 
       // Optional: console marker for debugging; remove later
