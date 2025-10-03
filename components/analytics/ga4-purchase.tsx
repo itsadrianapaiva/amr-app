@@ -1,7 +1,6 @@
-// components/analytics/ga4-purchase.tsx
-// Add the two console.log lines marked 🔎
-
 "use client";
+import { isGaDebug } from "@/lib/analytics";
+import { debug } from "console";
 import { useEffect, useRef } from "react";
 type Item = {
   item_id: string;
@@ -58,6 +57,7 @@ export default function Ga4Purchase(props: {
       currency,
       analyticsGranted: readAnalyticsConsent(),
       hasGtag: typeof (window as any).gtag === "function",
+      debugMode: isGaDebug(),
     });
 
     const fire = async () => {
@@ -69,6 +69,7 @@ export default function Ga4Purchase(props: {
         value,
         currency,
         items,
+        debug_mode: isGaDebug(),
       });
       sentRef.current = true;
       console.log("🔎 Ga4Purchase fired", { transactionId, value });
