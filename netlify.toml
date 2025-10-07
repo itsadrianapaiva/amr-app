@@ -24,9 +24,10 @@
   APP_URL = "$URL"
   NEXT_PUBLIC_APP_URL = "$URL"
   RUN_MIGRATIONS = "1"
-  # Ops stays dark in production
-  OPS_DASHBOARD_ENABLED = "0"
+  # Ops ON in production (auth required)
+  OPS_DASHBOARD_ENABLED = "1"
   OPS_DISABLE_AUTH = "0"
+  OPS_AUTH_DISABLED = "0"
 
 # Applies to any branch deploy (feature/*, bugfix/*, etc.)
 [context.branch-deploy.environment]
@@ -43,6 +44,7 @@
   # Ops is enabled on staging (with auth)
   OPS_DASHBOARD_ENABLED = "1"
   OPS_DISABLE_AUTH = "0"
+  OPS_AUTH_DISABLED = "0"
 
 [context.deploy-preview.environment]
   APP_URL = "$DEPLOY_PRIME_URL"
