@@ -1,3 +1,4 @@
+// app/ops-admin/page.tsx
 import "server-only";
 import { headers } from "next/headers";
 import Link from "next/link";
@@ -5,17 +6,28 @@ import {
   verifySessionFromCookie,
   isOpsDashboardEnabled,
 } from "@/lib/auth/session";
+import { getAvailabilityWindow } from "@/lib/ops/availability";
+import {
+  addDays,
+  toPt,
+  todayYmdLisbon,
+  fromYmdAtNoonUTC,
+  clampInt,
+} from "@/lib/ops/date";
+import AvailabilityList from "@/components/ops/availability-list";
 
 /**
- * Minimal ops-admin shell.
- * - Runs only on the server.
- * - Double-checks feature flag and session (middleware already guards).
- * - Shows role, quick links, and a Logout.
+ * Ops Admin — Availability (read-only)
+ * URL params:
+ *   ?from=YYYY-MM-DD&days=30&machineId=123
  */
-export default async function OpsAdminPage() {
-  // Quick feature-flag guard (cheap sanity; main guard is middleware).
+export default async function OpsAdminPage({
+  searchParams,
+}: {
+  searchParams?: { from?: string; days?: string; machineId?: string };
+}) {
+  // 1) Feature flag sanity — middleware is main guard.
   if (!isOpsDashboardEnabled()) {
-    // Keep it terse — this path should be unreachable in prod if matcher is correct.
     return (
       <div className="p-6">
         <h1 className="text-xl font-semibold">Ops Admin</h1>
@@ -24,16 +36,51 @@ export default async function OpsAdminPage() {
     );
   }
 
-  // Verify session from raw Cookie header to get role for the greeting.
+  // 2) Session (role for greeting only).
   const cookieHeader = headers().get("cookie");
   const secret = process.env.AUTH_COOKIE_SECRET ?? "";
   const ver = await verifySessionFromCookie(cookieHeader, secret);
-
-  // If something went off (e.g., missing secret), show a lean fallback.
   const role = ver.ok ? ver.session.role : "unknown";
+
+  // 3) Resolve window from URL params (fallback Today/+30).
+  const todayYmd = todayYmdLisbon();
+  const fromStr = searchParams?.from ?? todayYmd;
+  const days = clampInt(searchParams?.days, 1, 90, 30);
+  const fromDate = fromYmdAtNoonUTC(fromStr) ?? fromYmdAtNoonUTC(todayYmd)!;
+  const toDate = addDays(fromDate, days);
+
+  // 4) Optional machine filter (?machineId=123).
+  const machineId =
+    typeof searchParams?.machineId === "string" &&
+    /^\d+$/.test(searchParams.machineId)
+      ? Number(searchParams.machineId)
+      : undefined;
+
+  // 5) Fetch availability (with optional machine filter).
+  const windowData = await getAvailabilityWindow({
+    from: fromDate,
+    to: toDate,
+    machineId,
+  });
+
+  // Derive selected machine name for the notice (fallback to #id).
+  const selectedMachineName =
+    machineId != null
+      ? windowData.machines.find((m) => m.machineId === machineId)?.machineName ??
+        `#${machineId}`
+      : undefined;
+
+  // 6) Preset links (bookmarkable); preserve machineId when set.
+  const presets = [
+    { label: "Today", from: todayYmd, days: 30 },
+    { label: "+7d", from: todayYmd, days: 7 },
+    { label: "+30d", from: todayYmd, days: 30 },
+    { label: "+60d", from: todayYmd, days: 60 },
+  ];
 
   return (
     <div className="mx-auto max-w-5xl p-6">
+      {/* Header */}
       <header className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Ops Admin</h1>
@@ -49,23 +96,87 @@ export default async function OpsAdminPage() {
         </Link>
       </header>
 
-      <main className="grid gap-4">
-        <section className="rounded-2xl border p-4 shadow-sm">
-          <h2 className="text-lg font-medium mb-2">Status</h2>
-          <ul className="text-sm list-disc pl-5 space-y-1">
-            <li>Feature flag: <code>OPS_DASHBOARD_ENABLED=1</code></li>
-            <li>Auth: Cookie-based session (<code>amr_ops</code>)</li>
-          </ul>
-        </section>
+      {/* Controls + Status */}
+      <section className="rounded-2xl border p-4 shadow-sm mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-medium">Availability</h2>
+            <p className="text-sm text-muted-foreground">
+              Window: <code>{toPt(windowData.fromYmd)}</code> →{" "}
+              <code>{toPt(windowData.toYmd)}</code>
+            </p>
 
-        <section className="rounded-2xl border p-4 shadow-sm">
-          <h2 className="text-lg font-medium mb-2">Next up</h2>
-          <ul className="text-sm list-disc pl-5 space-y-1">
-            <li>Availability view (read-only)</li>
-            <li>Health endpoint <code>/api/ops-admin/health</code></li>
-          </ul>
-        </section>
-      </main>
+            {/* Tiny active-filter notice */}
+            {selectedMachineName && (
+              <p className="mt-1 text-xs">
+                <span className="rounded-full border px-2 py-0.5">
+                  Filtered to: <span className="font-medium">{selectedMachineName}</span>
+                </span>
+              </p>
+            )}
+          </div>
+
+          <nav className="flex gap-2">
+            {presets.map((p) => {
+              const q = new URLSearchParams({
+                from: p.from,
+                days: String(p.days),
+              });
+              if (machineId) q.set("machineId", String(machineId));
+              return (
+                <Link
+                  key={p.label}
+                  href={`/ops-admin?${q.toString()}`}
+                  className="text-xs rounded-lg border px-2 py-1 hover:bg-muted"
+                >
+                  {p.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Machine filter (server-only form). Options from current window. */}
+        <form method="GET" className="mt-3 flex flex-wrap items-center gap-2">
+          <input type="hidden" name="from" value={fromStr} />
+          <input type="hidden" name="days" value={String(days)} />
+          <label className="text-xs text-muted-foreground">Machine</label>
+          <select
+            name="machineId"
+            defaultValue={machineId ?? ""}
+            className="text-xs rounded-lg border px-2 py-1"
+          >
+            <option value="">All machines</option>
+            {windowData.machines.map((m) => (
+              <option key={m.machineId} value={m.machineId}>
+                {m.machineName}
+              </option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            className="text-xs rounded-lg border px-2 py-1 hover:bg-muted"
+          >
+            Apply
+          </button>
+
+          {/* Reset filter — preserves date window, clears machineId */}
+          <Link
+            href={`/ops-admin?${new URLSearchParams({
+              from: fromStr,
+              days: String(days),
+            }).toString()}`}
+            className="text-xs rounded-lg border px-2 py-1 hover:bg-muted"
+          >
+            Reset
+          </Link>
+        </form>
+      </section>
+
+      {/* Availability list */}
+      <section className="rounded-2xl border p-4 shadow-sm">
+        <AvailabilityList machines={windowData.machines} />
+      </section>
     </div>
   );
 }
