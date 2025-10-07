@@ -34,6 +34,10 @@
   APP_URL = "$DEPLOY_PRIME_URL"
   NEXT_PUBLIC_APP_URL = "$DEPLOY_PRIME_URL"
   RUN_MIGRATIONS = "0"
+  # Ops is enabled on staging (with auth)
+  OPS_DASHBOARD_ENABLED = "1"
+  OPS_DISABLE_AUTH = "0"
+  OPS_AUTH_DISABLED = "0"
 
 # Specific branch-only override: staging
 # This is the correct syntax for a single branch context
