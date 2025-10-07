@@ -156,3 +156,65 @@ export async function loginAction(formData: FormData): Promise<void> {
 
   redirect(nextPath);
 }
+
+/**
+ * Non-redirecting credential check for inline error UX.
+ * Returns a structured result so the caller can map field errors.
+ */
+export async function authenticate(
+  usernameInput: string,
+  passwordInput: string
+): Promise<
+  | { ok: true; role: Role }
+  | {
+      ok: false;
+      code:
+        | "INVALID_USERNAME"
+        | "INVALID_PASSWORD"
+        | "INVALID_CREDENTIALS"
+        | "MISCONFIG";
+      message: string;
+    }
+> {
+  const username = (usernameInput || "").trim().toLowerCase();
+  const password = (passwordInput || "").trim();
+
+  // Username → role
+  const roleMaybe = pickRole(username);
+  if (!roleMaybe) {
+    return {
+      ok: false,
+      code: "INVALID_USERNAME",
+      message: 'Invalid username. Use "exec" or "managers".',
+    };
+  }
+  const role = roleMaybe;
+
+  // Hash presence (env misconfig)
+  const hashMaybe = getHashForRole(role);
+  if (!hashMaybe) {
+    return {
+      ok: false,
+      code: "MISCONFIG",
+      message: "Login misconfigured: missing bcrypt hash.",
+    };
+  }
+  const hash = hashMaybe.trim();
+
+  // Basic password validation first (fast-fail)
+  if (!password || password.length < 6) {
+    return { ok: false, code: "INVALID_PASSWORD", message: "Invalid password." };
+  }
+
+  // Bcrypt compare
+  const match = await bcryptCompare(password, hash);
+  if (!match) {
+    return {
+      ok: false,
+      code: "INVALID_CREDENTIALS",
+      message: "Incorrect password.",
+    };
+  }
+
+  return { ok: true, role };
+}

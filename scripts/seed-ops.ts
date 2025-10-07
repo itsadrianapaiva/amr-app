@@ -1,4 +1,5 @@
-// scripts/seed-ops.ts
+// Run with `DATABASE_URL="staging db" npx tsx scripts/seed-ops.ts`
+
 import { PrismaClient, Prisma, BookingStatus } from "@prisma/client";
 
 const db = new PrismaClient();
