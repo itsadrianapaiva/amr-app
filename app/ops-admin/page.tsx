@@ -1,4 +1,3 @@
-// app/ops-admin/page.tsx
 import "server-only";
 import { headers } from "next/headers";
 import Link from "next/link";
@@ -20,6 +19,19 @@ function toPt(dateYmd: string): string {
   // Expecting "YYYY-MM-DD"
   const [y, m, d] = dateYmd.split("-");
   return `${d}-${m}-${y}`;
+}
+
+/** Short site label: prefer City; fallback to Line1; append Postal Code if present. */
+function siteLabel(opts: {
+  city?: string | null;
+  line1?: string | null;
+  postal?: string | null;
+}): string {
+  const parts: string[] = [];
+  if (opts.city && opts.city.trim()) parts.push(opts.city.trim());
+  else if (opts.line1 && opts.line1.trim()) parts.push(opts.line1.trim());
+  if (opts.postal && opts.postal.trim()) parts.push(opts.postal.trim());
+  return parts.join(" ");
 }
 
 /**
@@ -86,7 +98,6 @@ export default async function OpsAdminPage() {
           Availability (next 30 days)
         </h2>
 
-        {/* Empty state */}
         {windowData.machines.length === 0 ? (
           <div className="text-sm text-muted-foreground">
             No confirmed bookings in this window.
@@ -108,16 +119,37 @@ export default async function OpsAdminPage() {
                     No bookings.
                   </div>
                 ) : (
-                  <ul className="flex flex-wrap gap-2">
-                    {m.bookings.map((b) => (
-                      <li
-                        key={b.id}
-                        className="text-xs rounded-full border px-2 py-1"
-                        title={`Booking #${b.id}`}
-                      >
-                        {toPt(b.startYmd)} → {toPt(b.endYmd)}
-                      </li>
-                    ))}
+                  <ul className="flex flex-col gap-1">
+                    {m.bookings.map((b) => {
+                      const label = siteLabel({
+                        city: b.siteAddressCity,
+                        line1: b.siteAddressLine1,
+                        postal: b.siteAddressPostalCode,
+                      });
+                      return (
+                        <li
+                          key={b.id}
+                          className="text-xs rounded-md border px-2 py-1"
+                          title={`Booking #${b.id}`}
+                        >
+                          <span className="font-medium">
+                            {toPt(b.startYmd)} → {toPt(b.endYmd)}
+                          </span>
+                          <span className="mx-2 text-muted-foreground">•</span>
+                          <span>{b.customerName}</span>
+                          {label && (
+                            <>
+                              <span className="mx-2 text-muted-foreground">
+                                •
+                              </span>
+                              <span className="text-muted-foreground">
+                                {label}
+                              </span>
+                            </>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
