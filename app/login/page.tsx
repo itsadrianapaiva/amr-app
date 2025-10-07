@@ -1,25 +1,65 @@
+// app/login/page.tsx
 import "server-only";
-import { loginAction } from "./actions";
+import LoginForm from "@/components/auth/login-form";
+import { loginAction, authenticate } from "./actions";
 
+// Keep in sync with components/auth/login-form.tsx
+type ErrorState =
+  | {
+      formError?: string;
+      usernameError?: string;
+      passwordError?: string;
+    }
+  | undefined;
+
+/**
+ * Ops Admin Login (server-only shell + client form)
+ */
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams?: { next?: string };
 }) {
-  // Preserve ?next= so successful login bounces to the intended page.
-  const nextPath =
-    searchParams &&
-    typeof searchParams.next === "string" &&
-    searchParams.next.startsWith("/")
-      ? searchParams.next
-      : "/ops-admin";
+  // Accept only internal redirect targets.
+  const nextParam =
+    typeof searchParams?.next === "string" ? searchParams!.next : "";
+  const nextPath = nextParam.startsWith("/") ? nextParam : "/ops-admin";
 
-  // Local server action wrapper: satisfies React's type constraint (Promise<void>)
-  async function onSubmit(formData: FormData): Promise<void> {
+  // (prevState, formData) => Promise<ErrorState>
+  async function loginWithErrors(
+    _prev: ErrorState,
+    formData: FormData
+  ): Promise<ErrorState> {
     "use server";
-    await loginAction(formData);
-    // loginAction either redirects (success) or returns an error object (failure).
-    // Returning void here satisfies the <form action> typing.
+
+    // Normalize and pre-validate user inputs here for precise errors.
+    const username = String(formData.get("username") ?? "").trim();
+    const password = String(formData.get("password") ?? "").trim();
+    if (!formData.get("next")) formData.set("next", nextPath);
+
+    // Non-redirecting check: tells us exactly what failed.
+    const result = await authenticate(username, password);
+
+    if (result.ok) {
+      // Success: issue cookie + redirect (never returns).
+      await loginAction(formData);
+      // If we ever return (unexpected), surface a safe form error.
+      return { formError: "Login failed unexpectedly. Please try again." };
+    }
+
+    // Map error codes to field-level errors.
+    switch (result.code) {
+      case "INVALID_USERNAME":
+        return { usernameError: result.message };
+      case "INVALID_PASSWORD":
+      case "INVALID_CREDENTIALS":
+        return { passwordError: result.message };
+      case "MISCONFIG":
+      default:
+        return {
+          formError: result.message || "Login failed. Please try again.",
+        };
+    }
   }
 
   return (
@@ -30,47 +70,7 @@ export default async function LoginPage({
           Username is your role: <code>exec</code> or <code>managers</code>.
         </p>
 
-        {/* Server-only form: posts to our wrapper server action */}
-        <form action={onSubmit} className="grid gap-4">
-          <input type="hidden" name="next" value={nextPath} />
-
-          <label className="grid gap-1">
-            <span className="text-sm font-medium">Username</span>
-            <input
-              name="username"
-              autoComplete="username"
-              className="h-10 w-full rounded-md border px-3 text-sm"
-              placeholder="exec or managers"
-              required
-            />
-          </label>
-
-          <label className="grid gap-1">
-            <span className="text-sm font-medium">Password</span>
-            <input
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              className="h-10 w-full rounded-md border px-3 text-sm"
-              placeholder="••••••••"
-              required
-              minLength={6}
-            />
-          </label>
-
-          <button
-            type="submit"
-            className="w-full rounded-lg h-10 px-4 border shadow-sm text-sm font-medium cursor-pointer text-primary-foreground hover:bg-primary/5"
-          >
-            Sign in
-          </button>
-
-          <p className="text-xs text-muted-foreground">
-            On success you’ll be redirected to <code>{nextPath}</code>. If
-            credentials are wrong, you’ll remain on this page. We’ll add inline
-            error messages next.
-          </p>
-        </form>
+        <LoginForm nextPath={nextPath} action={loginWithErrors} />
       </div>
     </div>
   );
