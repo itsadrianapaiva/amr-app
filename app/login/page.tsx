@@ -1,4 +1,3 @@
-// app/login/page.tsx
 import "server-only";
 import LoginForm from "@/components/auth/login-form";
 import { loginAction, authenticate } from "./actions";
@@ -66,9 +65,6 @@ export default async function LoginPage({
     <div className="min-h-[70vh] flex items-center justify-center p-4">
       <div className="w-full max-w-sm rounded-2xl shadow-lg p-6 border">
         <h1 className="text-xl font-semibold mb-2">Ops Admin Login</h1>
-        <p className="text-sm text-muted-foreground mb-6">
-          Username is your role: <code>exec</code> or <code>managers</code>.
-        </p>
 
         <LoginForm nextPath={nextPath} action={loginWithErrors} />
       </div>
