@@ -5,17 +5,23 @@ import {
   verifySessionFromCookie,
   isOpsDashboardEnabled,
 } from "@/lib/auth/session";
+import { getAvailabilityWindow } from "@/lib/ops/availability";
+
+/** Tiny helper: add N days without mutating the original date. */
+function addDays(d: Date, n: number) {
+  const copy = new Date(d.getTime());
+  copy.setDate(copy.getDate() + n);
+  return copy;
+}
 
 /**
- * Minimal ops-admin shell.
- * - Runs only on the server.
- * - Double-checks feature flag and session (middleware already guards).
- * - Shows role, quick links, and a Logout.
+ * Ops Admin — Availability (read-only)
+ * - Server component: fetches availability [today → +30d]
+ * - Shows grouped bookings by machine with a compact layout
  */
 export default async function OpsAdminPage() {
-  // Quick feature-flag guard (cheap sanity; main guard is middleware).
+  // 1) Feature flag sanity — main guard is middleware, this is a cheap extra.
   if (!isOpsDashboardEnabled()) {
-    // Keep it terse — this path should be unreachable in prod if matcher is correct.
     return (
       <div className="p-6">
         <h1 className="text-xl font-semibold">Ops Admin</h1>
@@ -24,16 +30,22 @@ export default async function OpsAdminPage() {
     );
   }
 
-  // Verify session from raw Cookie header to get role for the greeting.
+  // 2) Session (role is just for the greeting; middleware already enforced access).
   const cookieHeader = headers().get("cookie");
   const secret = process.env.AUTH_COOKIE_SECRET ?? "";
   const ver = await verifySessionFromCookie(cookieHeader, secret);
-
-  // If something went off (e.g., missing secret), show a lean fallback.
   const role = ver.ok ? ver.session.role : "unknown";
+
+  // 3) Compute window [today → +30d]. (Lisbon UI normalization is done inside data layer.)
+  const today = new Date();
+  const to = addDays(today, 30);
+
+  // 4) Fetch availability (CONFIRMED bookings overlapping the window).
+  const windowData = await getAvailabilityWindow({ from: today, to });
 
   return (
     <div className="mx-auto max-w-5xl p-6">
+      {/* Header */}
       <header className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Ops Admin</h1>
@@ -49,23 +61,55 @@ export default async function OpsAdminPage() {
         </Link>
       </header>
 
-      <main className="grid gap-4">
-        <section className="rounded-2xl border p-4 shadow-sm">
-          <h2 className="text-lg font-medium mb-2">Status</h2>
-          <ul className="text-sm list-disc pl-5 space-y-1">
-            <li>Feature flag: <code>OPS_DASHBOARD_ENABLED=1</code></li>
-            <li>Auth: Cookie-based session (<code>amr_ops</code>)</li>
-          </ul>
-        </section>
+      {/* Status card */}
+      <section className="rounded-2xl border p-4 shadow-sm mb-4">
+        <h2 className="text-lg font-medium mb-1">Status</h2>
+        <p className="text-sm text-muted-foreground">
+          Window: <code>{windowData.fromYmd}</code> → <code>{windowData.toYmd}</code>
+        </p>
+      </section>
 
-        <section className="rounded-2xl border p-4 shadow-sm">
-          <h2 className="text-lg font-medium mb-2">Next up</h2>
-          <ul className="text-sm list-disc pl-5 space-y-1">
-            <li>Availability view (read-only)</li>
-            <li>Health endpoint <code>/api/ops-admin/health</code></li>
-          </ul>
-        </section>
-      </main>
+      {/* Availability */}
+      <section className="rounded-2xl border p-4 shadow-sm">
+        <h2 className="text-lg font-medium mb-3">Availability (next 30 days)</h2>
+
+        {/* Empty state */}
+        {windowData.machines.length === 0 ? (
+          <div className="text-sm text-muted-foreground">
+            No confirmed bookings in this window.
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {windowData.machines.map((m) => (
+              <div key={m.machineId} className="rounded-xl border p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="font-medium">{m.machineName}</h3>
+                  <span className="text-xs text-muted-foreground">
+                    {m.bookings.length} booking{m.bookings.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+
+                {/* Mobile: stacked chips; Desktop: wraps nicely too */}
+                {m.bookings.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">No bookings.</div>
+                ) : (
+                  <ul className="flex flex-wrap gap-2">
+                    {m.bookings.map((b) => (
+                      <li
+                        key={b.id}
+                        className="text-xs rounded-full border px-2 py-1"
+                        title={`Booking #${b.id}`}
+                      >
+                        {b.startYmd} → {b.endYmd}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
