@@ -18,12 +18,14 @@ function ymdLisbon(date: Date): string {
 export type AvailabilityParams = {
   from: Date; // inclusive
   to: Date;   // inclusive
+  /** Optional machine filter; when set, only bookings for this machine are returned */
+  machineId?: number;
 };
 
 export type AvailabilityBooking = {
   id: number;
-  startYmd: string; // normalized to Lisbon
-  endYmd: string;   // normalized to Lisbon
+  startYmd: string;
+  endYmd: string;
   customerName: string;
   siteAddressLine1: string | null;
   siteAddressCity: string | null;
@@ -44,7 +46,7 @@ export type AvailabilityWindow = {
 
 /**
  * Returns machines that have at least one CONFIRMED booking overlapping the window,
- * grouped by machine, with dates normalized to Lisbon and minimal customer/site context.
+ * optionally filtered by machineId, grouped by machine, with minimal customer/site context.
  *
  * Overlap condition:
  *   startDate <= to  AND  endDate >= from
@@ -52,7 +54,7 @@ export type AvailabilityWindow = {
 export async function getAvailabilityWindow(
   params: AvailabilityParams
 ): Promise<AvailabilityWindow> {
-  const { from, to } = params;
+  const { from, to, machineId } = params;
   if (from > to) throw new Error("getAvailabilityWindow: 'from' must be <= 'to'.");
 
   const rows = await db.booking.findMany({
@@ -60,6 +62,7 @@ export async function getAvailabilityWindow(
       status: BookingStatus.CONFIRMED,
       startDate: { lte: to },
       endDate: { gte: from },
+      ...(typeof machineId === "number" ? { machineId } : {}),
     },
     select: {
       id: true,
@@ -69,6 +72,7 @@ export async function getAvailabilityWindow(
       siteAddressLine1: true,
       siteAddressCity: true,
       siteAddressPostalCode: true,
+      machineId: true,
       machine: { select: { id: true, name: true } },
     },
     orderBy: [{ machineId: "asc" }, { startDate: "asc" }],
@@ -77,7 +81,7 @@ export async function getAvailabilityWindow(
   const byMachine = new Map<number, AvailabilityByMachine>();
 
   for (const r of rows) {
-    const mId = r.machine.id;
+    const mId = r.machine.id; // consistent with relation
     if (!byMachine.has(mId)) {
       byMachine.set(mId, {
         machineId: mId,
