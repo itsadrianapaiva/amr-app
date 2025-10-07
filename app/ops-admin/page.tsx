@@ -31,9 +31,7 @@ export default async function OpsAdminPage({
     return (
       <div className="p-6">
         <h1 className="text-xl font-semibold">Ops Admin</h1>
-        <p className="text-sm text-muted-foreground mt-2">
-          Dashboard disabled.
-        </p>
+        <p className="text-sm text-muted-foreground mt-2">Dashboard disabled.</p>
       </div>
     );
   }
@@ -58,14 +56,21 @@ export default async function OpsAdminPage({
       ? Number(searchParams.machineId)
       : undefined;
 
-  // 5) Fetch availability.
+  // 5) Fetch availability (with optional machine filter).
   const windowData = await getAvailabilityWindow({
     from: fromDate,
     to: toDate,
     machineId,
   });
 
-  // 6) Preset links (bookmarkable).
+  // Derive selected machine name for the notice (fallback to #id).
+  const selectedMachineName =
+    machineId != null
+      ? windowData.machines.find((m) => m.machineId === machineId)?.machineName ??
+        `#${machineId}`
+      : undefined;
+
+  // 6) Preset links (bookmarkable); preserve machineId when set.
   const presets = [
     { label: "Today", from: todayYmd, days: 30 },
     { label: "+7d", from: todayYmd, days: 7 },
@@ -100,7 +105,17 @@ export default async function OpsAdminPage({
               Window: <code>{toPt(windowData.fromYmd)}</code> →{" "}
               <code>{toPt(windowData.toYmd)}</code>
             </p>
+
+            {/* Tiny active-filter notice */}
+            {selectedMachineName && (
+              <p className="mt-1 text-xs">
+                <span className="rounded-full border px-2 py-0.5">
+                  Filtered to: <span className="font-medium">{selectedMachineName}</span>
+                </span>
+              </p>
+            )}
           </div>
+
           <nav className="flex gap-2">
             {presets.map((p) => {
               const q = new URLSearchParams({
@@ -121,13 +136,11 @@ export default async function OpsAdminPage({
           </nav>
         </div>
 
-        {/* Machine filter (server-only form). Options filled from current window. */}
-        <form method="GET" className="mt-3 flex gap-2">
+        {/* Machine filter (server-only form). Options from current window. */}
+        <form method="GET" className="mt-3 flex flex-wrap items-center gap-2">
           <input type="hidden" name="from" value={fromStr} />
           <input type="hidden" name="days" value={String(days)} />
-          <label className="text-xs text-muted-foreground self-center">
-            Machine
-          </label>
+          <label className="text-xs text-muted-foreground">Machine</label>
           <select
             name="machineId"
             defaultValue={machineId ?? ""}
@@ -146,6 +159,17 @@ export default async function OpsAdminPage({
           >
             Apply
           </button>
+
+          {/* Reset filter — preserves date window, clears machineId */}
+          <Link
+            href={`/ops-admin?${new URLSearchParams({
+              from: fromStr,
+              days: String(days),
+            }).toString()}`}
+            className="text-xs rounded-lg border px-2 py-1 hover:bg-muted"
+          >
+            Reset
+          </Link>
         </form>
       </section>
 
