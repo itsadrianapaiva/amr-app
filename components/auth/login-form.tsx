@@ -1,6 +1,7 @@
 "use client";
 
 import { useFormState, useFormStatus } from "react-dom";
+import LoadingButton from "../ui/loading-button";
 
 type ErrorState =
   | {
@@ -26,19 +27,21 @@ export default function LoginForm({
   const usernameInvalid = Boolean(state?.usernameError);
   const passwordInvalid = Boolean(state?.passwordError);
 
-  const ariaDescribedByUsername = [
-    formError ? "login-error" : null,
-    usernameInvalid ? "username-error" : null,
-  ]
-    .filter(Boolean)
-    .join(" ") || undefined;
+  const ariaDescribedByUsername =
+    [
+      formError ? "login-error" : null,
+      usernameInvalid ? "username-error" : null,
+    ]
+      .filter(Boolean)
+      .join(" ") || undefined;
 
-  const ariaDescribedByPassword = [
-    formError ? "login-error" : null,
-    passwordInvalid ? "password-error" : null,
-  ]
-    .filter(Boolean)
-    .join(" ") || undefined;
+  const ariaDescribedByPassword =
+    [
+      formError ? "login-error" : null,
+      passwordInvalid ? "password-error" : null,
+    ]
+      .filter(Boolean)
+      .join(" ") || undefined;
 
   return (
     <form action={formAction} className="grid gap-4" noValidate>
@@ -101,13 +104,9 @@ export default function LoginForm({
         )}
       </label>
 
-      <button
-        type="submit"
-        className="w-full rounded-lg h-10 px-4 border shadow-sm text-sm font-medium cursor-pointer text-primary-foreground hover:bg-primary/5 disabled:opacity-60"
-        disabled={pending}
-      >
-        {pending ? "Signing in…" : "Sign in"}
-      </button>
+      <LoadingButton loadingText="Signing in…" className="w-full rounded-lg h-10 px-4 border shadow-sm text-sm font-medium cursor-pointer text-primary-foreground hover:bg-primary/80 disabled:opacity-60">
+        Sign in
+      </LoadingButton>
 
       <p className="text-xs text-muted-foreground">
         On success you will be redirected to <code>{nextPath}</code>. Wrong
