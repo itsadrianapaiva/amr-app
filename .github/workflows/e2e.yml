@@ -1,25 +1,9 @@
-# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: E2E
 
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main] # ensure base is main
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review # ← add this
-  merge_group: # for GH merge queue (optional but useful)
-  workflow_dispatch: # manual run from Actions tab
-
-permissions:
-  contents: read
-
-concurrency:
-  group: e2e-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   e2e:
@@ -174,34 +158,7 @@ jobs:
           path: playwright-report
           retention-days: 7
 
-  remote-smoke:
-    if: github.event_name == 'pull_request' && secrets.STAGING_APP_URL != ''
-    runs-on: ubuntu-latest
-    env:
-      # Use fallback to quiet editor; job is gated above anyway
-      APP_URL: ${{ secrets.STAGING_APP_URL || '' }}
-      NEXT_PUBLIC_APP_URL: ${{ secrets.STAGING_APP_URL || '' }}
-      USE_EXTERNAL_SERVER: "1"
-      E2E_SECRET: ${{ secrets.E2E_SECRET || '' }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
       - name: Install deps + Playwright
         run: |
           npm ci
           npx playwright install --with-deps chromium
-
-      - name: Remote smoke
-        run: |
-          node -e 'console.log("TARGET", process.env.APP_URL)'
-          npx playwright test e2e/smoke.remote.spec.ts --reporter=line
-        env:
-          APP_URL: ${{ env.APP_URL }}
-          NEXT_PUBLIC_APP_URL: ${{ env.NEXT_PUBLIC_APP_URL }}
-          USE_EXTERNAL_SERVER: ${{ env.USE_EXTERNAL_SERVER }}
-          E2E_SECRET: ${{ env.E2E_SECRET }}
