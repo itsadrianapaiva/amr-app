@@ -157,8 +157,3 @@ jobs:
           name: playwright-report-${{ matrix.mode }}
           path: playwright-report
           retention-days: 7
-
-      - name: Install deps + Playwright
-        run: |
-          npm ci
-          npx playwright install --with-deps chromium
