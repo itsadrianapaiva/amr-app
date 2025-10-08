@@ -19,6 +19,18 @@
   port = 8888
   autoLaunch = false
 
+   # ---- Force primary domain on production only ----
+  [[context.production.redirects]]
+    from = "/*"
+    to = "https://amr-rentals.com/:splat"
+    status = 301
+    force = true
+    conditions = { Host = [
+      "www.amr-rentals.com",                 # www → apex
+      "algarvemachinery.netlify.app",        # site subdomain
+      "*--algarvemachinery.netlify.app"      # deploy-hash hosts for prod deploys
+    ] }
+
 # ---------- URLs per context ----------
 [context.production.environment]
   APP_URL = "$URL"
