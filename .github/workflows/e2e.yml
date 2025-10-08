@@ -84,8 +84,11 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install dependencies (include dev)
+        run: npm ci --include=dev
+        env:
+          # Guard against any production-only installs even if NODE_ENV=production
+          NPM_CONFIG_PRODUCTION: "false"
 
       - name: Generate Prisma Client
         run: npx prisma generate
@@ -108,8 +111,11 @@ jobs:
       - name: Migration drift check
         run: npx prisma migrate diff --from-schema-datamodel ./prisma/schema.prisma --to-url "$DATABASE_URL" --exit-code
 
+      - name: Verify ts-node is available
+        run: npx ts-node --version
+
       - name: Seed database
-        run: npm run db:seed
+        run: npx ts-node --project prisma/tsconfig.json prisma/seed.ts
 
       - name: Build app
         run: npm run build
