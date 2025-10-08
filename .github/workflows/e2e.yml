@@ -5,7 +5,14 @@ on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, synchronize, reopened]
+    branches: [main]              # ensure base=main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review          # <-- missing before
+  merge_group:                    # for merge queue protection
+  workflow_dispatch:              # manual runs from the UI
 
 permissions:
   contents: read
