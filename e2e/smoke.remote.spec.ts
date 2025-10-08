@@ -10,7 +10,7 @@ import { test, expect, request as pwRequest } from "@playwright/test";
 const BASE =
   process.env.APP_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
-  ""; // absolute base for explicit contexts
+  ""; 
 
 test.describe("Remote smoke on staging", () => {
   test("Homepage loads and exposes JSON-LD", async ({ page }) => {
