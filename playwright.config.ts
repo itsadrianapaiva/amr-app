@@ -34,6 +34,14 @@ const WEB_SERVER_ENV = {
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
 };
 
+/** Headless/Headed strategy:
+ * - CI: always headless
+ * - Local (Codespaces): headless unless HEADFUL=1 or $DISPLAY is present (xvfb etc.)
+ */
+const HEADFUL = envBool(process.env.HEADFUL);
+const HAS_DISPLAY = Boolean(process.env.DISPLAY);
+const HEADLESS = process.env.CI ? true : !(HEADFUL || HAS_DISPLAY);
+
 export default defineConfig({
   testDir: "e2e",
   workers: 1, // deterministic for DB-bound flows
@@ -50,6 +58,7 @@ export default defineConfig({
 
   use: {
     baseURL: APP_URL,
+    headless: HEADLESS,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "off",
