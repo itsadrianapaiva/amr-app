@@ -1,9 +1,25 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: E2E
 
 on:
   push:
     branches: [main]
   pull_request:
+    branches: [main] # ensure base is main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review # ← add this
+  merge_group: # for GH merge queue (optional but useful)
+  workflow_dispatch: # manual run from Actions tab
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
@@ -13,7 +29,7 @@ jobs:
       matrix:
         include:
           - mode: prod-sim
-            OPS_DASHBOARD_ENABLED: "0"
+            OPS_DASHBOARD_ENABLED: "1"
             OPS_DISABLE_AUTH: "0"
           - mode: staging-sim
             OPS_DASHBOARD_ENABLED: "1"
@@ -22,7 +38,6 @@ jobs:
             OPS_DASHBOARD_ENABLED: "1"
             OPS_DISABLE_AUTH: "0"
 
-    # Ephemeral Postgres for deterministic runs
     services:
       postgres:
         image: postgres:15-alpine
@@ -30,87 +45,70 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: amr_test
-        ports:
-          - 5432:5432
+        ports: ["5432:5432"]
         options: >-
           --health-cmd="pg_isready -U postgres"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
 
-    # Make env available to migrations, seeds, netlify dev, and tests
     env:
-      NODE_ENV: test
+      NODE_ENV: ${{ matrix.mode == 'prod-sim' && 'production' || 'test' }}
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/amr_test
 
-      # Prisma: force a *library* client in CI (overrides any dataproxy setting)
       PRISMA_CLIENT_ENGINE_TYPE: library
+      PRISMA_SKIP_POSTINSTALL_GENERATE: "1"
 
-      # Stripe test credentials + fixed PT VAT tax rate (if referenced)
-      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
-      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-      STRIPE_TAX_RATE_PT_STANDARD: ${{ secrets.STRIPE_TAX_RATE_PT_STANDARD }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY || '' }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '' }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET || '' }}
+      STRIPE_TAX_RATE_PT_STANDARD: ${{ secrets.STRIPE_TAX_RATE_PT_STANDARD || '' }}
 
-      # Cron + mailer (set DRY behavior in code if desired)
-      CRON_SECRET: ${{ secrets.CRON_SECRET }}
-      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET || '' }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || '' }}
 
-      # Vendus
-      VENDUS_API_KEY: ${{ secrets.VENDUS_API_KEY }}
-      VENDUS_URL: ${{ secrets.VENDUS_URL }}
+      VENDUS_API_KEY: ${{ secrets.VENDUS_API_KEY || '' }}
+      VENDUS_URL: ${{ secrets.VENDUS_URL || '' }}
 
       COMPANY_NAME: "AMR Machinery Rentals"
       COMPANY_LEGAL_NAME: "AMR – Algarve & Alentejo Machinery Rentals, Lda."
       COMPANY_NIF: "123456789"
       COMPANY_LEGAL_ADDRESS: "Barranco da Vaca, 8670-116, Aljezur, Portugal"
       SUPPORT_EMAIL: "support@amr-rentals.com"
-      SUPPORT_PHONE:
-        "+351 934 014 611"
+      SUPPORT_PHONE: "+351 934 014 611"
 
-        # Web server base URL for netlify dev (matches netlify.toml dev.port)
       APP_URL: "http://127.0.0.1:8888"
-      NEXT_PUBLIC_APP_URL:
-        "http://127.0.0.1:8888"
+      NEXT_PUBLIC_APP_URL: "http://127.0.0.1:8888"
+      USE_EXTERNAL_SERVER: "0"
 
-        # Session secrets for ops login (CI-safe)
       AUTH_COOKIE_SECRET: "ci-e2e-secret-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-      SESSION_COOKIE: "ops_session"
+      SESSION_COOKIE: "amr_ops"
 
-      # Dev gate header for /api/dev/* in middleware
-      E2E_SECRET:
-        ${{ secrets.E2E_SECRET }}
+      # Fallback to empty string to silence editor warnings
+      E2E_SECRET: ${{ secrets.E2E_SECRET || '' }}
 
-        # Matrix-provided flags
-      OPS_DASHBOARD_ENABLED: ${{ matrix.mode == 'prod-sim' && '0' || '1' }}
-      OPS_DISABLE_AUTH:
-        ${{ matrix.mode == 'staging-auth' && '0' || '1' }}
-        # Mirror alt key using the SAME matrix expression (do not read from env)
-      OPS_AUTH_DISABLED: ${{ matrix.mode == 'staging-auth' && '0' || '1' }}
-
-      # Optional: tag the run so Playwright can branch by mode if needed
+      OPS_DASHBOARD_ENABLED: ${{ matrix.OPS_DASHBOARD_ENABLED }}
+      OPS_DISABLE_AUTH: ${{ matrix.OPS_DISABLE_AUTH }}
+      OPS_AUTH_DISABLED: ${{ matrix.OPS_DISABLE_AUTH }}
       E2E_MODE: ${{ matrix.mode }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies (runs postinstall → prisma generate --no-engine)
+      - name: Install dependencies
         run: npm ci
 
-      # IMPORTANT: Re-generate Prisma Client as *library* engine for CI
-      - name: Generate Prisma Client (library engine)
+      - name: Generate Prisma Client
         run: npx prisma generate
         env:
           PRISMA_CLIENT_ENGINE_TYPE: library
 
-      - name: Install Netlify CLI (Playwright webServer uses `netlify dev`)
+      - name: Install Netlify CLI
         run: npm i -g netlify-cli
 
       - name: Wait for Postgres
@@ -123,12 +121,16 @@ jobs:
       - name: Apply DB migrations
         run: npx prisma migrate deploy
 
-      - name: Seed database (Machines etc.)
+      - name: Migration drift check
+        run: npx prisma migrate diff --from-schema ./prisma/schema.prisma --to-url "$DATABASE_URL" --exit-code
+
+      - name: Seed database
         run: npm run db:seed
 
       - name: Build app
         run: npm run build
         env:
+          NODE_ENV: ${{ env.NODE_ENV }}
           OPS_DASHBOARD_ENABLED: ${{ env.OPS_DASHBOARD_ENABLED }}
           OPS_DISABLE_AUTH: ${{ env.OPS_DISABLE_AUTH }}
           OPS_AUTH_DISABLED: ${{ env.OPS_AUTH_DISABLED }}
@@ -136,20 +138,21 @@ jobs:
           APP_URL: ${{ env.APP_URL }}
           NEXT_PUBLIC_APP_URL: ${{ env.NEXT_PUBLIC_APP_URL }}
 
-      - name: Install Playwright (Chromium only)
+      - name: Install Playwright (Chromium)
         run: npx playwright install --with-deps chromium
 
-      - name: Env sanity (what the server will see)
+      - name: Env sanity
         run: |
           node -e 'console.log(JSON.stringify({
+            NODE_ENV: process.env.NODE_ENV,
             APP_URL: process.env.APP_URL,
+            E2E_MODE: process.env.E2E_MODE,
             OPS_DASHBOARD_ENABLED: process.env.OPS_DASHBOARD_ENABLED,
             OPS_DISABLE_AUTH: process.env.OPS_DISABLE_AUTH,
-            OPS_AUTH_DISABLED: process.env.OPS_AUTH_DISABLED,
-            AUTH_COOKIE_SECRET_len: (process.env.AUTH_COOKIE_SECRET||"").length
+            E2E_SECRET_len: (process.env.E2E_SECRET||"").length
           }, null, 2))'
 
-      - name: Run Playwright E2E and create HTML report
+      - name: Run Playwright E2E
         run: npx playwright test --reporter=line
         env:
           OPS_DASHBOARD_ENABLED: ${{ env.OPS_DASHBOARD_ENABLED }}
@@ -161,6 +164,7 @@ jobs:
           AUTH_COOKIE_SECRET: ${{ env.AUTH_COOKIE_SECRET }}
           SESSION_COOKIE: ${{ env.SESSION_COOKIE }}
           E2E_SECRET: ${{ env.E2E_SECRET }}
+          USE_EXTERNAL_SERVER: ${{ env.USE_EXTERNAL_SERVER }}
 
       - name: Upload Playwright HTML report
         if: always()
@@ -169,3 +173,35 @@ jobs:
           name: playwright-report-${{ matrix.mode }}
           path: playwright-report
           retention-days: 7
+
+  remote-smoke:
+    if: github.event_name == 'pull_request' && secrets.STAGING_APP_URL != ''
+    runs-on: ubuntu-latest
+    env:
+      # Use fallback to quiet editor; job is gated above anyway
+      APP_URL: ${{ secrets.STAGING_APP_URL || '' }}
+      NEXT_PUBLIC_APP_URL: ${{ secrets.STAGING_APP_URL || '' }}
+      USE_EXTERNAL_SERVER: "1"
+      E2E_SECRET: ${{ secrets.E2E_SECRET || '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps + Playwright
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Remote smoke
+        run: |
+          node -e 'console.log("TARGET", process.env.APP_URL)'
+          npx playwright test e2e/smoke.remote.spec.ts --reporter=line
+        env:
+          APP_URL: ${{ env.APP_URL }}
+          NEXT_PUBLIC_APP_URL: ${{ env.NEXT_PUBLIC_APP_URL }}
+          USE_EXTERNAL_SERVER: ${{ env.USE_EXTERNAL_SERVER }}
+          E2E_SECRET: ${{ env.E2E_SECRET }}
