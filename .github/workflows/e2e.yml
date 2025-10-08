@@ -5,6 +5,14 @@ on:
   push:
     branches: [main]
   pull_request:
+    branches: [main] # ensure base is main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review # ← add this
+  merge_group: # for GH merge queue (optional but useful)
+  workflow_dispatch: # manual run from Actions tab
 
 permissions:
   contents: read
