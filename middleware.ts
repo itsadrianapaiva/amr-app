@@ -51,6 +51,25 @@ function unauthorizedJson(dbg?: string): NextResponse {
 export async function middleware(req: NextRequest) {
   const { pathname, origin, search } = req.nextUrl;
 
+  // Canonicalize host early for ops surfaces in production ---
+  if (process.env.NODE_ENV === "production") {
+    const primaryHost = "amr-rentals.com"; // single source of truth
+    const reqHost = req.nextUrl.host; // hostname[:port]
+    const isOpsSurface =
+      pathname === "/ops-admin" ||
+      pathname.startsWith("/ops-admin/") ||
+      pathname === "/api/ops-admin" ||
+      pathname.startsWith("/api/ops-admin/");
+
+    if (isOpsSurface && reqHost !== primaryHost) {
+      const url = new URL(req.url);
+      url.protocol = "https:"; // enforce https
+      url.hostname = primaryHost; // drop deploy-hash / www hosts
+      url.port = ""; // ensure clean host
+      return NextResponse.redirect(url, 308); // permanent canonicalization
+    }
+  }
+
   // Dev guard (prod only)
   if (
     process.env.NODE_ENV === "production" &&
