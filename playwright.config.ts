@@ -1,5 +1,9 @@
-// playwright.config.ts (patch)
 import { defineConfig, devices } from "@playwright/test";
+
+/** Parse env flags safely: only "1", "true", "yes" mean true */
+function envBool(v: string | undefined): boolean {
+  return ["1", "true", "yes"].includes(String(v).toLowerCase());
+}
 
 /** Resolve base URL with IPv4 default to avoid ::1 issues */
 const APP_URL =
@@ -8,16 +12,17 @@ const APP_URL =
   "http://127.0.0.1:8888";
 
 /** When truthy, Playwright will NOT start a server and will reuse one you run manually */
-const USE_EXTERNAL = !!process.env.USE_EXTERNAL_SERVER;
+const USE_EXTERNAL = envBool(process.env.USE_EXTERNAL_SERVER);
 
 /** Spawn Netlify dev by default; allow override via PLAYWRIGHT_WEB_SERVER_CMD */
 const WEB_SERVER_CMD =
   process.env.PLAYWRIGHT_WEB_SERVER_CMD || "npx netlify dev --port 8888";
 
-/** Always set x-e2e-secret when provided, local or remote */
+// x-e2e-secret header stays as before
 const E2E_SECRET = process.env.E2E_SECRET || "";
-const EXTRA_HTTP_HEADERS: Record<string, string> | undefined =
-  E2E_SECRET ? { "x-e2e-secret": E2E_SECRET } : undefined;
+const EXTRA_HTTP_HEADERS = E2E_SECRET
+  ? { "x-e2e-secret": E2E_SECRET }
+  : undefined;
 
 /** Pass ops flags through to the spawned server so build/runtime match test matrix */
 const WEB_SERVER_ENV = {
@@ -29,16 +34,13 @@ const WEB_SERVER_ENV = {
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
 };
 
-/** Ensure env fits { [key: string]: string } by dropping undefined values */
-function cleanEnv(
-  obj: Record<string, string | undefined>
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const [k, v] of Object.entries(obj)) {
-    if (typeof v === "string") out[k] = v;
-  }
-  return out;
-}
+/** Headless/Headed strategy:
+ * - CI: always headless
+ * - Local (Codespaces): headless unless HEADFUL=1 or $DISPLAY is present (xvfb etc.)
+ */
+const HEADFUL = envBool(process.env.HEADFUL);
+const HAS_DISPLAY = Boolean(process.env.DISPLAY);
+const HEADLESS = process.env.CI ? true : !(HEADFUL || HAS_DISPLAY);
 
 export default defineConfig({
   testDir: "e2e",
@@ -56,6 +58,7 @@ export default defineConfig({
 
   use: {
     baseURL: APP_URL,
+    headless: HEADLESS,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "off",
@@ -71,7 +74,12 @@ export default defineConfig({
         timeout: 180_000,
         stdout: "pipe",
         stderr: "pipe",
-        env: cleanEnv(WEB_SERVER_ENV), // <-- fix: pass only strings
+        env: (() => {
+          const out: Record<string, string> = {};
+          for (const [k, v] of Object.entries(WEB_SERVER_ENV))
+            if (typeof v === "string") out[k] = v;
+          return out;
+        })(),
       },
 
   projects: [
