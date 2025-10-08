@@ -91,6 +91,7 @@ export default async function OpsAdminPage({
         </div>
         <Link
           href="/logout?next=/ops-admin"
+          prefetch={false}
           className="inline-flex items-center rounded-lg border px-3 py-2 text-sm shadow-sm"
         >
           Logout
@@ -128,6 +129,7 @@ export default async function OpsAdminPage({
                 <Link
                   key={p.label}
                   href={`/ops-admin?${q.toString()}`}
+                  prefetch={false}
                   className="text-xs rounded-lg border px-2 py-1 hover:bg-muted"
                 >
                   {p.label}
@@ -167,6 +169,7 @@ export default async function OpsAdminPage({
               from: fromStr,
               days: String(days),
             }).toString()}`}
+            prefetch={false}
             className="text-xs rounded-lg border px-2 py-1 hover:bg-muted"
           >
             Reset
