@@ -106,7 +106,7 @@ jobs:
         run: npx prisma migrate deploy
 
       - name: Migration drift check
-        run: npx prisma migrate diff --from-schema ./prisma/schema.prisma --to-url "$DATABASE_URL" --exit-code
+        run: npx prisma migrate diff --from-schema-datamodel ./prisma/schema.prisma --to-url "$DATABASE_URL" --exit-code
 
       - name: Seed database
         run: npm run db:seed
