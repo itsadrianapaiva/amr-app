@@ -142,9 +142,16 @@ jobs:
             E2E_SECRET_len: (process.env.E2E_SECRET||"").length
           }, null, 2))'
 
-      - name: Run Playwright E2E
+      - name: Run Playwright E2E (prod server from build)
         run: npx playwright test --reporter=line
         env:
+          # Force a production runtime for Next server, avoiding dev CSS parsing and env divergence
+          NODE_ENV: production
+
+          # Tell Playwright's webServer to run the production server instead of netlify dev
+          PLAYWRIGHT_WEB_SERVER_CMD: "npx next start -p 8888"
+
+          # Your existing matrix/env passthroughs (unchanged)
           OPS_DASHBOARD_ENABLED: ${{ env.OPS_DASHBOARD_ENABLED }}
           OPS_DISABLE_AUTH: ${{ env.OPS_DISABLE_AUTH }}
           OPS_AUTH_DISABLED: ${{ env.OPS_AUTH_DISABLED }}
@@ -154,7 +161,7 @@ jobs:
           AUTH_COOKIE_SECRET: ${{ env.AUTH_COOKIE_SECRET }}
           SESSION_COOKIE: ${{ env.SESSION_COOKIE }}
           E2E_SECRET: ${{ env.E2E_SECRET }}
-          USE_EXTERNAL_SERVER: ${{ env.USE_EXTERNAL_SERVER }}
+          USE_EXTERNAL_SERVER: "0"
 
       - name: Upload Playwright HTML report
         if: always()
