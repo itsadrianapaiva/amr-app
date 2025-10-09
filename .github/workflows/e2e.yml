@@ -13,7 +13,7 @@ jobs:
       matrix:
         include:
           - mode: prod-sim
-            OPS_DASHBOARD_ENABLED: "0"
+            OPS_DASHBOARD_ENABLED: "1"
             OPS_DISABLE_AUTH: "0"
           - mode: staging-sim
             OPS_DASHBOARD_ENABLED: "1"
@@ -68,26 +68,9 @@ jobs:
       SUPPORT_PHONE:
         "+351 934 014 611"
 
-        # Web server base URL for netlify dev (matches netlify.toml dev.port)
-      APP_URL: "http://127.0.0.1:8888"
-      NEXT_PUBLIC_APP_URL:
-        "http://127.0.0.1:8888"
-
-        # Session secrets for ops login (CI-safe)
-      AUTH_COOKIE_SECRET: "ci-e2e-secret-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-      SESSION_COOKIE: "ops_session"
-
-      # Dev gate header for /api/dev/* in middleware
-      E2E_SECRET:
-        ${{ secrets.E2E_SECRET }}
-
         # Matrix-provided flags
       OPS_DASHBOARD_ENABLED: ${{ matrix.mode == 'prod-sim' && '0' || '1' }}
-      OPS_DISABLE_AUTH:
-        ${{ matrix.mode == 'staging-auth' && '0' || '1' }}
-        # Mirror alt key using the SAME matrix expression (do not read from env)
-      OPS_AUTH_DISABLED: ${{ matrix.mode == 'staging-auth' && '0' || '1' }}
-
+      OPS_DISABLE_AUTH: ${{ matrix.mode == 'staging-auth' && '0' || '1' }}
       # Optional: tag the run so Playwright can branch by mode if needed
       E2E_MODE: ${{ matrix.mode }}
 
@@ -128,39 +111,17 @@ jobs:
 
       - name: Build app
         run: npm run build
-        env:
-          OPS_DASHBOARD_ENABLED: ${{ env.OPS_DASHBOARD_ENABLED }}
-          OPS_DISABLE_AUTH: ${{ env.OPS_DISABLE_AUTH }}
-          OPS_AUTH_DISABLED: ${{ env.OPS_AUTH_DISABLED }}
-          AUTH_COOKIE_SECRET: ${{ env.AUTH_COOKIE_SECRET }}
-          APP_URL: ${{ env.APP_URL }}
-          NEXT_PUBLIC_APP_URL: ${{ env.NEXT_PUBLIC_APP_URL }}
 
       - name: Install Playwright (Chromium only)
         run: npx playwright install --with-deps chromium
 
-      - name: Env sanity (what the server will see)
-        run: |
-          node -e 'console.log(JSON.stringify({
-            APP_URL: process.env.APP_URL,
-            OPS_DASHBOARD_ENABLED: process.env.OPS_DASHBOARD_ENABLED,
-            OPS_DISABLE_AUTH: process.env.OPS_DISABLE_AUTH,
-            OPS_AUTH_DISABLED: process.env.OPS_AUTH_DISABLED,
-            AUTH_COOKIE_SECRET_len: (process.env.AUTH_COOKIE_SECRET||"").length
-          }, null, 2))'
-
       - name: Run Playwright E2E and create HTML report
         run: npx playwright test --reporter=line
         env:
+          # Surface the matrix mode in Playwright environment too
           OPS_DASHBOARD_ENABLED: ${{ env.OPS_DASHBOARD_ENABLED }}
           OPS_DISABLE_AUTH: ${{ env.OPS_DISABLE_AUTH }}
-          OPS_AUTH_DISABLED: ${{ env.OPS_AUTH_DISABLED }}
           E2E_MODE: ${{ matrix.mode }}
-          APP_URL: ${{ env.APP_URL }}
-          NEXT_PUBLIC_APP_URL: ${{ env.NEXT_PUBLIC_APP_URL }}
-          AUTH_COOKIE_SECRET: ${{ env.AUTH_COOKIE_SECRET }}
-          SESSION_COOKIE: ${{ env.SESSION_COOKIE }}
-          E2E_SECRET: ${{ env.E2E_SECRET }}
 
       - name: Upload Playwright HTML report
         if: always()
