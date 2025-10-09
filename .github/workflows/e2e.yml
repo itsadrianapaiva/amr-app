@@ -81,6 +81,29 @@ jobs:
           node-version: 20
           cache: npm
 
+      # NEW: align CI with your local passing run, and add safe fallbacks for fork PRs
+      - name: Normalize test env defaults
+        shell: bash
+        run: |
+          # Toggle simulated payment flows and disable invoicing for tests
+          echo "RUN_PAYMENT_E2E=true" >> $GITHUB_ENV
+          echo "INVOICING_ENABLED=false" >> $GITHUB_ENV
+
+          # Fallbacks when PR comes from a fork with no secrets
+          : "${E2E_SECRET:=${AUTH_COOKIE_SECRET:-local-e2e-secret}}"
+          echo "E2E_SECRET=$E2E_SECRET" >> $GITHUB_ENV
+
+          : "${CRON_SECRET:=${CRON_SECRET:-local-cron-secret}}"
+          echo "CRON_SECRET=$CRON_SECRET" >> $GITHUB_ENV
+
+          # Stripe and Vendus dummies if secrets are missing
+          [[ -z "${STRIPE_SECRET_KEY}" ]] && echo "STRIPE_SECRET_KEY=sk_test_123" >> $GITHUB_ENV
+          [[ -z "${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}" ]] && echo "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_123" >> $GITHUB_ENV
+          [[ -z "${STRIPE_WEBHOOK_SECRET}" ]] && echo "STRIPE_WEBHOOK_SECRET=whsec_test" >> $GITHUB_ENV
+          [[ -z "${STRIPE_TAX_RATE_PT_STANDARD}" ]] && echo "STRIPE_TAX_RATE_PT_STANDARD=txr_test" >> $GITHUB_ENV
+          [[ -z "${VENDUS_API_KEY}" ]] && echo "VENDUS_API_KEY=dummy" >> $GITHUB_ENV
+          [[ -z "${VENDUS_URL}" ]] && echo "VENDUS_URL=https://api.tests.vendus.pt" >> $GITHUB_ENV
+
       - name: Install dependencies
         run: npm ci
 
