@@ -22,7 +22,6 @@ jobs:
             OPS_DASHBOARD_ENABLED: "1"
             OPS_DISABLE_AUTH: "0"
 
-    # Ephemeral Postgres for deterministic runs
     services:
       postgres:
         image: postgres:15-alpine
@@ -30,43 +29,37 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: amr_test
-        ports:
-          - 5432:5432
+        ports: ["5432:5432"]
         options: >-
           --health-cmd="pg_isready -U postgres"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
 
-    # Make env available to migrations, seeds, netlify dev, and tests
     env:
-      NODE_ENV: test
+      NODE_ENV: ${{ matrix.mode == 'prod-sim' && 'production' || 'test' }}
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/amr_test
 
-      # Prisma: force a *library* client in CI (overrides any dataproxy setting)
       PRISMA_CLIENT_ENGINE_TYPE: library
+      PRISMA_SKIP_POSTINSTALL_GENERATE: "1"
 
-      # Stripe test credentials + fixed PT VAT tax rate (if referenced)
-      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
-      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-      STRIPE_TAX_RATE_PT_STANDARD: ${{ secrets.STRIPE_TAX_RATE_PT_STANDARD }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY || '' }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '' }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET || '' }}
+      STRIPE_TAX_RATE_PT_STANDARD: ${{ secrets.STRIPE_TAX_RATE_PT_STANDARD || '' }}
 
-      # Cron + mailer (set DRY behavior in code if desired)
-      CRON_SECRET: ${{ secrets.CRON_SECRET }}
-      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET || '' }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || '' }}
 
-      # Vendus
-      VENDUS_API_KEY: ${{ secrets.VENDUS_API_KEY }}
-      VENDUS_URL: ${{ secrets.VENDUS_URL }}
+      VENDUS_API_KEY: ${{ secrets.VENDUS_API_KEY || '' }}
+      VENDUS_URL: ${{ secrets.VENDUS_URL || '' }}
 
       COMPANY_NAME: "AMR Machinery Rentals"
       COMPANY_LEGAL_NAME: "AMR – Algarve & Alentejo Machinery Rentals, Lda."
       COMPANY_NIF: "123456789"
       COMPANY_LEGAL_ADDRESS: "Barranco da Vaca, 8670-116, Aljezur, Portugal"
       SUPPORT_EMAIL: "support@amr-rentals.com"
-      SUPPORT_PHONE:
-        "+351 934 014 611"
+      SUPPORT_PHONE: "+351 934 014 611"
 
         # Matrix-provided flags
       OPS_DASHBOARD_ENABLED: ${{ matrix.mode == 'prod-sim' && '0' || '1' }}
@@ -75,25 +68,25 @@ jobs:
       E2E_MODE: ${{ matrix.mode }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies (runs postinstall → prisma generate --no-engine)
-        run: npm ci
+      - name: Install dependencies (include dev)
+        run: npm ci --include=dev
+        env:
+          # Guard against any production-only installs even if NODE_ENV=production
+          NPM_CONFIG_PRODUCTION: "false"
 
-      # IMPORTANT: Re-generate Prisma Client as *library* engine for CI
-      - name: Generate Prisma Client (library engine)
+      - name: Generate Prisma Client
         run: npx prisma generate
         env:
           PRISMA_CLIENT_ENGINE_TYPE: library
 
-      - name: Install Netlify CLI (Playwright webServer uses `netlify dev`)
+      - name: Install Netlify CLI
         run: npm i -g netlify-cli
 
       - name: Wait for Postgres
@@ -106,13 +99,19 @@ jobs:
       - name: Apply DB migrations
         run: npx prisma migrate deploy
 
-      - name: Seed database (Machines etc.)
-        run: npm run db:seed
+      - name: Migration drift check
+        run: npx prisma migrate diff --from-schema-datamodel ./prisma/schema.prisma --to-url "$DATABASE_URL" --exit-code
+
+      - name: Verify ts-node is available
+        run: npx ts-node --version
+
+      - name: Seed database
+        run: npx ts-node --project prisma/tsconfig.json prisma/seed.ts
 
       - name: Build app
         run: npm run build
 
-      - name: Install Playwright (Chromium only)
+      - name: Install Playwright (Chromium)
         run: npx playwright install --with-deps chromium
 
       - name: Run Playwright E2E and create HTML report
