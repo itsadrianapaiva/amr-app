@@ -87,7 +87,7 @@ jobs:
         run: |
           # Toggle simulated payment flows and disable invoicing for tests
           echo "RUN_PAYMENT_E2E=true" >> $GITHUB_ENV
-          echo "INVOICING_ENABLED=false" >> $GITHUB_ENV
+          echo "INVOICING_ENABLED=true" >> $GITHUB_ENV
 
           # Fallbacks when PR comes from a fork with no secrets
           : "${E2E_SECRET:=${AUTH_COOKIE_SECRET:-local-e2e-secret}}"
