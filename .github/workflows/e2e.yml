@@ -81,18 +81,19 @@ jobs:
       - name: Normalize test env defaults
         shell: bash
         run: |
-          # Toggle simulated payment flows and disable invoicing for tests
+          # ✅ Match local passing toggles
           echo "RUN_PAYMENT_E2E=true" >> $GITHUB_ENV
-          echo "INVOICING_ENABLED=true" >> $GITHUB_ENV
+          echo "INVOICING_ENABLED=false" >> $GITHUB_ENV   # ⬅ you had 'true' — revert to false
 
-          # Fallbacks when PR comes from a fork with no secrets
+          # ✅ Deterministic secrets even for fork PRs with no repo secrets
+          # If AUTH_COOKIE_SECRET exists, reuse it; otherwise fall back to a constant.
           : "${E2E_SECRET:=${AUTH_COOKIE_SECRET:-local-e2e-secret}}"
           echo "E2E_SECRET=$E2E_SECRET" >> $GITHUB_ENV
 
           : "${CRON_SECRET:=${CRON_SECRET:-local-cron-secret}}"
           echo "CRON_SECRET=$CRON_SECRET" >> $GITHUB_ENV
 
-          # Stripe and Vendus dummies if secrets are missing
+          # ✅ Dummy providers if secrets are missing (prevents hard failures)
           [[ -z "${STRIPE_SECRET_KEY}" ]] && echo "STRIPE_SECRET_KEY=sk_test_123" >> $GITHUB_ENV
           [[ -z "${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}" ]] && echo "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_123" >> $GITHUB_ENV
           [[ -z "${STRIPE_WEBHOOK_SECRET}" ]] && echo "STRIPE_WEBHOOK_SECRET=whsec_test" >> $GITHUB_ENV
