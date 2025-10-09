@@ -93,9 +93,6 @@ jobs:
         env:
           PRISMA_CLIENT_ENGINE_TYPE: library
 
-      - name: Install Netlify CLI (Playwright webServer uses `netlify dev`)
-        run: npm i -g netlify-cli
-
       - name: Wait for Postgres
         run: |
           for i in {1..30}; do
@@ -112,6 +109,11 @@ jobs:
       - name: Build app
         run: npm run build
 
+      - name: Start prod server
+        run: |
+          PORT=8888 NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 npm run start &
+          npx -y wait-on http://127.0.0.1:8888
+
       - name: Install Playwright (Chromium only)
         run: npx playwright install --with-deps chromium
 
@@ -122,6 +124,9 @@ jobs:
           OPS_DASHBOARD_ENABLED: ${{ env.OPS_DASHBOARD_ENABLED }}
           OPS_DISABLE_AUTH: ${{ env.OPS_DISABLE_AUTH }}
           E2E_MODE: ${{ matrix.mode }}
+          USE_EXTERNAL_SERVER: "1"
+          APP_URL: "http://127.0.0.1:8888"
+        run: npx playwright test --reporter=line
 
       - name: Upload Playwright HTML report
         if: always()
