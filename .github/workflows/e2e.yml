@@ -59,12 +59,8 @@ jobs:
       SUPPORT_EMAIL: "support@amr-rentals.com"
       SUPPORT_PHONE: "+351 934 014 611"
 
-      # ✅ FIX 1: give the running server the same secret Playwright sends in the header.
-      # Reuse existing secret; we're NOT introducing a new one.
       E2E_SECRET: ${{ secrets.AUTH_COOKIE_SECRET }}
 
-      # ✅ FIX 2: stop re-deriving these via ternaries that flipped values.
-      # Use the values declared in matrix.include verbatim (source of truth).
       OPS_DASHBOARD_ENABLED: ${{ matrix.OPS_DASHBOARD_ENABLED }}
       OPS_DISABLE_AUTH: ${{ matrix.OPS_DISABLE_AUTH }}
 
@@ -81,7 +77,7 @@ jobs:
           node-version: 20
           cache: npm
 
-      # NEW: align CI with your local passing run, and add safe fallbacks for fork PRs
+      # Align CI with your local passing run, and add safe fallbacks for fork PRs
       - name: Normalize test env defaults
         shell: bash
         run: |
