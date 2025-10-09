@@ -59,9 +59,16 @@ jobs:
       SUPPORT_EMAIL: "support@amr-rentals.com"
       SUPPORT_PHONE: "+351 934 014 611"
 
-      # Matrix-provided flags (unchanged)
-      OPS_DASHBOARD_ENABLED: ${{ matrix.mode == 'prod-sim' && '0' || '1' }}
-      OPS_DISABLE_AUTH: ${{ matrix.mode == 'staging-auth' && '0' || '1' }}
+      # ✅ FIX 1: give the running server the same secret Playwright sends in the header.
+      # Reuse existing secret; we're NOT introducing a new one.
+      E2E_SECRET: ${{ secrets.AUTH_COOKIE_SECRET }}
+
+      # ✅ FIX 2: stop re-deriving these via ternaries that flipped values.
+      # Use the values declared in matrix.include verbatim (source of truth).
+      OPS_DASHBOARD_ENABLED: ${{ matrix.OPS_DASHBOARD_ENABLED }}
+      OPS_DISABLE_AUTH: ${{ matrix.OPS_DISABLE_AUTH }}
+
+      # Helpful for code branching in tests/logs
       E2E_MODE: ${{ matrix.mode }}
 
     steps:
@@ -109,10 +116,6 @@ jobs:
 
       - name: Run Playwright E2E
         env:
-          OPS_DASHBOARD_ENABLED: ${{ env.OPS_DASHBOARD_ENABLED }}
-          OPS_DISABLE_AUTH: ${{ env.OPS_DISABLE_AUTH }}
-          E2E_MODE: ${{ matrix.mode }}
-          # Tell Playwright to reuse the external server and its baseURL
           USE_EXTERNAL_SERVER: "1"
           APP_URL: "http://127.0.0.1:8888"
         run: npx playwright test --reporter=line
