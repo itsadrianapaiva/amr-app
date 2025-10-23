@@ -115,6 +115,9 @@ model Booking {
   /// Optional Stripe charge id for reconciliation.
   stripeChargeId       String?
 
+  /// Discount percentage applied (0-100)
+  discountPercentage   Decimal?         @default(0)
+
   @@unique([invoiceProvider, invoiceProviderId])
 }
 
