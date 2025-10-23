@@ -80,6 +80,9 @@ export type PendingBookingDTO = {
   totals: {
     total: number; // euros
   };
+
+  // Discount
+  discountPercentage: number; // 0-100
 };
 
 /** A typed error we can catch in actions to show a friendly overlap message. */
@@ -105,6 +108,7 @@ function mapDtoToBookingUpdate(dto: PendingBookingDTO) {
     billing,
     siteAddress,
     totals,
+    discountPercentage,
   } = dto;
 
   return {
@@ -137,6 +141,7 @@ function mapDtoToBookingUpdate(dto: PendingBookingDTO) {
 
     // Money (authoritative pre-VAT total)
     totalCost: totals.total,
+    discountPercentage: discountPercentage,
   };
 }
 

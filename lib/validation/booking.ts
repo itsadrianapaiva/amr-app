@@ -75,6 +75,9 @@ export const baseBookingFormSchema = z
     billingPostalCode: z.string().optional().nullable(),
     billingCity: z.string().optional().nullable(),
     billingCountry: z.string().optional().nullable(),
+
+    // Discount (applied based on company Tax ID)
+    discountPercentage: z.coerce.number().min(0).max(100).default(0),
   })
   .superRefine((val, ctx) => {
     // Require invoicing fields only when booking as a business

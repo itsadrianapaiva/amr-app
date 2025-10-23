@@ -154,6 +154,7 @@ export async function createCheckoutAction(
       insuranceCharge: INSURANCE_CHARGE,
       operatorSelected: Boolean(payload.operatorSelected),
       operatorCharge: OPERATOR_CHARGE,
+      discountPercentage: Number(payload.discountPercentage ?? 0),
     });
 
     // 4) Persist or reuse a PENDING booking (atomic + advisory lock)
@@ -188,6 +189,9 @@ export async function createCheckoutAction(
 
       // Store **pre-VAT** total; Stripe will compute VAT in Checkout & on receipt.
       totals: { total: totals.total },
+
+      // Store discount percentage for audit trail
+      discountPercentage: Number(payload.discountPercentage ?? 0),
     };
 
     const booking = await persistPendingBooking(dto);
