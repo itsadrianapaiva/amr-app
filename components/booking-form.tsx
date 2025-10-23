@@ -218,7 +218,9 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
                   discountPercentage={discountPercentage}
                 />
               }
-              onNifBlur={checkDiscount}
+              onTaxIdBlur={checkDiscount}
+              isCheckingDiscount={isCheckingDiscount}
+              discountPercentage={discountPercentage}
             />
 
             <OutOfAreaBanner

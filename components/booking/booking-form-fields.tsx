@@ -54,8 +54,10 @@ export default function BookingFormFields(props: {
   // Slot to inject a summary block (e.g., <SummaryPanel />) between Add-ons and Contact
   summary?: React.ReactNode;
 
-  // NIF discount handler
-  onNifBlur?: (nif: string) => void;
+  // Tax ID discount handler (for company bookings)
+  onTaxIdBlur?: (taxId: string) => void;
+  isCheckingDiscount?: boolean;
+  discountPercentage?: number;
 
   // Submit visuals
   isSubmitDisabled: boolean;
@@ -87,7 +89,9 @@ export default function BookingFormFields(props: {
 
     summary,
 
-    onNifBlur,
+    onTaxIdBlur,
+    isCheckingDiscount,
+    discountPercentage,
 
     isSubmitDisabled,
     rootError,
@@ -122,13 +126,17 @@ export default function BookingFormFields(props: {
       {summary ?? null}
 
       {/* Contact fields */}
-      <ContactSection control={control} onNifBlur={onNifBlur} />
+      <ContactSection control={control} />
 
       {/* Delivery/Pickup address when either is selected */}
       {showAddress && <DeliveryAddressSection control={control} />}
 
       {/* Company invoicing when applicable */}
-      <BillingSection />
+      <BillingSection
+        onTaxIdBlur={onTaxIdBlur}
+        isCheckingDiscount={isCheckingDiscount}
+        discountPercentage={discountPercentage}
+      />
 
       {/* Submit block */}
       <div className="space-y-2">

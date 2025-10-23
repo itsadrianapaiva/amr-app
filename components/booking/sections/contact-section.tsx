@@ -14,7 +14,6 @@ import PhoneInput from "@/components/forms/phone-input";
 
 type ContactSectionProps = {
   control: Control<BookingFormValues>;
-  onNifBlur?: (nif: string) => void;
 };
 
 /**
@@ -23,7 +22,7 @@ type ContactSectionProps = {
  * - NIF is optional. If provided, schema enforces 9 digits.
  * - Keeps to the "sections accept control only" convention.
  */
-export function ContactSection({ control, onNifBlur }: ContactSectionProps) {
+export function ContactSection({ control }: ContactSectionProps) {
   return (
     <div className="space-y-6">
       {/* Name */}
@@ -113,12 +112,6 @@ export function ContactSection({ control, onNifBlur }: ContactSectionProps) {
                 onChange={(e) => {
                   const digitsOnly = e.target.value.replace(/\D+/g, "");
                   field.onChange(digitsOnly);
-                }}
-                onBlur={(e) => {
-                  field.onBlur();
-                  if (onNifBlur) {
-                    onNifBlur(e.target.value);
-                  }
                 }}
               />
             </FormControl>
