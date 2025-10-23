@@ -150,3 +150,14 @@ enum DisputeStatus {
   WON
   LOST
 }
+
+/// Company-specific discounts based on NIF
+model CompanyDiscount {
+  id                 Int      @id @default(autoincrement())
+  nif                String   @unique
+  discountPercentage Decimal
+  companyName        String?
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}

@@ -54,6 +54,9 @@ export default function BookingFormFields(props: {
   // Slot to inject a summary block (e.g., <SummaryPanel />) between Add-ons and Contact
   summary?: React.ReactNode;
 
+  // NIF discount handler
+  onNifBlur?: (nif: string) => void;
+
   // Submit visuals
   isSubmitDisabled: boolean;
   rootError?: string | null;
@@ -83,6 +86,8 @@ export default function BookingFormFields(props: {
     showAddress,
 
     summary,
+
+    onNifBlur,
 
     isSubmitDisabled,
     rootError,
@@ -117,7 +122,7 @@ export default function BookingFormFields(props: {
       {summary ?? null}
 
       {/* Contact fields */}
-      <ContactSection control={control} />
+      <ContactSection control={control} onNifBlur={onNifBlur} />
 
       {/* Delivery/Pickup address when either is selected */}
       {showAddress && <DeliveryAddressSection control={control} />}

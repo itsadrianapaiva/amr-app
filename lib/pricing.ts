@@ -20,6 +20,8 @@ export type PriceInputs = {
 
   operatorSelected?: boolean; // optional for backward compatibility
   operatorCharge?: number | null; // null => don't count it in totals
+
+  discountPercentage?: number; // NIF-based discount (0-100)
 };
 
 export type PriceBreakdown = {
@@ -29,6 +31,7 @@ export type PriceBreakdown = {
   pickup: number;
   insurance: number;
   operator: number;
+  discount: number;
   total: number;
 };
 
@@ -53,6 +56,8 @@ export function computeTotals({
 
   operatorSelected = false,
   operatorCharge = null,
+
+  discountPercentage = 0,
 }: PriceInputs): PriceBreakdown {
   const safeDelivery = deliverySelected ? Number(deliveryCharge ?? 0) : 0;
   const safePickup = pickupSelected ? Number(pickupCharge ?? 0) : 0;
@@ -70,8 +75,16 @@ export function computeTotals({
       : 0;
 
   const subtotal = rentalDays * dailyRate;
-  const total =
+  const subtotalBeforeDiscount =
     subtotal + safeDelivery + safePickup + safeInsurance + safeOperator;
+
+  // Apply discount percentage to the subtotal (before VAT)
+  const discountAmount =
+    discountPercentage > 0 && discountPercentage <= 100
+      ? (subtotalBeforeDiscount * discountPercentage) / 100
+      : 0;
+
+  const total = subtotalBeforeDiscount - discountAmount;
 
   return {
     rentalDays,
@@ -80,6 +93,7 @@ export function computeTotals({
     pickup: safePickup,
     insurance: safeInsurance,
     operator: safeOperator,
+    discount: discountAmount,
     total,
   };
 }

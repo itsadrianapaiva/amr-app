@@ -45,6 +45,10 @@ type BookingFormProps = {
 };
 
 export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
+  // Discount state
+  const [discountPercentage, setDiscountPercentage] = React.useState<number>(0);
+  const [isCheckingDiscount, setIsCheckingDiscount] = React.useState(false);
+
   // 1) Money + constraints (pure numbers for UI)
   const { dailyRate, deposit, deliveryCharge, pickupCharge, minDays } =
     useMachinePricing({
@@ -135,6 +139,30 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
   // 10) Geofence UX (derived, reactive)
   const out = useOutOfAreaInfo(form, machine.id);
 
+  // 11) NIF discount checker
+  const checkDiscount = React.useCallback(async (nif: string) => {
+    if (!nif || nif.trim() === "") {
+      setDiscountPercentage(0);
+      return;
+    }
+
+    setIsCheckingDiscount(true);
+    try {
+      const response = await fetch(`/api/check-discount?nif=${encodeURIComponent(nif.trim())}`);
+      if (response.ok) {
+        const data = await response.json();
+        setDiscountPercentage(data.discountPercentage || 0);
+      } else {
+        setDiscountPercentage(0);
+      }
+    } catch (error) {
+      console.error("Error checking discount:", error);
+      setDiscountPercentage(0);
+    } finally {
+      setIsCheckingDiscount(false);
+    }
+  }, []);
+
   return (
     <Card>
       <CardHeader>
@@ -187,8 +215,10 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
                   pickupCharge={pickupCharge}
                   insuranceCharge={INSURANCE_CHARGE}
                   operatorCharge={operatorSelected ? OPERATOR_CHARGE : null}
+                  discountPercentage={discountPercentage}
                 />
               }
+              onNifBlur={checkDiscount}
             />
 
             <OutOfAreaBanner
