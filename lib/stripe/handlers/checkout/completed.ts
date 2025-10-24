@@ -75,8 +75,22 @@ export async function onCheckoutSessionCompleted(
     flow,
   });
 
-  // Idempotent promotion to CONFIRMED + attach PI.
-  await promoteBookingToConfirmed({ bookingId, paymentIntentId: piId ?? null }, log);
+  // Extract discount metadata from session
+  const { discountMetadata, amountTotalCents: totalCents } =
+    extractSessionFacts(session);
+
+  // Idempotent promotion to CONFIRMED + attach PI + persist totals.
+  await promoteBookingToConfirmed(
+    {
+      bookingId,
+      paymentIntentId: piId ?? null,
+      totalCostEuros: totalCents != null ? totalCents / 100 : null,
+      discountPercent: discountMetadata?.discountPercent ?? null,
+      originalSubtotalExVatCents: discountMetadata?.originalCents ?? null,
+      discountedSubtotalExVatCents: discountMetadata?.discountedCents ?? null,
+    },
+    log
+  );
 
   // Best-effort notification (non-fatal if it errors).
   log("notify:start", { bookingId, SEND_EMAILS: process.env.SEND_EMAILS });

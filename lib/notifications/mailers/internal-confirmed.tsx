@@ -3,6 +3,7 @@ import "server-only";
 import type { ReactElement } from "react";
 import BookingInternalEmail from "@/lib/emails/templates/booking-internal";
 import { getInternalBranding } from "@/lib/emails/branding";
+import { resolveBaseUrl } from "@/lib/url/base";
 
 export type InternalConfirmedView = {
   id: number;
@@ -25,13 +26,13 @@ export type InternalConfirmedView = {
   deliverySelected?: boolean;
   pickupSelected?: boolean;
   discountPercentage?: number;
-  discountAmount?: string;
+  discountAmountExVat?: string;
+  discountedSubtotalExVat?: string;
+  partnerCompanyName?: string;
+  partnerNif?: string;
 };
 
 export type NotifySource = "customer" | "ops";
-
-// Keep URL logic local; branding focuses on identity/emails.
-const APP_URL = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "";
 
 /**
  * buildInternalEmail
@@ -44,7 +45,9 @@ export async function buildInternalEmail(
   // Centralized Ops identity + admin recipient
   const { companyName, adminEmail } = await getInternalBranding();
 
-  const opsUrlForBooking = APP_URL ? `${APP_URL}/ops` : "#";
+  // Use shared base URL resolver
+  const baseUrl = resolveBaseUrl();
+  const opsUrlForBooking = `${baseUrl}/ops-admin`;
 
   return (
     <BookingInternalEmail
@@ -71,7 +74,10 @@ export async function buildInternalEmail(
       totalInclVat={view.totalInclVat}
       depositAmount={view.depositAmount}
       discountPercentage={view.discountPercentage}
-      discountAmount={view.discountAmount}
+      discountAmountExVat={view.discountAmountExVat}
+      discountedSubtotalExVat={view.discountedSubtotalExVat}
+      partnerCompanyName={view.partnerCompanyName}
+      partnerNif={view.partnerNif}
       opsUrlForBooking={opsUrlForBooking}
       stripePiId={undefined}
       stripePiUrl={undefined}

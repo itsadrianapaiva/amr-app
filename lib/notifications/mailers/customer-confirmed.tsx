@@ -12,6 +12,7 @@ export type CustomerConfirmedView = {
   rentalDays: number;
   customerName?: string | null;
   siteAddress?: string | null;
+  addonsList?: string | null;
   subtotalExVat: string;
   vatAmount: string;
   totalInclVat: string;
@@ -20,7 +21,10 @@ export type CustomerConfirmedView = {
   deliverySelected?: boolean;
   pickupSelected?: boolean;
   discountPercentage?: number;
-  discountAmount?: string;
+  discountAmountExVat?: string;
+  discountedSubtotalExVat?: string;
+  partnerCompanyName?: string;
+  partnerNif?: string;
 };
 
 /**
@@ -53,6 +57,7 @@ export async function buildCustomerEmail(
       startYmd={view.startYmd}
       endYmd={view.endYmd}
       rentalDays={view.rentalDays}
+      addonsList={view.addonsList || null}
       deliverySelected={Boolean(view.deliverySelected)}
       pickupSelected={Boolean(view.pickupSelected)}
       siteAddress={view.siteAddress || null}
@@ -61,7 +66,10 @@ export async function buildCustomerEmail(
       totalInclVat={view.totalInclVat}
       depositAmount={view.depositAmount}
       discountPercentage={view.discountPercentage}
-      discountAmount={view.discountAmount}
+      discountAmountExVat={view.discountAmountExVat}
+      discountedSubtotalExVat={view.discountedSubtotalExVat}
+      partnerCompanyName={view.partnerCompanyName}
+      partnerNif={view.partnerNif}
       invoicePdfUrl={view.invoicePdfUrl}
       warehouseAddress={warehouseAddress}
       warehouseHours={warehouseHours}

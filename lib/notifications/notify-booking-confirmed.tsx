@@ -117,6 +117,7 @@ export async function notifyBookingConfirmed(
       customerName: true,
       customerEmail: true,
       customerPhone: true,
+      customerNIF: true,
       siteAddressLine1: true,
       siteAddressCity: true,
       insuranceSelected: true,
@@ -126,6 +127,11 @@ export async function notifyBookingConfirmed(
       totalCost: true,
       depositPaid: true,
       discountPercentage: true,
+      originalSubtotalExVatCents: true,
+      discountedSubtotalExVatCents: true,
+      billingCompanyName: true,
+      billingTaxId: true,
+      billingIsBusiness: true,
       invoiceNumber: true,
       invoicePdfUrl: true,
       confirmationEmailSentAt: true,
@@ -153,11 +159,29 @@ export async function notifyBookingConfirmed(
     pickupSelected: b.pickupSelected,
   });
 
-  // Calculate discount data if applicable
+  // Calculate discount data from persisted cents values (if available)
   const discountPercentage = decimalToNumber(b.discountPercentage ?? 0);
-  const discountAmount = discountPercentage > 0
-    ? toMoneyString((decimalToNumber(b.totalCost) * discountPercentage) / (100 * (1 - discountPercentage / 100)))
-    : undefined;
+  let discountAmountExVat: string | undefined;
+  let originalSubtotalExVat: string | undefined;
+  let discountedSubtotalExVat: string | undefined;
+
+  if (
+    discountPercentage > 0 &&
+    b.originalSubtotalExVatCents != null &&
+    b.discountedSubtotalExVatCents != null
+  ) {
+    // Use persisted cents values (source of truth)
+    const discountCents =
+      b.originalSubtotalExVatCents - b.discountedSubtotalExVatCents;
+    discountAmountExVat = toMoneyString(discountCents / 100);
+    originalSubtotalExVat = toMoneyString(b.originalSubtotalExVatCents / 100);
+    discountedSubtotalExVat = toMoneyString(b.discountedSubtotalExVatCents / 100);
+  }
+
+  // Determine partner info (prefer billing, fallback to customer NIF)
+  const partnerNif =
+    (b.billingIsBusiness ? b.billingTaxId : null) || b.customerNIF || null;
+  const partnerCompanyName = b.billingIsBusiness ? b.billingCompanyName : null;
 
   // Prepare invoice info. We may improve it with a grace wait below.
   let invoiceNow =
@@ -198,7 +222,8 @@ export async function notifyBookingConfirmed(
         rentalDays,
         customerName: b.customerName,
         siteAddress: siteAddress || null,
-        subtotalExVat: totals.subtotalExVat,
+        addonsList,
+        subtotalExVat: originalSubtotalExVat || totals.subtotalExVat,
         vatAmount: totals.vatAmount,
         totalInclVat: totals.totalInclVat,
         depositAmount,
@@ -206,16 +231,23 @@ export async function notifyBookingConfirmed(
         deliverySelected: b.deliverySelected,
         pickupSelected: b.pickupSelected,
         discountPercentage: discountPercentage > 0 ? discountPercentage : undefined,
-        discountAmount,
+        discountAmountExVat,
+        discountedSubtotalExVat,
+        partnerCompanyName: partnerCompanyName || undefined,
+        partnerNif: partnerNif || undefined,
       };
 
       // async builder (server fn)
       const react: ReactElement = await buildCustomerEmail(customerView);
 
+      // Version breadcrumb
+      console.log("[email:tmpl]", { kind: "customer", ver: "2025-10-24a" });
+
       customerPromise = sendEmail({
         to: b.customerEmail,
         subject: "Your AMR booking is confirmed: next steps",
         react,
+        headers: { "X-Template-Ver": "booking-confirmed@2025-10-24a" },
       });
     }
   }
@@ -249,7 +281,7 @@ export async function notifyBookingConfirmed(
         customerPhone: b.customerPhone || undefined,
         siteAddress: siteAddress || undefined,
         addonsList,
-        subtotalExVat: totals.subtotalExVat,
+        subtotalExVat: originalSubtotalExVat || totals.subtotalExVat,
         vatAmount: totals.vatAmount,
         totalInclVat: totals.totalInclVat,
         depositAmount,
@@ -260,7 +292,10 @@ export async function notifyBookingConfirmed(
         deliverySelected: b.deliverySelected,
         pickupSelected: b.pickupSelected,
         discountPercentage: discountPercentage > 0 ? discountPercentage : undefined,
-        discountAmount,
+        discountAmountExVat,
+        discountedSubtotalExVat,
+        partnerCompanyName: partnerCompanyName || undefined,
+        partnerNif: partnerNif || undefined,
       };
 
       const internalReact: ReactElement = await buildInternalEmail(
@@ -270,10 +305,14 @@ export async function notifyBookingConfirmed(
 
       const internalSubject = `New CONFIRMED booking #${b.id}: ${machineName} · ${startYmd}–${endYmd}`;
 
+      // Version breadcrumb
+      console.log("[email:tmpl]", { kind: "internal", ver: "2025-10-24a" });
+
       internalPromise = sendEmail({
         to: ADMIN_TO,
         subject: internalSubject,
         react: internalReact,
+        headers: { "X-Template-Ver": "booking-internal@2025-10-24a" },
       });
     }
     // else: another concurrent path already sent it; no-op.

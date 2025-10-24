@@ -118,6 +118,12 @@ model Booking {
   /// Discount percentage applied (0-100)
   discountPercentage   Decimal?         @default(0)
 
+  /// Original subtotal before discount (cents, ex VAT) from Stripe metadata
+  originalSubtotalExVatCents    Int?
+
+  /// Discounted subtotal after discount (cents, ex VAT) from Stripe metadata
+  discountedSubtotalExVatCents  Int?
+
   @@unique([invoiceProvider, invoiceProviderId])
 }
 
