@@ -44,6 +44,8 @@ function toDto(input: {
     pickupSelected: false,
     operatorSelected: false,
 
+    discountPercentage: 0,
+
     customer: { name, email, phone, nif: null },
 
     siteAddress: {
@@ -138,7 +140,6 @@ async function createWithOptionalExpired(
 /* ────────────────────────────────── routes ────────────────────────────────── */
 
 export async function POST(req: Request) {
-
   try {
     const body = await req.json();
     const base = toDto(body);
@@ -165,7 +166,6 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
-
   try {
     const url = new URL(req.url);
     const base = toDto({
