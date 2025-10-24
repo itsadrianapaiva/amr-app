@@ -62,9 +62,20 @@ export async function onCheckoutSessionAsyncPaymentSucceeded(
     flow,
   });
 
-  // 5) Idempotent promotion to CONFIRMED + attach PI.
+  // Extract discount metadata from session
+  const { discountMetadata, amountTotalCents: totalCents } =
+    extractSessionFacts(session);
+
+  // 5) Idempotent promotion to CONFIRMED + attach PI + persist totals.
   await promoteBookingToConfirmed(
-    { bookingId, paymentIntentId: piId ?? null },
+    {
+      bookingId,
+      paymentIntentId: piId ?? null,
+      totalCostEuros: totalCents != null ? totalCents / 100 : null,
+      discountPercent: discountMetadata?.discountPercent ?? null,
+      originalSubtotalExVatCents: discountMetadata?.originalCents ?? null,
+      discountedSubtotalExVatCents: discountMetadata?.discountedCents ?? null,
+    },
     log
   );
 

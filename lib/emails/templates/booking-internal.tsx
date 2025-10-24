@@ -38,6 +38,13 @@ export type BookingInternalEmailProps = {
   totalInclVat: string;
   depositAmount: string;
 
+  // Discount (optional) - from persisted cents values
+  discountPercentage?: number;
+  discountAmountExVat?: string;
+  discountedSubtotalExVat?: string;
+  partnerCompanyName?: string;
+  partnerNif?: string;
+
   opsUrlForBooking: string;
   stripePiId?: string | null;
   stripePiUrl?: string | null;
@@ -133,6 +140,11 @@ export default function BookingInternalEmail(
     vatAmount,
     totalInclVat,
     depositAmount,
+    discountPercentage,
+    discountAmountExVat,
+    discountedSubtotalExVat,
+    partnerCompanyName,
+    partnerNif,
     opsUrlForBooking,
     stripePiId,
     stripePiUrl,
@@ -196,10 +208,48 @@ export default function BookingInternalEmail(
 
             <hr style={S.hr} />
 
-            <Row k="Subtotal ex VAT:" v={euro(subtotalExVat)} />
-            <Row k="VAT 23%:" v={euro(vatAmount)} />
-            <Row k="Total paid:" v={euro(totalInclVat)} />
+            {discountPercentage &&
+            discountPercentage > 0 &&
+            discountAmountExVat &&
+            discountedSubtotalExVat ? (
+              <>
+                <Row k="Subtotal (ex VAT):" v={euro(subtotalExVat)} />
+                <Row
+                  k={`Discount (${discountPercentage}%):`}
+                  v={`-${euro(discountAmountExVat)}`}
+                />
+                <Row
+                  k="After discount (ex VAT):"
+                  v={euro(discountedSubtotalExVat)}
+                />
+              </>
+            ) : (
+              <Row k="Subtotal (ex VAT):" v={euro(subtotalExVat)} />
+            )}
+            <Row k="VAT (23%):" v={euro(vatAmount)} />
+            <p style={S.p}>
+              <span style={S.k}>
+                <strong>Total paid (incl. VAT):</strong>
+              </span>
+              <span style={S.v}>
+                <strong>{euro(totalInclVat)}</strong>
+              </span>
+            </p>
             <Row k="Deposit at handover:" v={euro(depositAmount)} />
+
+            {/* Partner discount disclosure */}
+            {discountPercentage &&
+              discountPercentage > 0 &&
+              (partnerCompanyName || partnerNif) && (
+                <>
+                  <hr style={S.hr} />
+                  <p style={{ ...S.p, ...S.small }}>
+                    <strong>Partner discount:</strong> {discountPercentage}%
+                    {partnerCompanyName && ` • Company: ${partnerCompanyName}`}
+                    {partnerNif && ` • NIF: ${partnerNif}`}
+                  </p>
+                </>
+              )}
 
             <hr style={S.hr} />
 

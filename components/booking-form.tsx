@@ -45,6 +45,10 @@ type BookingFormProps = {
 };
 
 export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
+  // Discount state
+  const [discountPercentage, setDiscountPercentage] = React.useState<number>(0);
+  const [isCheckingDiscount, setIsCheckingDiscount] = React.useState(false);
+
   // 1) Money + constraints (pure numbers for UI)
   const { dailyRate, deposit, deliveryCharge, pickupCharge, minDays } =
     useMachinePricing({
@@ -84,6 +88,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
       billingPostalCode: "",
       billingCity: "",
       billingCountry: "",
+      discountPercentage: 0,
     } as Partial<BookingFormValues>,
   });
 
@@ -134,6 +139,35 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
 
   // 10) Geofence UX (derived, reactive)
   const out = useOutOfAreaInfo(form, machine.id);
+
+  // 11) Tax ID discount checker
+  const checkDiscount = React.useCallback(async (taxId: string) => {
+    if (!taxId || taxId.trim() === "") {
+      setDiscountPercentage(0);
+      form.setValue("discountPercentage", 0);
+      return;
+    }
+
+    setIsCheckingDiscount(true);
+    try {
+      const response = await fetch(`/api/check-discount?nif=${encodeURIComponent(taxId.trim())}`);
+      if (response.ok) {
+        const data = await response.json();
+        const discount = data.discountPercentage || 0;
+        setDiscountPercentage(discount);
+        form.setValue("discountPercentage", discount);
+      } else {
+        setDiscountPercentage(0);
+        form.setValue("discountPercentage", 0);
+      }
+    } catch (error) {
+      console.error("Error checking discount:", error);
+      setDiscountPercentage(0);
+      form.setValue("discountPercentage", 0);
+    } finally {
+      setIsCheckingDiscount(false);
+    }
+  }, [form]);
 
   return (
     <Card>
@@ -187,8 +221,12 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
                   pickupCharge={pickupCharge}
                   insuranceCharge={INSURANCE_CHARGE}
                   operatorCharge={operatorSelected ? OPERATOR_CHARGE : null}
+                  discountPercentage={discountPercentage}
                 />
               }
+              onTaxIdBlur={checkDiscount}
+              isCheckingDiscount={isCheckingDiscount}
+              discountPercentage={discountPercentage}
             />
 
             <OutOfAreaBanner

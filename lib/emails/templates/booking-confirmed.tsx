@@ -23,10 +23,17 @@ export type CustomerBookingEmailProps = {
 
   siteAddress?: string | null; // single-line address for simplicity
 
-  subtotalExVat: string; // "123.45"
+  subtotalExVat: string; // "123.45" - original OR discounted if no discount data
   vatAmount: string; // "28.34"
   totalInclVat: string; // "151.79"
   depositAmount: string; // "350.00"
+
+  // Discount (optional) - from persisted cents values
+  discountPercentage?: number; // 10
+  discountAmountExVat?: string; // "10.00" (ex VAT)
+  discountedSubtotalExVat?: string; // "90.00" (after discount, ex VAT)
+  partnerCompanyName?: string; // "Acme Corp"
+  partnerNif?: string; // "123456789"
 
   invoicePdfUrl?: string | null;
 
@@ -119,6 +126,12 @@ export default function BookingConfirmedEmail(
     totalInclVat,
     depositAmount,
 
+    discountPercentage,
+    discountAmountExVat,
+    discountedSubtotalExVat,
+    partnerCompanyName,
+    partnerNif,
+
     invoicePdfUrl,
 
     warehouseAddress,
@@ -166,10 +179,48 @@ export default function BookingConfirmedEmail(
 
             <hr style={S.hr} />
 
-            <Row k="Subtotal (ex VAT):" v={euro(subtotalExVat)} />
-            <Row k="VAT 23%:" v={euro(vatAmount)} />
-            <Row k="Total paid today:" v={euro(totalInclVat)} />
+            {discountPercentage &&
+            discountPercentage > 0 &&
+            discountAmountExVat &&
+            discountedSubtotalExVat ? (
+              <>
+                <Row k="Subtotal (ex VAT):" v={euro(subtotalExVat)} />
+                <Row
+                  k={`Discount (${discountPercentage}%):`}
+                  v={`-${euro(discountAmountExVat)}`}
+                />
+                <Row
+                  k="After discount (ex VAT):"
+                  v={euro(discountedSubtotalExVat)}
+                />
+              </>
+            ) : (
+              <Row k="Subtotal (ex VAT):" v={euro(subtotalExVat)} />
+            )}
+            <Row k="VAT (23%):" v={euro(vatAmount)} />
+            <p style={S.p}>
+              <span style={S.k}>
+                <strong>Total paid (incl. VAT):</strong>
+              </span>
+              <span style={S.v}>
+                <strong>{euro(totalInclVat)}</strong>
+              </span>
+            </p>
             <Row k="Refundable deposit at handover:" v={euro(depositAmount)} />
+
+            {/* Partner discount disclosure */}
+            {discountPercentage &&
+              discountPercentage > 0 &&
+              (partnerCompanyName || partnerNif) && (
+                <>
+                  <hr style={S.hr} />
+                  <p style={{ ...S.p, ...S.small }}>
+                    <strong>Partner discount:</strong> {discountPercentage}%
+                    {partnerCompanyName && ` • Company: ${partnerCompanyName}`}
+                    {partnerNif && ` • NIF: ${partnerNif}`}
+                  </p>
+                </>
+              )}
 
             <hr style={S.hr} />
 
