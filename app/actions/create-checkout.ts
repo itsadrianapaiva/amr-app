@@ -143,6 +143,7 @@ export async function createCheckoutAction(
     if (fenceMsg) return { ok: false, formError: fenceMsg };
 
     // 3) Compute totals server-side (authoritative), PRE-VAT
+    const discountPercentage = Number(payload.discountPercentage ?? 0);
     const totals = computeTotals({
       rentalDays: days,
       dailyRate: Number(machine.dailyRate),
@@ -154,8 +155,27 @@ export async function createCheckoutAction(
       insuranceCharge: INSURANCE_CHARGE,
       operatorSelected: Boolean(payload.operatorSelected),
       operatorCharge: OPERATOR_CHARGE,
-      discountPercentage: Number(payload.discountPercentage ?? 0),
+      discountPercentage,
     });
+
+    // Calculate original total (before discount) for metadata tracking
+    const originalTotal =
+      discountPercentage > 0 && totals.discount > 0
+        ? totals.total + totals.discount
+        : totals.total;
+
+    // Debug logging
+    if (process.env.LOG_CHECKOUT_DEBUG === "1") {
+      console.log("[checkout] totals computed", {
+        bookingId: "(pending)",
+        machineId: machine.id,
+        discountPercentage,
+        discountAmount: totals.discount,
+        originalTotal,
+        finalTotal: totals.total,
+        totalCents: Math.round(totals.total * 100),
+      });
+    }
 
     // 4) Persist or reuse a PENDING booking (atomic + advisory lock)
     const dto: PendingBookingDTO = {
@@ -204,9 +224,11 @@ export async function createCheckoutAction(
       from,
       to,
       days,
-      totalEuros: Number(totals.total),
+      totalEuros: Number(totals.total), // Already discounted
       customerEmail: payload.email,
       appUrl,
+      discountPercentage,
+      originalTotalEuros: discountPercentage > 0 ? originalTotal : undefined,
     });
 
     // idempotency key that reflects the current selections.
@@ -220,6 +242,16 @@ export async function createCheckoutAction(
       insurance: !!payload.insuranceSelected,
       operator: !!payload.operatorSelected,
     });
+
+    // Debug: log full Stripe session params
+    if (process.env.LOG_CHECKOUT_DEBUG === "1") {
+      console.log("[checkout] stripe session params", {
+        bookingId: booking.id,
+        mode: sessionParams.mode,
+        metadata: sessionParams.metadata,
+        line_items: JSON.stringify(sessionParams.line_items, null, 2),
+      });
+    }
 
     const session = await createCheckoutSessionWithGuards(sessionParams, {
       idempotencyKey: idemKey,

@@ -38,6 +38,10 @@ export type BookingInternalEmailProps = {
   totalInclVat: string;
   depositAmount: string;
 
+  // Discount (optional)
+  discountPercentage?: number;
+  discountAmount?: string;
+
   opsUrlForBooking: string;
   stripePiId?: string | null;
   stripePiUrl?: string | null;
@@ -133,6 +137,8 @@ export default function BookingInternalEmail(
     vatAmount,
     totalInclVat,
     depositAmount,
+    discountPercentage,
+    discountAmount,
     opsUrlForBooking,
     stripePiId,
     stripePiUrl,
@@ -196,7 +202,15 @@ export default function BookingInternalEmail(
 
             <hr style={S.hr} />
 
-            <Row k="Subtotal ex VAT:" v={euro(subtotalExVat)} />
+            {discountPercentage && discountPercentage > 0 && discountAmount ? (
+              <>
+                <Row k="Subtotal ex VAT:" v={euro((Number(subtotalExVat) + Number(discountAmount)).toFixed(2))} />
+                <Row k={`Discount (${discountPercentage}%):`} v={`-${euro(discountAmount)}`} />
+                <Row k="After discount ex VAT:" v={euro(subtotalExVat)} />
+              </>
+            ) : (
+              <Row k="Subtotal ex VAT:" v={euro(subtotalExVat)} />
+            )}
             <Row k="VAT 23%:" v={euro(vatAmount)} />
             <Row k="Total paid:" v={euro(totalInclVat)} />
             <Row k="Deposit at handover:" v={euro(depositAmount)} />

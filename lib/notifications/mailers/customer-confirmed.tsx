@@ -19,6 +19,8 @@ export type CustomerConfirmedView = {
   invoicePdfUrl?: string;
   deliverySelected?: boolean;
   pickupSelected?: boolean;
+  discountPercentage?: number;
+  discountAmount?: string;
 };
 
 /**
@@ -58,6 +60,8 @@ export async function buildCustomerEmail(
       vatAmount={view.vatAmount}
       totalInclVat={view.totalInclVat}
       depositAmount={view.depositAmount}
+      discountPercentage={view.discountPercentage}
+      discountAmount={view.discountAmount}
       invoicePdfUrl={view.invoicePdfUrl}
       warehouseAddress={warehouseAddress}
       warehouseHours={warehouseHours}

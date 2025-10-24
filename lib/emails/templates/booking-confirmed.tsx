@@ -23,10 +23,14 @@ export type CustomerBookingEmailProps = {
 
   siteAddress?: string | null; // single-line address for simplicity
 
-  subtotalExVat: string; // "123.45"
+  subtotalExVat: string; // "123.45" - already discounted
   vatAmount: string; // "28.34"
   totalInclVat: string; // "151.79"
   depositAmount: string; // "350.00"
+
+  // Discount (optional)
+  discountPercentage?: number; // 10
+  discountAmount?: string; // "10.00"
 
   invoicePdfUrl?: string | null;
 
@@ -119,6 +123,9 @@ export default function BookingConfirmedEmail(
     totalInclVat,
     depositAmount,
 
+    discountPercentage,
+    discountAmount,
+
     invoicePdfUrl,
 
     warehouseAddress,
@@ -166,7 +173,15 @@ export default function BookingConfirmedEmail(
 
             <hr style={S.hr} />
 
-            <Row k="Subtotal (ex VAT):" v={euro(subtotalExVat)} />
+            {discountPercentage && discountPercentage > 0 && discountAmount ? (
+              <>
+                <Row k="Subtotal (ex VAT):" v={euro((Number(subtotalExVat) + Number(discountAmount)).toFixed(2))} />
+                <Row k={`Discount (${discountPercentage}%):`} v={`-${euro(discountAmount)}`} />
+                <Row k="After discount (ex VAT):" v={euro(subtotalExVat)} />
+              </>
+            ) : (
+              <Row k="Subtotal (ex VAT):" v={euro(subtotalExVat)} />
+            )}
             <Row k="VAT 23%:" v={euro(vatAmount)} />
             <Row k="Total paid today:" v={euro(totalInclVat)} />
             <Row k="Refundable deposit at handover:" v={euro(depositAmount)} />

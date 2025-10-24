@@ -14,6 +14,7 @@ export type BuildFullSessionArgs = {
   days: number;
   /**
    * Subtotal to charge now (euros, pre-VAT).
+   * This should be the FINAL discounted amount if a discount was applied.
    * VAT 23% will be applied via a fixed Stripe Tax Rate on the line item.
    */
   totalEuros: number;
@@ -25,6 +26,15 @@ export type BuildFullSessionArgs = {
    * in the Dashboard (e.g., card, MB WAY, SEPA Direct Debit).
    */
   paymentMethodTypes?: Stripe.Checkout.SessionCreateParams.PaymentMethodType[];
+  /**
+   * Optional discount percentage (0-100) for metadata tracking only.
+   * The totalEuros should already reflect the discounted amount.
+   */
+  discountPercentage?: number;
+  /**
+   * Optional: original total before discount (for metadata/tracking).
+   */
+  originalTotalEuros?: number;
 };
 
 /**
@@ -44,10 +54,36 @@ export function buildFullCheckoutSessionParams(
     customerEmail,
     appUrl,
     paymentMethodTypes,
+    discountPercentage = 0,
+    originalTotalEuros,
   } = args;
 
   const startDate = isoDate(from);
   const endDate = isoDate(to);
+
+  // Convert to cents and validate it's a non-negative integer
+  const totalCents = Math.round(totalEuros * 100);
+  const originalTotalCents = originalTotalEuros
+    ? Math.round(originalTotalEuros * 100)
+    : totalCents;
+
+  if (totalCents < 0) {
+    throw new Error(
+      `Invalid totalEuros: ${totalEuros}. Cannot create checkout with negative amount.`
+    );
+  }
+
+  // Debug logging
+  if (process.env.LOG_CHECKOUT_DEBUG === "1") {
+    console.log("[stripe] buildFullCheckoutSessionParams debug", {
+      bookingId,
+      totalEuros,
+      totalCents,
+      discountPercentage,
+      originalTotalEuros,
+      originalTotalCents,
+    });
+  }
 
   const baseMetadata = {
     bookingId: String(bookingId),
@@ -55,6 +91,14 @@ export function buildFullCheckoutSessionParams(
     startDate,
     endDate,
     flow: "full_upfront" as const,
+    // Add discount tracking to metadata
+    ...(discountPercentage > 0
+      ? {
+          discount_percent: String(discountPercentage),
+          original_subtotal_cents: String(originalTotalCents),
+          discounted_subtotal_cents: String(totalCents),
+        }
+      : {}),
   };
 
   // Require a tax rate env to avoid silent mis-taxing in prod.
@@ -91,16 +135,19 @@ export function buildFullCheckoutSessionParams(
     // Only set payment_method_types when caller passes an override.
     ...(paymentMethodTypes ? { payment_method_types: paymentMethodTypes } : {}),
 
-    // One line item with tax-exclusive pricing; PT VAT 23% is applied via tax_rates.
+    // Single line item with the discounted total (if discount was applied, totalEuros is already discounted)
     line_items: [
       {
         price_data: {
-          unit_amount: Math.round(totalEuros * 100), // cents, pre-VAT
+          unit_amount: totalCents, // Already in cents and validated as non-negative
           currency: "eur",
           tax_behavior: "exclusive",
           product_data: {
             name: `Rental — ${machine.name}`,
-            description: lineDesc(startDate, endDate, days),
+            description:
+              discountPercentage > 0
+                ? `${lineDesc(startDate, endDate, days)} (${discountPercentage}% partner discount applied)`
+                : lineDesc(startDate, endDate, days),
           },
         },
         tax_rates: [ptVatRateId],

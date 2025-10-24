@@ -24,6 +24,8 @@ export type InternalConfirmedView = {
   invoicePdfUrl?: string;
   deliverySelected?: boolean;
   pickupSelected?: boolean;
+  discountPercentage?: number;
+  discountAmount?: string;
 };
 
 export type NotifySource = "customer" | "ops";
@@ -68,6 +70,8 @@ export async function buildInternalEmail(
       vatAmount={view.vatAmount}
       totalInclVat={view.totalInclVat}
       depositAmount={view.depositAmount}
+      discountPercentage={view.discountPercentage}
+      discountAmount={view.discountAmount}
       opsUrlForBooking={opsUrlForBooking}
       stripePiId={undefined}
       stripePiUrl={undefined}

@@ -125,6 +125,7 @@ export async function notifyBookingConfirmed(
       operatorSelected: true,
       totalCost: true,
       depositPaid: true,
+      discountPercentage: true,
       invoiceNumber: true,
       invoicePdfUrl: true,
       confirmationEmailSentAt: true,
@@ -151,6 +152,12 @@ export async function notifyBookingConfirmed(
     deliverySelected: b.deliverySelected,
     pickupSelected: b.pickupSelected,
   });
+
+  // Calculate discount data if applicable
+  const discountPercentage = decimalToNumber(b.discountPercentage ?? 0);
+  const discountAmount = discountPercentage > 0
+    ? toMoneyString((decimalToNumber(b.totalCost) * discountPercentage) / (100 * (1 - discountPercentage / 100)))
+    : undefined;
 
   // Prepare invoice info. We may improve it with a grace wait below.
   let invoiceNow =
@@ -198,6 +205,8 @@ export async function notifyBookingConfirmed(
         invoicePdfUrl: signedUrl,
         deliverySelected: b.deliverySelected,
         pickupSelected: b.pickupSelected,
+        discountPercentage: discountPercentage > 0 ? discountPercentage : undefined,
+        discountAmount,
       };
 
       // async builder (server fn)
@@ -250,6 +259,8 @@ export async function notifyBookingConfirmed(
           : undefined,
         deliverySelected: b.deliverySelected,
         pickupSelected: b.pickupSelected,
+        discountPercentage: discountPercentage > 0 ? discountPercentage : undefined,
+        discountAmount,
       };
 
       const internalReact: ReactElement = await buildInternalEmail(
