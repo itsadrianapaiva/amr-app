@@ -85,9 +85,16 @@ export async function ensurePaymentIntentIdFromSession(
   }
 }
 
-/** Idempotent promotion: PENDING -> CONFIRMED, clear hold window, attach PI. */
+/** Idempotent promotion: PENDING -> CONFIRMED, clear hold window, attach PI, persist totals + discount. */
 export async function promoteBookingToConfirmed(
-  args: { bookingId: number; paymentIntentId: string | null },
+  args: {
+    bookingId: number;
+    paymentIntentId: string | null;
+    totalCostEuros?: number | null;
+    discountPercent?: number | null;
+    originalSubtotalExVatCents?: number | null;
+    discountedSubtotalExVatCents?: number | null;
+  },
   log: LogFn = defaultLog
 ) {
   await db.$transaction(async (tx) => {
@@ -98,6 +105,10 @@ export async function promoteBookingToConfirmed(
         status: true,
         stripePaymentIntentId: true,
         depositPaid: true, // TODO: rename to `paid` in a later migration.
+        totalCost: true,
+        discountPercentage: true,
+        originalSubtotalExVatCents: true,
+        discountedSubtotalExVatCents: true,
       },
     });
     if (!existing) {
@@ -111,20 +122,58 @@ export async function promoteBookingToConfirmed(
       return;
     }
 
+    // Build update data - only set values if provided and not already set (idempotent)
+    const updateData: any = {
+      status: BookingStatus.CONFIRMED,
+      depositPaid: true, // interim: means "fully paid" after the pivot.
+      holdExpiresAt: null,
+      stripePaymentIntentId:
+        args.paymentIntentId ?? existing.stripePaymentIntentId ?? null,
+    };
+
+    // Persist totalCost from Stripe amount_total (VAT-inclusive)
+    if (args.totalCostEuros != null && existing.totalCost == null) {
+      updateData.totalCost = args.totalCostEuros;
+    }
+
+    // Persist discount metadata (idempotent - only if not already set)
+    // Write when existing is null OR numerically zero (DB default)
+    const existingDiscountNum = Number(
+      (existing.discountPercentage as any)?.toNumber?.() ??
+        existing.discountPercentage ??
+        0
+    );
+    if (
+      args.discountPercent != null &&
+      (existing.discountPercentage == null || existingDiscountNum === 0)
+    ) {
+      updateData.discountPercentage = args.discountPercent;
+    }
+    if (
+      args.originalSubtotalExVatCents != null &&
+      (existing.originalSubtotalExVatCents == null ||
+        existing.originalSubtotalExVatCents === 0)
+    ) {
+      updateData.originalSubtotalExVatCents = args.originalSubtotalExVatCents;
+    }
+    if (
+      args.discountedSubtotalExVatCents != null &&
+      (existing.discountedSubtotalExVatCents == null ||
+        existing.discountedSubtotalExVatCents === 0)
+    ) {
+      updateData.discountedSubtotalExVatCents = args.discountedSubtotalExVatCents;
+    }
+
     await tx.booking.update({
       where: { id: args.bookingId },
-      data: {
-        status: BookingStatus.CONFIRMED,
-        depositPaid: true, // interim: means "fully paid" after the pivot.
-        holdExpiresAt: null,
-        stripePaymentIntentId:
-          args.paymentIntentId ?? existing.stripePaymentIntentId ?? null,
-      },
+      data: updateData,
     });
 
     log("promote:updated", {
       bookingId: args.bookingId,
       attachedPI: args.paymentIntentId ?? null,
+      totalCost: args.totalCostEuros ?? null,
+      discountPercent: args.discountPercent ?? null,
     });
   });
 }
@@ -141,6 +190,33 @@ export async function cancelPendingBooking(
   log("expired:cancelled_pending", { bookingId, changed: res.count });
 }
 
+/** Extract discount metadata from session for persistence */
+export function extractDiscountMetadata(session: Stripe.Checkout.Session) {
+  const metadata = session.metadata || {};
+
+  const discountPercent = metadata.discount_percent
+    ? Number(metadata.discount_percent)
+    : null;
+  const originalCents = metadata.original_subtotal_cents
+    ? parseInt(metadata.original_subtotal_cents, 10)
+    : null;
+  const discountedCents = metadata.discounted_subtotal_cents
+    ? parseInt(metadata.discounted_subtotal_cents, 10)
+    : null;
+
+  // Only return values if all three are valid
+  if (
+    discountPercent != null &&
+    Number.isFinite(discountPercent) &&
+    Number.isFinite(originalCents) &&
+    Number.isFinite(discountedCents)
+  ) {
+    return { discountPercent, originalCents, discountedCents };
+  }
+
+  return null;
+}
+
 /** Convenience: read bookingId + PI + flow from a Session in one place. */
 export function extractSessionFacts(session: Stripe.Checkout.Session) {
   return {
@@ -149,6 +225,7 @@ export function extractSessionFacts(session: Stripe.Checkout.Session) {
     paymentIntentId: paymentIntentIdFromSession(session),
     amountTotalCents:
       typeof session.amount_total === "number" ? session.amount_total : null,
+    discountMetadata: extractDiscountMetadata(session),
   };
 }
 

@@ -19,6 +19,9 @@ type Props = {
   pickupCharge: number;
   insuranceCharge: number;
   operatorCharge: number | null;
+
+  // Discount
+  discountPercentage?: number;
 };
 
 /**
@@ -40,6 +43,7 @@ export default function SummaryPanel({
   pickupCharge,
   insuranceCharge,
   operatorCharge,
+  discountPercentage = 0,
 }: Props) {
   if (rentalDays <= 0) return null;
 
@@ -57,6 +61,7 @@ export default function SummaryPanel({
         insuranceCharge={insuranceCharge}
         operatorSelected={operatorSelected}
         operatorCharge={operatorCharge}
+        discountPercentage={discountPercentage}
       />
     </div>
   );

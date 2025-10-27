@@ -47,6 +47,7 @@ export function useBookingFormLogic(args: {
     pickupSelected: true,
     insuranceSelected: true,
     operatorSelected: false,
+    discountPercentage: 0,
     billingIsBusiness: false,
     billingCompanyName: "",
     billingTaxId: "",

@@ -24,6 +24,9 @@ type PriceSummaryProps = {
   insuranceCharge?: number | null;
   operatorCharge?: number | null; // per day operator fee
 
+  // Discount
+  discountPercentage?: number; // 0-100
+
   // Deposit (shown separately; not included in the computeTotals total)
   deposit: number;
 
@@ -46,6 +49,7 @@ export function PriceSummary({
   pickupCharge = 0,
   insuranceCharge = null,
   operatorCharge = null,
+  discountPercentage = 0,
   deposit,
   className,
 }: PriceSummaryProps) {
@@ -61,6 +65,7 @@ export function PriceSummary({
     insuranceCharge,
     operatorSelected,
     operatorCharge,
+    discountPercentage,
   };
 
   // Net (ex-VAT) breakdown from central pricing utility
@@ -117,6 +122,15 @@ export function PriceSummary({
           {operatorSelected && operatorCharge != null && (
             <PriceRow label="Driver / Operator">
               {formatCurrency(breakdown.operator)}
+            </PriceRow>
+          )}
+
+          {/* Discount row */}
+          {breakdown.discount > 0 && (
+            <PriceRow label={`Discount (${discountPercentage}%)`}>
+              <span className="text-green-600">
+                -{formatCurrency(breakdown.discount)}
+              </span>
             </PriceRow>
           )}
 

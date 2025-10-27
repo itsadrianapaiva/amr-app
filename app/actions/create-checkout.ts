@@ -14,6 +14,7 @@ import { buildFullCheckoutSessionParams } from "@/lib/stripe/checkout.full";
 import { createCheckoutSessionWithGuards } from "@/lib/stripe/create-session";
 import { checkServiceArea } from "@/lib/geo/check-service-area";
 import { tomorrowStartLisbonUTC } from "@/lib/dates/lisbon";
+import { resolveBaseUrl } from "@/lib/url/base";
 
 // Persistence adapter and DTO
 import {
@@ -32,53 +33,6 @@ type CheckoutResult =
   | { ok: true; url: string }
   | { ok: false; formError: string };
 
-/** Resolve the canonical base URL for building absolute https redirect URLs. */
-function appBaseUrl(): string {
-  // Candidate order: explicit overrides first, then Netlify built-ins
-  const candidates = [
-    process.env.APP_URL?.trim(),
-    process.env.NEXT_PUBLIC_APP_URL?.trim(),
-    process.env.URL?.trim(), // Netlify published or branch URL
-    process.env.DEPLOY_PRIME_URL?.trim(), // Netlify previews/branch deploys
-  ].filter(Boolean) as string[];
-
-  // Ignore accidental literal "$FOO" values (Netlify UI doesn't expand vars)
-  const pick = candidates.find((v) => !v.startsWith("$")) ?? "";
-
-  // In production, never fall back to localhost — fail fast and loudly
-  if (!pick) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error(
-        "Base URL missing. Provide APP_URL (or rely on Netlify URL/DEPLOY_PRIME_URL)."
-      );
-    }
-    return "http://localhost:3000";
-  }
-
-  // Validate and normalize
-  let u: URL;
-  try {
-    u = new URL(pick);
-  } catch {
-    throw new Error(`APP_URL/URL value is not a valid absolute URL: "${pick}"`);
-  }
-
-  // Enforce https scheme in production (Stripe requires absolute https)
-  if (process.env.NODE_ENV === "production" && u.protocol !== "https:") {
-    throw new Error(
-      `Base URL must be https in production; got "${u.protocol}".`
-    );
-  }
-
-  const origin = u.origin;
-
-  if (process.env.LOG_CHECKOUT_DEBUG === "1") {
-    // Non-secret breadcrumb to verify which base won
-    console.log("[checkout] base_url_resolved", { origin });
-  }
-
-  return origin;
-}
 
 /** Return YYYY-MM-DD without timezone drift. */
 function ymdLisbon(d: Date): string {
@@ -143,6 +97,7 @@ export async function createCheckoutAction(
     if (fenceMsg) return { ok: false, formError: fenceMsg };
 
     // 3) Compute totals server-side (authoritative), PRE-VAT
+    const discountPercentage = Number(payload.discountPercentage ?? 0);
     const totals = computeTotals({
       rentalDays: days,
       dailyRate: Number(machine.dailyRate),
@@ -154,7 +109,27 @@ export async function createCheckoutAction(
       insuranceCharge: INSURANCE_CHARGE,
       operatorSelected: Boolean(payload.operatorSelected),
       operatorCharge: OPERATOR_CHARGE,
+      discountPercentage,
     });
+
+    // Calculate original total (before discount) for metadata tracking
+    const originalTotal =
+      discountPercentage > 0 && totals.discount > 0
+        ? totals.total + totals.discount
+        : totals.total;
+
+    // Debug logging
+    if (process.env.LOG_CHECKOUT_DEBUG === "1") {
+      console.log("[checkout] totals computed", {
+        bookingId: "(pending)",
+        machineId: machine.id,
+        discountPercentage,
+        discountAmount: totals.discount,
+        originalTotal,
+        finalTotal: totals.total,
+        totalCents: Math.round(totals.total * 100),
+      });
+    }
 
     // 4) Persist or reuse a PENDING booking (atomic + advisory lock)
     const dto: PendingBookingDTO = {
@@ -188,21 +163,26 @@ export async function createCheckoutAction(
 
       // Store **pre-VAT** total; Stripe will compute VAT in Checkout & on receipt.
       totals: { total: totals.total },
+
+      // Store discount percentage for audit trail
+      discountPercentage: Number(payload.discountPercentage ?? 0),
     };
 
     const booking = await persistPendingBooking(dto);
 
     // 5) Build FULL Checkout (VAT via Stripe Tax; methods: card + MB WAY + SEPA)
-    const appUrl = appBaseUrl();
+    const appUrl = resolveBaseUrl();
     const sessionParams = buildFullCheckoutSessionParams({
       bookingId: booking.id,
       machine: { id: machine.id, name: machine.name },
       from,
       to,
       days,
-      totalEuros: Number(totals.total),
+      totalEuros: Number(totals.total), // Already discounted
       customerEmail: payload.email,
       appUrl,
+      discountPercentage,
+      originalTotalEuros: discountPercentage > 0 ? originalTotal : undefined,
     });
 
     // idempotency key that reflects the current selections.
@@ -216,6 +196,16 @@ export async function createCheckoutAction(
       insurance: !!payload.insuranceSelected,
       operator: !!payload.operatorSelected,
     });
+
+    // Debug: log full Stripe session params
+    if (process.env.LOG_CHECKOUT_DEBUG === "1") {
+      console.log("[checkout] stripe session params", {
+        bookingId: booking.id,
+        mode: sessionParams.mode,
+        metadata: sessionParams.metadata,
+        line_items: JSON.stringify(sessionParams.line_items, null, 2),
+      });
+    }
 
     const session = await createCheckoutSessionWithGuards(sessionParams, {
       idempotencyKey: idemKey,
