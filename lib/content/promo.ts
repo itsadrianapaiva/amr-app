@@ -23,9 +23,9 @@ export type PromoContent = {
 
 /** Current active promo offer shown on homepage modal */
 export const PROMO_MODAL: PromoContent = {
-  title: "10% Off Your First Rental — Limited-Time Offer",
+  title: "10% Off Your First Rental",
   description:
-    "Secure, professional equipment rental trusted by builders across the Algarve.",
+    "Secure, professional equipment rental trusted by builders across the Algarve. At checkout, use promo code WELCOME10. ",
   ctaBrowse: "Browse Machines",
   ctaReviews: "See Reviews on Google",
   highlight: "Limited-Time Offer",

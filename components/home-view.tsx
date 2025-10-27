@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 
 import Hero from "@/components/hero";
 import CatalogSection from "@/components/catalog-section";
+import { PromoModal } from "@/components/promo-modal";
 // Split below-the-fold bundles:
 const WhyBook = dynamic(() => import("./why-book"), { ssr: true });
 const Faq = dynamic(() => import("./faq"), { ssr: true });
@@ -88,6 +89,9 @@ function SectionAnchor({ id }: { id: string }) {
 export function HomeView({ machines }: HomeViewProps) {
   return (
     <main>
+      {/* Promo modal — first-visit promotion */}
+      <PromoModal />
+
       <DeferredScroll />
 
       {/* Section: Hero (LCP target, kept eager) */}
