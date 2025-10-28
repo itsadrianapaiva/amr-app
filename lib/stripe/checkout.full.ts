@@ -127,6 +127,9 @@ export function buildFullCheckoutSessionParams(
     // Keep address collection light now that tax rate is fixed.
     billing_address_collection: "auto",
 
+    // Enable promotion code input for first-rental discounts (e.g., WELCOME10)
+    allow_promotion_codes: true,
+
     // Mirror metadata into Session (PI metadata mirrored by our wrapper).
     metadata: baseMetadata,
 
