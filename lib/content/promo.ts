@@ -31,5 +31,5 @@ export const PROMO_MODAL: PromoContent = {
   highlight: "Limited-Time Offer",
   badge: "New Customer Offer",
   legal:
-    "Valid for first-time rentals only. Use promo code WELCOME10 at checkout. Offer expires in 7 days or after 10 redemptions.",
+    "Valid for first-time rentals only. Use promo code WELCOME10 at checkout. Offer expires in 3 days or after 10 redemptions.",
 };
