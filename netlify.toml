@@ -1,9 +1,22 @@
+
 [build]
   command = "next build"
   publish = ".next"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+  # --- Ensure Next.js static assets are served as files (no rewrites) ---
+[[redirects]]
+  from = "/_next/static/*"
+  to = "/_next/static/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/_next/image*"
+  to = "/_next/image"
+  status = 200
+
 
 [functions]
   directory = "netlify/functions"
