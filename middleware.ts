@@ -1,3 +1,4 @@
+// middleware.ts
 import { NextResponse, type NextRequest } from "next/server";
 import {
   verifySessionFromCookie,
@@ -14,7 +15,7 @@ const OPS_API_PREFIX = "/api/ops-admin";
 const DEV_PREFIX = "/dev";
 const DEV_API_PREFIX = "/api/dev";
 
-/** tiny helper lives OUTSIDE the function */
+/** NEW: tiny helper lives OUTSIDE the function */
 function looksLikeStatic(path: string) {
   if (path.startsWith("/_next/")) return true;
   if (path.startsWith("/images/")) return true;
