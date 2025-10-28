@@ -57,7 +57,6 @@ export function PromoModal() {
   };
 
   const handleBrowse = () => {
-    handleDismiss();
     const catalog = document.getElementById("catalog");
     if (catalog) {
       catalog.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -65,7 +64,6 @@ export function PromoModal() {
   };
 
   const handleReviews = () => {
-    handleDismiss();
     window.open(PROMO_GOOGLE_URL, "_blank", "noopener,noreferrer");
   };
 
@@ -74,10 +72,7 @@ export function PromoModal() {
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogOverlay />
-      <AlertDialogContent
-        className="max-w-lg border-0 bg-black p-0"
-        aria-describedby="promo-description"
-      >
+      <AlertDialogContent className="max-w-lg border-0 bg-black p-0">
         {/* Inner container with gradient border */}
         <div className="relative overflow-hidden rounded-lg">
           {/* Gradient border effect */}
@@ -103,28 +98,31 @@ export function PromoModal() {
               <AlertDialogTitle className="text-center text-2xl font-bold text-white sm:text-3xl">
                 {PROMO_MODAL.title}
               </AlertDialogTitle>
-              <AlertDialogDescription
-                id="promo-description"
-                className="text-center text-base text-gray-300"
-              >
+              <AlertDialogDescription className="text-center text-base text-gray-300">
                 {PROMO_MODAL.description}
               </AlertDialogDescription>
             </AlertDialogHeader>
 
             {/* CTAs */}
             <AlertDialogFooter className="mt-6 flex-col gap-3 sm:flex-col">
+              {/* Keep Action for Browse Machines so it closes + suppresses */}
               <AlertDialogAction
                 onClick={handleBrowse}
                 className="w-full bg-gradient-to-r from-[#FF4F00] to-[#FF8C00] text-white hover:opacity-90"
               >
                 {PROMO_MODAL.ctaBrowse}
               </AlertDialogAction>
-              <AlertDialogAction
+
+              {/* Use a plain link so the dialog stays open */}
+              <a
+                href={PROMO_GOOGLE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
                 onClick={handleReviews}
-                className="w-full border border-gray-600 bg-transparent text-white hover:bg-gray-900"
+                className="inline-flex w-full items-center justify-center rounded-md border border-gray-600 bg-transparent px-4 py-2 text-white hover:bg-gray-900"
               >
                 {PROMO_MODAL.ctaReviews}
-              </AlertDialogAction>
+              </a>
             </AlertDialogFooter>
 
             {/* Legal disclaimer */}
