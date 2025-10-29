@@ -3,7 +3,7 @@
  * - Verifies client_reference_id and metadata.bookingId are present.
  * - Mirrors metadata to payment_intent_data.metadata for easy reconciliation.
  * - Supports an idempotency key to avoid duplicate sessions.
- * - NEW: Strips `customer_update` when no `customer` is provided (Stripe 400 guard).
+ * - Strips `customer_update` when no `customer` is provided (Stripe 400 guard).
  */
 
 import type Stripe from "stripe";

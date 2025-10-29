@@ -24,7 +24,7 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     "app/api/dev/balance-auth"
-  ],
+, "scripts/write-staging-headers.js"  ],
   "exclude": [
     "node_modules",
     "next.config.ts" // File was removed; exclude to silence TS plugin/glob
