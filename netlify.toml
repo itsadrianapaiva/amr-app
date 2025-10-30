@@ -31,6 +31,11 @@
       "algarvemachinery.netlify.app",        # site subdomain
     ] }
 
+     [[context."branch:staging".redirects]]
+    from = "/*"
+    to = "/:splat"
+    status = 200
+
 # ---------- URLs per context ----------
 [context.production.environment]
   APP_URL = "$URL"
@@ -76,8 +81,11 @@
   command = "node scripts/netlify-build.js"
 
 # Staging branch: run migrations, then build
+# Prevent production redirect from affecting branch deploys
 [context."branch:staging"]
   command = "node scripts/netlify-build.js"
+  # Do NOT include redirects; staging must stay isolated
+
 
 # All other branch deploys: build only
 [context.branch-deploy]
