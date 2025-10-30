@@ -1,3 +1,9 @@
+// Force dynamic rendering on staging so Netlify never serves stale cached HTML
+// that references old chunk IDs. This matches ops-admin behavior.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
+
 import "server-only";
 import LoginForm from "@/components/auth/login-form";
 import { loginAction, authenticate } from "./actions";
