@@ -94,6 +94,13 @@
     OPS_DISABLE_AUTH = "0"
     OPS_AUTH_DISABLED = "0"
 
+    # HARD STOP: never send branch deploys to production
+  [[context.branch-deploy.redirects]]
+    from = "/*"
+    to = "/:splat"
+    status = 200
+    force = true
+
 # -------------------------
 # DEPLOY PREVIEWS (PR previews)
 # -------------------------
