@@ -1,5 +1,5 @@
-
 [build]
+  # We still build to .next and let the Netlify Next.js plugin do its thing
   command = "next build"
   publish = ".next"
 
@@ -20,83 +20,99 @@
   port = 8888
   autoLaunch = false
 
-   # ---- Force primary domain on production only ----
+# -------------------------
+# PRODUCTION CONTEXT
+# -------------------------
+[context.production]
+  # In production we run migrations, then build (and emit staging headers script won't run here)
+  command = "node scripts/netlify-build.js"
+
+  # Environment for production
+  [context.production.environment]
+    APP_URL = "$URL"
+    NEXT_PUBLIC_APP_URL = "$URL"
+    RUN_MIGRATIONS = "1"
+
+    # Ops ON in production (auth required)
+    OPS_DASHBOARD_ENABLED = "1"
+    OPS_DISABLE_AUTH = "0"
+    OPS_AUTH_DISABLED = "0"
+
+  # Force canonical domain in production ONLY
   [[context.production.redirects]]
     from = "/*"
     to = "https://amr-rentals.com/:splat"
     status = 301
     force = true
+    # Only match real prod-ish hosts. Do NOT include branch deploy hosts.
     conditions = { Host = [
-      "www.amr-rentals.com",                 # www → apex
-      "algarvemachinery.netlify.app",        # site subdomain
+      "www.amr-rentals.com",
+      "algarvemachinery.netlify.app"
     ] }
 
-     [[context."branch:staging".redirects]]
+# -------------------------
+# STAGING CONTEXT (branch: staging)
+# -------------------------
+[context."branch:staging"]
+  # Staging also runs migrations then build
+  command = "node scripts/netlify-build.js"
+
+  [context."branch:staging".environment]
+    # In staging we want branch URL as app URL
+    APP_URL = "$DEPLOY_PRIME_URL"
+    NEXT_PUBLIC_APP_URL = "$DEPLOY_PRIME_URL"
+    RUN_MIGRATIONS = "1"
+
+    # Ops enabled WITH auth on staging
+    OPS_DASHBOARD_ENABLED = "1"
+    OPS_DISABLE_AUTH = "0"
+    OPS_AUTH_DISABLED = "0"
+
+    # Example: temporarily omit a key from scanner on this one branch
+    SECRETS_SCAN_OMIT_KEYS = "STRIPE_SECRET_KEY"
+
+  # Hard override: NEVER redirect branch deploy traffic to production
+  # This short-circuits any other redirect rule for this context.
+  [[context."branch:staging".redirects]]
     from = "/*"
     to = "/:splat"
     status = 200
 
-# ---------- URLs per context ----------
-[context.production.environment]
-  APP_URL = "$URL"
-  NEXT_PUBLIC_APP_URL = "$URL"
-  RUN_MIGRATIONS = "1"
-  # Ops ON in production (auth required)
-  OPS_DASHBOARD_ENABLED = "1"
-  OPS_DISABLE_AUTH = "0"
-  OPS_AUTH_DISABLED = "0"
-
-# Applies to any branch deploy (feature/*, bugfix/*, etc.)
-[context.branch-deploy.environment]
-  APP_URL = "$DEPLOY_PRIME_URL"
-  NEXT_PUBLIC_APP_URL = "$DEPLOY_PRIME_URL"
-  RUN_MIGRATIONS = "0"
-  # Ops is enabled on staging (with auth)
-  OPS_DASHBOARD_ENABLED = "1"
-  OPS_DISABLE_AUTH = "0"
-  OPS_AUTH_DISABLED = "0"
-
-# Specific branch-only override: staging
-# This is the correct syntax for a single branch context
-[context."branch:staging".environment]
-  RUN_MIGRATIONS = "1"
-  # Example: temporarily omit a key from scanner on this one branch
-  SECRETS_SCAN_OMIT_KEYS = "STRIPE_SECRET_KEY"
-  # Ops is enabled on staging (with auth)
-  OPS_DASHBOARD_ENABLED = "1"
-  OPS_DISABLE_AUTH = "0"
-  OPS_AUTH_DISABLED = "0"
-
-[context.deploy-preview.environment]
-  APP_URL = "$DEPLOY_PRIME_URL"
-  NEXT_PUBLIC_APP_URL = "$DEPLOY_PRIME_URL"
-  RUN_MIGRATIONS = "0"
-  # Optional: previews can show Ops; auth can be disabled for fast smoke
-  OPS_DASHBOARD_ENABLED = "1"
-  OPS_DISABLE_AUTH = "1"
-
-# ---------- Build commands per context ----------
-# Production: run migrations, then build
-[context.production]
-  command = "node scripts/netlify-build.js"
-
-# Staging branch: run migrations, then build
-# Prevent production redirect from affecting branch deploys
-[context."branch:staging"]
-  command = "node scripts/netlify-build.js"
-  # Do NOT include redirects; staging must stay isolated
-
-
-# All other branch deploys: build only
+# -------------------------
+# GENERIC BRANCH DEPLOYS (feature/* etc)
+# -------------------------
 [context.branch-deploy]
   command = "next build"
 
-# Deploy previews: build only
+  [context.branch-deploy.environment]
+    APP_URL = "$DEPLOY_PRIME_URL"
+    NEXT_PUBLIC_APP_URL = "$DEPLOY_PRIME_URL"
+    RUN_MIGRATIONS = "0"
+
+    # Ops enabled with auth (same behavior as staging unless overridden)
+    OPS_DASHBOARD_ENABLED = "1"
+    OPS_DISABLE_AUTH = "0"
+    OPS_AUTH_DISABLED = "0"
+
+# -------------------------
+# DEPLOY PREVIEWS (PR previews)
+# -------------------------
 [context.deploy-preview]
   command = "next build"
 
-  # ---------- Global headers ----------
-# Prevent indexing of any /ops URLs across all contexts
+  [context.deploy-preview.environment]
+    APP_URL = "$DEPLOY_PRIME_URL"
+    NEXT_PUBLIC_APP_URL = "$DEPLOY_PRIME_URL"
+    RUN_MIGRATIONS = "0"
+
+    # Preview env can bypass ops auth for quick smoke
+    OPS_DASHBOARD_ENABLED = "1"
+    OPS_DISABLE_AUTH = "1"
+
+# -------------------------
+# GLOBAL HEADERS
+# -------------------------
+# Prevent indexing of any /ops URLs in any environment
 [[headers]]
   for = "/ops-admin/*"
   [headers.values]
