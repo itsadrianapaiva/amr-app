@@ -9,6 +9,14 @@ const E2E_HEADER = "x-e2e-secret";
 const E2E_SECRET = process.env.E2E_SECRET ?? "";
 const AUTH_COOKIE_SECRET = process.env.AUTH_COOKIE_SECRET ?? "";
 
+// Hosts that should enforce canonical ops host.
+// Staging/preview hosts like staging--algarvemachinery.netlify.app are NOT in this list.
+const PROD_HOSTS = new Set([
+  "algarvemachinery.netlify.app",
+  "www.amr-rentals.com",
+  "amr-rentals.com",
+]);
+
 // Paths we care about
 const OPS_PREFIX = "/ops-admin";
 const OPS_API_PREFIX = "/api/ops-admin";
@@ -50,29 +58,30 @@ function unauthorizedJson(dbg?: string): NextResponse {
 
 export async function middleware(req: NextRequest) {
   const { pathname, origin, search } = req.nextUrl;
+  const reqHost = req.nextUrl.host;
 
-  // Canonicalize host early for ops surfaces in production ---
-  if (process.env.NODE_ENV === "production") {
-    const primaryHost = "amr-rentals.com"; // single source of truth
-    const reqHost = req.nextUrl.host; // hostname[:port]
-    const isOpsSurface =
-      pathname === "/ops-admin" ||
-      pathname.startsWith("/ops-admin/") ||
-      pathname === "/api/ops-admin" ||
-      pathname.startsWith("/api/ops-admin/");
+  // 1. Canonicalize ops surfaces ONLY on prod-like hosts.
+  //    - Prevents staging/branch deploys from being bounced to amr-rentals.com.
+  //    - Still keeps prod traffic consolidated under amr-rentals.com.
+  const isProdLikeHost = PROD_HOSTS.has(reqHost);
+  const isOpsSurface =
+    pathname === "/ops-admin" ||
+    pathname.startsWith("/ops-admin/") ||
+    pathname === "/api/ops-admin" ||
+    pathname.startsWith("/api/ops-admin/");
 
-    if (isOpsSurface && reqHost !== primaryHost) {
-      const url = new URL(req.url);
-      url.protocol = "https:"; // enforce https
-      url.hostname = primaryHost; // drop deploy-hash / www hosts
-      url.port = ""; // ensure clean host
-      return NextResponse.redirect(url, 308); // permanent canonicalization
-    }
+  if (isProdLikeHost && isOpsSurface && reqHost !== "amr-rentals.com") {
+    const url = new URL(req.url);
+    url.protocol = "https:"; // enforce https
+    url.hostname = "amr-rentals.com"; // single canonical ops host
+    url.port = ""; // clean host
+    return NextResponse.redirect(url, 308); // permanent canonicalization
   }
 
-  // Dev guard (prod only)
+  // 2. Dev guard (prod-only surfaces)
+  //    For /dev and /api/dev endpoints, require the E2E header UNLESS you're in a non-prod-like host.
   if (
-    process.env.NODE_ENV === "production" &&
+    isProdLikeHost &&
     (isDevPath(pathname) || isDevApiPath(pathname))
   ) {
     if (req.headers.get(E2E_HEADER) !== E2E_SECRET) {
@@ -81,32 +90,32 @@ export async function middleware(req: NextRequest) {
     return withNoIndex(NextResponse.next(), "dev:prod:e2e-ok");
   }
 
-  // Only guard ops-admin surfaces
+  // 3. If this is NOT /ops-admin or /api/ops-admin, just continue.
   if (!(isOpsPath(pathname) || isOpsApiPath(pathname))) {
     return NextResponse.next();
   }
 
-  // Feature flag
+  // 4. Feature flag check.
   if (!isOpsDashboardEnabled()) {
     return notFound("ops:flag-off");
   }
 
-  // E2E bypass
+  // 5. E2E bypass still wins regardless of environment.
   if (req.headers.get(E2E_HEADER) === E2E_SECRET) {
     return withNoIndex(NextResponse.next(), "ops:bypass");
   }
 
-  // Auth disabled?
+  // 6. If auth is globally disabled (like deploy-preview), allow.
   if (isAuthDisabled()) {
     return withNoIndex(NextResponse.next(), "ops:auth-disabled");
   }
 
-  // Require secret configured
+  // 7. Require cookie secret to even attempt auth.
   if (!AUTH_COOKIE_SECRET) {
     return unauthorized("ops:no-cookie-secret");
   }
 
-  // Verify session
+  // 8. Verify session. If valid, pass through with role debug.
   const cookieHeader = req.headers.get("cookie");
   const ver = await verifySessionFromCookie(cookieHeader, AUTH_COOKIE_SECRET);
 
@@ -114,7 +123,7 @@ export async function middleware(req: NextRequest) {
     return withNoIndex(NextResponse.next(), `ops:auth-ok:${ver.session.role}`);
   }
 
-  // Not authenticated
+  // 9. Not authenticated.
   if (isApiPath(pathname)) {
     return unauthorizedJson("ops:api:auth-miss");
   } else {
