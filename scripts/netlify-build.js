@@ -11,7 +11,3 @@ if (runMigrations) {
 
 console.log("→ Building Next.js");
 execSync("next build", { stdio: "inherit" });
-
-// NEW: emit .next/_headers on staging only (no-op elsewhere)
-console.log("→ Emitting staging headers (if applicable)");
-execSync("node scripts/emit-staging-headers.js", { stdio: "inherit" });

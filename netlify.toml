@@ -29,7 +29,6 @@
     conditions = { Host = [
       "www.amr-rentals.com",                 # www → apex
       "algarvemachinery.netlify.app",        # site subdomain
-      "*--algarvemachinery.netlify.app"      # deploy-hash hosts for prod deploys
     ] }
 
 # ---------- URLs per context ----------
