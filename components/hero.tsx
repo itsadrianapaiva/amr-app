@@ -3,10 +3,11 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import ScrollLink from "@/components/nav/scroll-link";
 
+/* PERF-TUNING v2025-10-31: Use optimized WebP versions for faster LCP */
 /* Static imports unlock intrinsic size + blur + preload for priority */
-import hero01 from "@/public/images/hero/hero.jpg";
-import hero02 from "@/public/images/hero/hero-02.jpg";
-import hero03 from "@/public/images/hero/hero-03.jpg";
+import hero01 from "@/public/images/hero/hero.webp";
+import hero02 from "@/public/images/hero/hero-02.webp";
+import hero03 from "@/public/images/hero/hero-03.webp";
 
 type HeroProps = {
   pretitle?: string;
@@ -67,16 +68,18 @@ export default function Hero({
       ].join(" ")}
     >
       {/* LCP: full-bleed background. One image, one priority. */}
+      {/* PERF-TUNING v2025-10-31: Optimized sizes hint to prevent mobile from downloading desktop-size assets */}
       <Image
         src={heroImg}
         alt="Tracked excavator working on a job site"
         fill
         priority
         fetchPriority="high"
-        /* Full-bleed background should advertise viewport width */
-        sizes="100vw"
-        /* With AVIF on, 72 gives good visual quality at smaller bytes */
-        quality={72}
+        /* PERF-TUNING v2025-10-31: Responsive sizes hint caps image width at breakpoints
+         * Mobile gets ~375px, tablet ~768px, desktop caps at 1600px instead of full 1920px+ */
+        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 1600px"
+        /* PERF-TUNING v2025-10-31: Bumped quality to 80 for AVIF to maintain visual fidelity */
+        quality={80}
         placeholder="blur"
         className="absolute inset-0 object-cover"
       />

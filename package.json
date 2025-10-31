@@ -20,7 +20,8 @@
     "dev:next": "next dev -p 3000",
     "dev:all": "run-p dev:netlify",
     "test:e2e:all": "dotenv -e .env.e2e.local -- playwright test --project=chromium --reporter=html,line",
-    "test:e2e:all:clean": "npm run db:clean && npm run test:e2e:all"
+    "test:e2e:all:clean": "npm run db:clean && npm run test:e2e:all",
+    "images:optimize": "node scripts/optimize-images.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",

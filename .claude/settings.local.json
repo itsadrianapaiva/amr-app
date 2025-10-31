@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(nul)",
+      "Bash(dir:*)",
+      "Bash(powershell -Command \"(Get-Item ''c:\\Users\\Adriana Paiva\\amr-app\\public\\images\\hero\\hero.jpg'').Length / 1KB\")",
+      "Bash(copy \"public\\images\\hero\\hero.jpg\" \"public\\images\\raw\\hero.jpg\")",
+      "Bash(copy \"public\\images\\hero\\hero-02.jpg\" \"public\\images\\raw\\hero-02.jpg\")",
+      "Bash(copy \"public\\images\\hero\\hero-03.jpg\" \"public\\images\\raw\\hero-03.jpg\")",
+      "Bash(copy \"public\\assets\\logo-yellow.png\" \"public\\images\\raw\\logo-yellow.png\")",
+      "Bash(npm run images:optimize:*)",
+      "Bash(npm run build:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,7 +1,11 @@
 // components/logo.tsx
-import type { StaticImageData } from "next/image";
+// PERF-TUNING v2025-10-31: Updated to use Next.js Image for optimized delivery
+import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 
+// PERF-TUNING v2025-10-31: Use optimized AVIF for footer logo (94% smaller)
+// For nav/mobile we keep PNG fallback for compatibility
+import logoYellowAvif from "@/public/assets/logo-yellow-optimized.avif";
 import logoYellowPng from "@/public/assets/logo-yellow.png";
 import logoBwPng from "@/public/assets/logo-bw.png";
 
@@ -156,20 +160,24 @@ export default function Logo({
           display: "block",
         };
 
+  // PERF-TUNING v2025-10-31: Use Next.js Image for automatic optimization (AVIF/WebP)
   const imgEl = (
     <span
       className={["select-none", className].filter(Boolean).join(" ")}
       style={wrapperStyle}
     >
-      <img
-        src={srcUrl}
+      <Image
+        src={src}
         alt={alt}
-        decoding="async"
-        draggable={false}
-        loading={priority ? "eager" : "lazy"}
-        // Always provide width/height attributes to encode aspect ratio.
         width={attrWidth}
         height={attrHeight}
+        priority={priority}
+        // PERF-TUNING v2025-10-31: Footer logo should lazy-load and have appropriate sizes hint
+        loading={priority ? "eager" : "lazy"}
+        // Fixed width logos get exact size, auto-width logos get responsive hint
+        sizes={sizing === "fixed" ? `${width}px` : `(max-width: 768px) 200px, ${width}px`}
+        quality={85}
+        draggable={false}
         style={imgStyle}
       />
     </span>
@@ -184,5 +192,7 @@ export default function Logo({
   );
 }
 
-export const AMR_LOGO_YELLOW = logoYellowPng as StaticImageData;
+// PERF-TUNING v2025-10-31: Export optimized AVIF for footer usage
+export const AMR_LOGO_YELLOW = logoYellowAvif as StaticImageData;
+export const AMR_LOGO_YELLOW_PNG = logoYellowPng as StaticImageData;
 export const AMR_LOGO_BW = logoBwPng as StaticImageData;
