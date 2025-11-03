@@ -27,6 +27,10 @@ export const FAQ_CONTENT: FaqContent = {
       a: "Pick your machine, select dates, and pay full amount by card, multibanco or other options we have available via Stripe. We place a short checkout hold so those dates are reserved while you pay. As soon as payment succeeds your booking is confirmed and you will receive an email with your booking details and next steps.",
     },
     {
+      q: "Do you have physical offices we can visit?",
+      a: "We are fully remote. AMR was founded to make renting machinery easy and accessible for everyone. We have no physical offices but we provide all the information you need to feel confident about renting with us.",
+    },
+    {
       q: "When is the deposit charged and refunded?",
       a: "The security deposit is collected at handover: when you pick up from us or when we deliver to your site. You can pay the deposit by card or cash. It is refunded after we receive the machine back and a quick inspection confirms everything is fine.",
     },

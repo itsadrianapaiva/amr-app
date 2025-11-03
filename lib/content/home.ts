@@ -26,15 +26,15 @@ export type HeroContent = {
 export const HOME_HERO: HeroContent = {
   // USP front and center — what sets AMR apart.
   pretitle: "Instant online booking",
-  title: "Rent pro-grade machinery in the Algarve",
+  title: "Rent pro-grade machinery in the Algarve today",
   subtitle:
-    "No quotes, no calls. Choose your machine, pick dates, pay a deposit. Delivery or pickup with local support.",
+    "No quotes needed, no calls necessary. Choose your machine, pick dates to see immediate availability, see price summary in real time and book in minutes. Delivery or pickup with local support.",
 
   primaryHref: "#catalog",
   primaryLabel: "Browse machines",
 
   // Set when ready to enable WhatsApp CTA, e.g. "+3519XXXXXXXX"
-  whatsappNumberE164:"+351934014611",
+  whatsappNumberE164: "+351934014611",
   whatsappLabel: "Need help? Chat on WhatsApp",
 
   // Hook for the future background photo (your globals already define color tokens).
