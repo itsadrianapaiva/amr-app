@@ -25,11 +25,11 @@ export type PromoContent = {
 export const PROMO_MODAL: PromoContent = {
   title: "10% Off Your First Rental",
   description:
-    "Secure, professional equipment rental trusted by builders across the Algarve. At checkout, use promo code WELCOME10. ",
-  ctaBrowse: "Browse Machines",
+    "Check availability and prices directly on the chosen machine page — no need to call. At checkout, use promo code WELCOME10. ",
+  ctaBrowse: "Browse Catalog",
   ctaReviews: "See Reviews on Google",
   highlight: "Limited-Time Offer",
   badge: "New Customer Offer",
   legal:
-    "Valid for first-time rentals only. Use promo code WELCOME10 at checkout. Offer expires in 3 days or after 10 redemptions.",
+    "Valid for first-time rentals only. Use promo code WELCOME10 at Stripe checkout. Offer expires in 3 days or after 10 redemptions.",
 };

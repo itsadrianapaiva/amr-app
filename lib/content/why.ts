@@ -28,20 +28,20 @@ export type WhyContent = {
 
 export const WHY_BOOK: WhyContent = {
   pretitle: "Why book with us",
-  title: "Instant booking. Algarve-wide delivery. Pro-grade machinery.",
+  title: "Instant booking. Real time availability check. Transparent pricing in seconds.",
   paragraph:
-    "Skip the quote dance. Pick dates, pay a deposit, and lock your rental in minutes. Local support from a team that actually knows job sites.",
+    "Skip the calls. Our platform was made to make you life easier. You just need to select the machine you need, add the dates, choose extras and the price summary will show up immediately. Don't waste time, lock your rental in minutes. Local support from a team that actually knows job sites.",
 
   points: [
     {
       title: "Instant online booking",
       detail:
-        "One of the few in the Algarve with real instant checkout — no pre-request forms or waiting for callbacks.",
+        "Pioneer in the Algarve with real instant checkout — no pre-request forms or waiting for callbacks.",
     },
     {
       title: "Transparent pricing",
       detail:
-        "Operator is a flat €350/day for any machine. Deposit secured at checkout. No hidden extras.",
+        "If you choose extras you see the price summary in real time, no need to call for a quote. No hidden fees.",
     },
     {
       title: "Delivery or pickup",
@@ -51,7 +51,7 @@ export const WHY_BOOK: WhyContent = {
     {
       title: "Secure payments",
       detail:
-        "Stripe-powered checkout keeps your details safe and your booking confirmed the moment you pay.",
+        "Stripe-powered checkout keeps your details safe and your booking confirmed the moment you pay. Deposits are at handover, either when you pick up or when we deliver.",
     },
   ],
 
