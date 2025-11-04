@@ -25,13 +25,13 @@ export type HeroContent = {
 
 export const HOME_HERO: HeroContent = {
   // USP front and center — what sets AMR apart.
-  pretitle: "Instant online booking",
-  title: "Rent pro-grade machinery in the Algarve today",
+  pretitle: "Book online. 25% off now",
+  title: "Pro-grade machinery in the Algarve",
   subtitle:
-    "No quotes needed, no calls necessary. Choose your machine, pick dates to see immediate availability, see price summary in real time and book in minutes. Delivery or pickup with local support.",
+    "See live availability and real time pricing. Choose dates, add extras, and confirm in minutes. Instant confirmation with fast delivery or pickup.",
 
   primaryHref: "#catalog",
-  primaryLabel: "Browse machines",
+  primaryLabel: "Book Online Now",
 
   // Set when ready to enable WhatsApp CTA, e.g. "+3519XXXXXXXX"
   whatsappNumberE164: "+351934014611",
@@ -50,7 +50,7 @@ export type InventorySectionContent = {
 
 export const HOME_INVENTORY: InventorySectionContent = {
   pretitle: "Our Inventory",
-  title: "All your site needs, a click away.",
+  title: "Everything your site needs, ready to book",
   subtitle:
-    "Explore robust, reliable machines. Book online in minutes, no pre-request required.",
+    "Browse reliable machines with clear pricing. Reserve online in minutes. No phone quote required.",
 };

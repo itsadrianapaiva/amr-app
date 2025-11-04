@@ -17,58 +17,62 @@ export type FaqContent = {
 
 export const FAQ_CONTENT: FaqContent = {
   pretitle: "FAQ",
-  title: "Got questions? We have answers.",
+  title: "Learn how easy it is to rent online",
   subtitle:
-    "Clear answers about booking, payment, VAT, delivery, and changes. If your question is not here, contact our team.",
+    "Everything you need to know about instant booking, payments, IVA, delivery, and support.",
 
   items: [
     {
       q: "How does instant booking work?",
-      a: "Pick your machine, select dates, and pay full amount by card, multibanco or other options we have available via Stripe. We place a short checkout hold so those dates are reserved while you pay. As soon as payment succeeds your booking is confirmed and you will receive an email with your booking details and next steps.",
+      a: "Choose your machine, select dates, and confirm online. The system blocks your dates while you pay securely through Stripe. As soon as payment succeeds, your booking is confirmed automatically and you’ll receive your invoice and instructions by email.",
     },
     {
-      q: "Do you have physical offices we can visit?",
-      a: "We are fully remote. AMR was founded to make renting machinery easy and accessible for everyone. We have no physical offices but we provide all the information you need to feel confident about renting with us.",
+      q: "Why do you only rent online?",
+      a: "AMR is built to save time for both sides. Traditional rentals often require phone calls and manual quotes. Our system shows live availability and VAT-inclusive prices so you can book instantly without waiting for a reply.",
+    },
+    {
+      q: "Is online payment secure?",
+      a: "Yes. All payments go through Stripe — a global leader in secure transactions. Your card details are never stored on our servers, and every payment automatically generates a valid invoice.",
     },
     {
       q: "When is the deposit charged and refunded?",
-      a: "The security deposit is collected at handover: when you pick up from us or when we deliver to your site. You can pay the deposit by card or cash. It is refunded after we receive the machine back and a quick inspection confirms everything is fine.",
+      a: "The deposit is collected at handover — when you pick up or when we deliver. You can pay it by card or cash. It’s refunded right after we receive the machine back and inspection confirms everything is fine.",
     },
     {
-      q: "What payment methods do you accept?",
-      a: "Online checkout: debit and credit cards via Stripe including multibanco. In person at handover for the deposit: card or cash.",
+      q: "Can I talk to someone before booking?",
+      a: "Of course. You can reach our team by WhatsApp or email for any clarification before or after booking. We’re local and happy to help.",
     },
     {
-      q: "How is VAT shown and charged?",
-      a: "The price summary shows amounts before VAT and the total with VAT. You pay the full rental amount plus VAT at checkout. Stripe shows the VAT breakdown and your invoice reflects the same amounts.",
+      q: "Do you have physical offices?",
+      a: "No. We’re fully digital to keep rentals fast and transparent. Our team operates from Aljezur and supports customers across the Algarve through delivery, pickup, and WhatsApp assistance.",
     },
     {
-      q: "Is an operator available?",
-      a: "Yes. An on-site operator is a flat €350 per day for all machines. You can add this during checkout so it appears on your booking and invoice.",
+      q: "How is IVA handled?",
+      a: "All prices are shown with and without IVA. The final total at checkout includes IVA, and your Stripe receipt and invoice show the full breakdown automatically.",
     },
     {
-      q: "Delivery, collection, and return",
-      a: "If you select Delivery, we take the machine to your site. If you also select Pickup, we collect it at the end. If Delivery is not selected you collect the machine from us; if Pickup is not selected you return it to our yard. We ask for the job site address during checkout to plan logistics. Delivery and pickup fees may apply.",
+      q: "What if my preferred dates are taken?",
+      a: "The system prevents overlaps. If another customer is holding the same dates, try again later — once their hold expires, availability updates automatically.",
     },
     {
-      q: "What if the dates are taken while I am checking out?",
-      a: "We prevent overlaps with active bookings. If another customer has a temporary hold on the same dates you will see it. When their hold expires you can try again.",
+      q: "Can I change or cancel a booking?",
+      a: "Yes. Timing matters for eligibility, so contact support as soon as possible. You can find the full policy in our Terms at /legal/terms.",
     },
     {
-      q: "Can I change or cancel my booking?",
-      a: "Yes. Timing matters for eligibility. Contact support and review our Terms for the full policy: /legal/terms.",
+      q: "Minimum rental period",
+      a: "Each machine shows its minimum days. Checkout will enforce it automatically to avoid confusion.",
     },
     {
-      q: "Minimum rental days",
-      a: "Minimums vary by machine and are shown on each machine page. Checkout enforces the minimum automatically.",
+      q: "Do you provide operators?",
+      a: "Yes. Add an on-site operator for €350/day directly in checkout so it appears on your booking and invoice.",
     },
     {
-      q: "How do I get my invoice?",
-      a: "We email a tax invoice after payment. You can request a copy at any time from support@amr-rentals.com.",
+      q: "Delivery, pickup, and returns",
+      a: "If you select Delivery, we bring the machine to your site. Pickup means we collect it when finished. You can also collect or return yourself — all options are shown clearly at checkout.",
     },
     {
-      q: "Urgent problems and support",
-      a: "Need support now or have questions? Contact our team through whatsapp or email support@amr-rentals.com and we will help you quickly.",
+      q: "Need urgent help?",
+      a: "WhatsApp us at (+351) 934 014 611 or email support@amr-rentals.com. We respond quickly during working hours and monitor emergencies out of hours.",
     },
   ],
 };
