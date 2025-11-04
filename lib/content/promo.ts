@@ -22,14 +22,26 @@ export type PromoContent = {
 };
 
 /** Current active promo offer shown on homepage modal */
+// export const PROMO_MODAL: PromoContent = {
+//   title: "10% Off Your First Rental",
+//   description:
+//     "Check availability and prices directly on the chosen machine page — no need to call. At checkout, use promo code WELCOME10. ",
+//   ctaBrowse: "Browse Catalog",
+//   ctaReviews: "See Reviews on Google",
+//   highlight: "Limited-Time Offer",
+//   badge: "New Customer Offer",
+//   legal:
+//     "Valid for first-time rentals only. Use promo code WELCOME10 at Stripe checkout. Offer expires in 3 days or after 10 redemptions.",
+// };
+
 export const PROMO_MODAL: PromoContent = {
-  title: "10% Off Your First Rental",
+  title: "25% Off Algarve Rentals",
   description:
-    "Check availability and prices directly on the chosen machine page — no need to call. At checkout, use promo code WELCOME10. ",
+    "Prices shown already include the 25% reduction. Check availability on each machine page and confirm online in minutes.",
   ctaBrowse: "Browse Catalog",
   ctaReviews: "See Reviews on Google",
   highlight: "Limited-Time Offer",
-  badge: "New Customer Offer",
+  badge: "Automatic Discount",
   legal:
-    "Valid for first-time rentals only. Use promo code WELCOME10 at Stripe checkout. Offer expires in 3 days or after 10 redemptions.",
+    "Offer applies automatically to eligible rentals shown on the site. Subject to stock and scheduling.",
 };

@@ -43,7 +43,7 @@ export const NAV_CONTENT: NavContent = {
     { label: "CONTACT", href: "/#contact" },
   ],
   primaryCta: {
-    label: "Book now",
+    label: "Book Online Now",
     href: "/#catalog",
   },
 
