@@ -1,4 +1,5 @@
 export type HowToBookContent = {
+  pretitle: string;
   title: string;
   subtitle: string;
   /** Public iframe src for the video player (Synthesia). */
@@ -12,6 +13,7 @@ export type HowToBookContent = {
 };
 
 export const HOW_TO_BOOK: HowToBookContent = {
+  pretitle: "All you need to know",
   title: "How to book with us",
   subtitle:
     "We want to make your rental experience easy and secure. Through this platform you have access to all the information you need to book your equipment today. Learn how easy it is to rent online.",

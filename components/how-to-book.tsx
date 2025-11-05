@@ -1,5 +1,6 @@
 import { HOW_TO_BOOK } from "@/lib/content/how-to-book";
 import HowToBookAutoplay from "@/components/how-to-book-autoplay.client";
+import Pretitle from "@/components/ui/pretitle";
 
 /**
  * HowToBook
@@ -18,6 +19,7 @@ export default function HowToBook() {
       <div className="container mx-auto">
         {/* Title block - centered */}
         <div className="mx-auto mb-12 max-w-2xl text-center">
+          <Pretitle center text={HOW_TO_BOOK.pretitle} />
           <h2 className="mb-4 text-3xl font-bold tracking-tight md:text-4xl">
             {HOW_TO_BOOK.title}
           </h2>
