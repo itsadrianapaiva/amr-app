@@ -15,3 +15,6 @@
 # More specific rules above take precedence.
 /*
   Cache-Control: public, max-age=0, must-revalidate
+  # Synthesia player allowed under frame-src/connect-src for embedded explainer video
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.segment.synthesia.io; style-src 'self' 'unsafe-inline' https://*.execute-api.eu-west-1.amazonaws.com; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.prd.synthesia.io https://*.execute-api.eu-west-1.amazonaws.com https://cdn.segment.synthesia.io; frame-src 'self' https://share.synthesia.io https://js.stripe.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self'
+  Permissions-Policy: autoplay=*, fullscreen=*, picture-in-picture=*
