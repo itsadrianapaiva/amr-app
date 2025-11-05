@@ -40,6 +40,20 @@ export default function HowToBook() {
             </noscript>
           </div>
         </div>
+
+        {/* Transcript for accessibility */}
+        {HOW_TO_BOOK.transcript && (
+          <div className="mx-auto mt-8 max-w-4xl">
+            <details className="rounded-lg border border-gray-200 p-4">
+              <summary className="cursor-pointer font-medium text-sm">
+                View Transcript
+              </summary>
+              <p className="mt-4 whitespace-pre-wrap text-sm text-muted-foreground">
+                {HOW_TO_BOOK.transcript}
+              </p>
+            </details>
+          </div>
+        )}
       </div>
     </section>
   );

@@ -8,7 +8,7 @@ export type MachineDetailCopy = {
   };
   
   export const MACHINE_DETAIL_COPY: MachineDetailCopy = {
-    pretitle: "Machine Details",
+    pretitle: "Book you machine now",
   };
   
   export type MachineSpecsCopy = {
