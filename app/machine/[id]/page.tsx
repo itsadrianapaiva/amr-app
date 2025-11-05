@@ -14,6 +14,7 @@ import { resolveMachineImage } from "@/lib/content/images";
 import { buildMachineDescription } from "@/lib/content/machine-description";
 import { shouldHideDetailByName } from "@/lib/visibility";
 import ProductJsonLd from "@/components/seo/product-jsonld";
+import HowToBook from "@/components/how-to-book";
 
 /** Safe reader for either 'category' (new) or 'type' (legacy) without using 'any'. */
 function getCategoryOrType(m: unknown): string {
@@ -113,10 +114,14 @@ export default async function MachineDetailPage({
   return (
     <>
       {jsonLd}
-      <section className="px-4 py-16 md:py-24 md:px-8 lg:px-12">
+      <section className="px-4 py-8 md:py-10 md:px-8 lg:px-12">
         <div className="container mx-auto">
           <div className="grid grid-cols-1 gap-8 lg:gap-12">
             <Pretitle center text={MACHINE_DETAIL_COPY.pretitle} />
+            <p className="mb-8 -mt-4 text-muted-foreground mx-auto text-center max-w-2xl">
+              In this page you have all you need to verify availability, add
+              extras and check live prices. See below for more details.
+            </p>
 
             {/* Column 1: Image */}
             <div className="relative h-[400px] w-full overflow-hidden rounded-lg md:h-[500px]">
@@ -165,6 +170,9 @@ export default async function MachineDetailPage({
           </div>
         </div>
       </section>
+      {/* AMR: HowToBook section start */}
+      <HowToBook />
+      {/* AMR: HowToBook section end */}
     </>
   );
 }

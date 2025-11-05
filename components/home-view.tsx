@@ -8,6 +8,7 @@ import CatalogSection from "@/components/catalog-section";
 import { PromoModal } from "@/components/promo-modal";
 // Split below-the-fold bundles:
 const WhyBook = dynamic(() => import("./why-book"), { ssr: true });
+const HowToBook = dynamic(() => import("./how-to-book"), { ssr: true });
 const Faq = dynamic(() => import("./faq"), { ssr: true });
 const ContactSection = dynamic(() => import("./contact-section"), {
   ssr: true,
@@ -107,6 +108,13 @@ export function HomeView({ machines }: HomeViewProps) {
       {/* Section: Why book — lazy mount with reserved space */}
       <LazySection minHeight={420}>
         <WhyBook />
+      </LazySection>
+
+      {/* Anchor for "how-to-book" BEFORE the lazy chunk */}
+      <SectionAnchor id="how-to-book" />
+      {/* Section: How to Book — lazy mount with reserved space */}
+      <LazySection minHeight={520}>
+        <HowToBook />
       </LazySection>
 
       {/* Anchor for "faq" BEFORE the lazy chunk */}
