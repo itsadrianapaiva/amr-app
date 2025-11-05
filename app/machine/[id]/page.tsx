@@ -14,6 +14,7 @@ import { resolveMachineImage } from "@/lib/content/images";
 import { buildMachineDescription } from "@/lib/content/machine-description";
 import { shouldHideDetailByName } from "@/lib/visibility";
 import ProductJsonLd from "@/components/seo/product-jsonld";
+import HowToBook from "@/components/how-to-book";
 
 /** Safe reader for either 'category' (new) or 'type' (legacy) without using 'any'. */
 function getCategoryOrType(m: unknown): string {
@@ -165,6 +166,9 @@ export default async function MachineDetailPage({
           </div>
         </div>
       </section>
+      {/* AMR: HowToBook section start */}
+      <HowToBook />
+      {/* AMR: HowToBook section end */}
     </>
   );
 }
