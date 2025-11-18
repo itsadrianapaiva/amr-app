@@ -57,6 +57,8 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <head>
+        <FacebookPixel />
+
         {/* Connection warmups */}
         {hasGA && (
           <>
@@ -171,7 +173,6 @@ export default async function RootLayout({
         <SiteFooter categories={footerCategories} />
         {/* Centralized chrome (WhatsApp + Cookie banner), hidden on /booking/success */}
         <LayoutChrome />
-        <FacebookPixel />
         {/* Mount after the rest of the UI; Suspense satisfies useSearchParams at build time */}
         <Suspense fallback={null}>
           <Ga4Pageview />
