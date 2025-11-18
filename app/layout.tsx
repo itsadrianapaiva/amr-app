@@ -5,6 +5,7 @@ import SiteFooter from "@/components/site-footer";
 // wrap chrome that we want to hide on certain routes (e.g., success)
 import LayoutChrome from "@/components/layout-chrome";
 import Ga4Pageview from "@/components/analytics/ga4-pageview";
+import FacebookPixel from "@/components/analytics/facebook-pixel";
 import { getFooterCategories } from "@/lib/data/footer-categories";
 import { createDefaultMetadata } from "@/lib/seo/default-metadata";
 import OrganizationJsonLd from "@/components/seo/organization-jsonld";
@@ -170,6 +171,7 @@ export default async function RootLayout({
         <SiteFooter categories={footerCategories} />
         {/* Centralized chrome (WhatsApp + Cookie banner), hidden on /booking/success */}
         <LayoutChrome />
+        <FacebookPixel />
         {/* Mount after the rest of the UI; Suspense satisfies useSearchParams at build time */}
         <Suspense fallback={null}>
           <Ga4Pageview />
