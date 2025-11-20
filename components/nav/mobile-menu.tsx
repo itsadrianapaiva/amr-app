@@ -4,6 +4,8 @@ import Link from "next/link";
 import Logo from "@/components/logo";
 import { AMR_LOGO_BW } from "@/components/logo";
 import { NAV_CONTENT } from "@/lib/content/nav";
+import { SOCIAL_LINKS } from "@/lib/content/social";
+import { SocialIcon } from "@/components/social/SocialIcon";
 import {
   SheetContent,
   SheetDescription,
@@ -126,6 +128,24 @@ export default function MobileMenu({ onClose }: { onClose: () => void }) {
             </Link>
           )}
         </div>
+
+        {/* Social icons */}
+        {SOCIAL_LINKS.length > 0 && (
+          <div className="mt-8 flex items-center justify-center gap-4">
+            {SOCIAL_LINKS.map((link) => (
+              <a
+                key={link.id}
+                href={link.href}
+                target="_blank"
+                rel="noreferrer noopener"
+                aria-label={`Visit AMR on ${link.label}`}
+                className="text-primary-foreground hover:text-accent"
+              >
+                <SocialIcon id={link.id} className="h-6 w-6" />
+              </a>
+            ))}
+          </div>
+        )}
       </div>
     </SheetContent>
   );
