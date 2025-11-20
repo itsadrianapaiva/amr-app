@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { CONTACTS } from "@/lib/content/contacts";
+import { SOCIAL_LINKS } from "@/lib/content/social";
 import {
   buildWhatsAppHref,
   formatAddress,
@@ -131,6 +132,7 @@ export default function ContactSection() {
               privacyNote={CONTACTS.form.privacyNote}
               successNote={CONTACTS.form.successNote}
               waHref={waHref}
+              socialLinks={SOCIAL_LINKS}
             />
           </div>
         </div>

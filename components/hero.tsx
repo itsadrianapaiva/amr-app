@@ -84,7 +84,7 @@ export default function Hero({
       {/* keep overlay + text fades, but NOT on the h1 */}
       <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/10 via-black/70 to-black/90 fade-in fade-in-100" />
 
-      <div className="container mx-auto flex min-h-[64vh] items-center px-4 md:px-8">
+      <div className="container mx-auto flex min-h-[64vh] items-center px-4 md:px-32">
         <div className="z-20 mx-auto max-w-[608px] text-center text-white xl:mx-0 xl:text-left text-balance">
           <p className="text-sm md:text-md font-semibold uppercase tracking-wider text-white/80 fade-in fade-in-100">
             {pretitle}
@@ -109,7 +109,7 @@ export default function Hero({
             {subtitle}
           </p>
 
-          <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row fade-in fade-in-400">
+          <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row fade-in fade-in-400 xl:justify-start">
             {isSectionHref(primaryHref) ? (
               // ScrollLink renders a <button>; to avoid button-in-button,
               // render the shadcn Button "asChild" so it becomes a <span>.

@@ -5,6 +5,8 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { Menu } from "lucide-react";
 import { NAV_CONTENT } from "@/lib/content/nav";
+import { SOCIAL_LINKS } from "@/lib/content/social";
+import { SocialIcon } from "@/components/social/SocialIcon";
 import Logo from "@/components/logo";
 import { AMR_LOGO_YELLOW, AMR_LOGO_BW } from "@/components/logo";
 import { Sheet, SheetTrigger } from "@/components/ui/sheet";
@@ -115,6 +117,21 @@ export default function SiteNav() {
                 {NAV_CONTENT.uspShort}
               </span>
             ) : null}
+
+            <div className="hidden items-center gap-3 lg:flex">
+              {SOCIAL_LINKS.map((link) => (
+                <a
+                  key={link.id}
+                  href={link.href}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  aria-label={`Visit AMR on ${link.label}`}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <SocialIcon id={link.id} className="h-5 w-5" />
+                </a>
+              ))}
+            </div>
 
             {/* Primary CTA unchanged */}
             {isInPage(NAV_CONTENT.primaryCta.href) ? (
