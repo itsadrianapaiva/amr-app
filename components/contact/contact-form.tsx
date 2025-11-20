@@ -3,6 +3,8 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import type { SocialLink } from "@/lib/content/social";
+import { SocialIcon } from "@/components/social/SocialIcon";
 
 type Props = {
   /** Controlled submit state from the container */
@@ -22,6 +24,9 @@ type Props = {
 
   /** Prefilled WhatsApp deep link for the secondary CTA */
   waHref: string;
+
+  /** Optional social media links */
+  socialLinks?: SocialLink[];
 };
 
 /**
@@ -39,6 +44,7 @@ export default function ContactForm({
   privacyNote,
   successNote,
   waHref,
+  socialLinks,
 }: Props) {
   return (
     <div className="flex-2 lg:mt-4">
@@ -110,6 +116,29 @@ export default function ContactForm({
             Message via WhatsApp
           </a>
         </div>
+
+        {/* Social links */}
+        {socialLinks && socialLinks.length > 0 && (
+          <div className="mt-8">
+            <p className="text-sm font-semibold uppercase tracking-[1.2px] text-muted-foreground">
+              Follow us
+            </p>
+            <div className="mt-3 flex items-center gap-3">
+              {socialLinks.map((link) => (
+                <a
+                  key={link.id}
+                  href={link.href}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  aria-label={`Visit AMR on ${link.label}`}
+                  className="text-primary hover:text-primary/80"
+                >
+                  <SocialIcon id={link.id} className="h-5 w-5" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </form>
     </div>
   );

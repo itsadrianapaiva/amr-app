@@ -5,6 +5,8 @@ import ScrollLink from "@/components/nav/scroll-link";
 import Logo from "@/components/logo";
 import { AMR_LOGO_YELLOW } from "@/components/logo";
 import { FOOTER_CONTENT } from "@/lib/content/footer";
+import { SOCIAL_LINKS } from "@/lib/content/social";
+import { SocialIcon } from "@/components/social/SocialIcon";
 import { MapPin, Phone, Mail } from "lucide-react";
 
 // helpers for section links
@@ -93,6 +95,29 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
                 </li>
               )}
             </ul>
+
+            {/* Social links */}
+            {SOCIAL_LINKS.length > 0 && (
+              <div className="mt-6">
+                <p className="text-sm font-semibold uppercase tracking-[1.2px]">
+                  Follow us
+                </p>
+                <div className="mt-3 flex items-center gap-3">
+                  {SOCIAL_LINKS.map((link) => (
+                    <a
+                      key={link.id}
+                      href={link.href}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      aria-label={`Visit AMR on ${link.label}`}
+                      className="text-primary hover:text-primary/80"
+                    >
+                      <SocialIcon id={link.id} className="h-5 w-5" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Contact footer CTA — scroll to a section without '#' */}
             {FOOTER_CONTENT.footerCta && (
