@@ -48,11 +48,12 @@ import telehandler from "@/public/images/machines/telehandler.jpg";
 import compactor from "@/public/images/machines/compactor.jpg";
 import cementMixer from "@/public/images/machines/cement-mixer.jpg";
 import powerWasher from "@/public/images/machines/power-washer.jpg";
+import holeBoringMachine from "@/public/images/machines/hole-boring-machine.png";
 
 /* Fallback (can remain a string path) */
 const FALLBACK_MACHINE_IMAGE = "/images/machines/_fallback.jpg" as const;
 
-/* CSV “Type”/Name slugs → canonical machine-image keys */
+/* CSV "Type"/Name slugs -> canonical machine-image keys */
 const MACHINE_IMAGE_ALIASES: Record<string, string> = {
   "mini-bobcat-with-wheels": "wheel-skid-steer-loader",
   "mini-excavator": "mini-excavator",
@@ -64,6 +65,7 @@ const MACHINE_IMAGE_ALIASES: Record<string, string> = {
   compactor: "compactor",
   "200-liter-concrete-mixer": "cement-mixer",
   "hyundai-petrol-powerwasher": "power-washer",
+  "hole-boring-machine": "hole-boring-machine",
 };
 
 /**
@@ -158,6 +160,12 @@ export const imageContent = {
       src: powerWasher,
       alt: "High-pressure power washer in outdoor use",
     },
+
+    // Earth auger / hole boring
+    "hole-boring-machine": {
+      src: holeBoringMachine,
+      alt: "Petrol hole boring machine with auger attachment",
+    },
   } as Record<string, MachineImage>,
 
   /** Expose fallback for diagnostics if needed. */
@@ -218,8 +226,8 @@ export function getMachineImage(slugOrType: string) {
 
 /**
  * Decide the best image for a machine by trying:
- *   1) type → alias → image map
- *   2) name → alias → image map
+ *   1) type -> alias -> image map
+ *   2) name -> alias -> image map
  *   3) optional DB URL (only if safe: no SVG, not a placeholder host)
  * Falls back to the global machine image if nothing matches.
  */
@@ -239,14 +247,14 @@ export function resolveMachineImage(input: {
   // 3) Prefer DB URL if it's safe (remote SVGs/placeholder hosts are ignored)
   const url = (input.dbUrl ?? "").trim();
   if (url && isSafeRemoteImageUrl(url)) {
-    return { src: url, alt: hit.alt }; // reuse alt (or set “Image of ...” at callsite)
+    return { src: url, alt: hit.alt }; // reuse alt (or set "Image of ..." at callsite)
   }
 
   // 4) Map/local image or fallback
   return hit;
 }
 
-/** Tiny guard against remote SVGs and known placeholder hosts (e.g., placehold.co). */
+/** Tiny guard against remote SVGs and known placeholder hosts (for example, placehold.co). */
 export function isSafeRemoteImageUrl(u: string): boolean {
   const url = u.toLowerCase();
   if (url.endsWith(".svg") || url.startsWith("data:image/svg")) return false;
