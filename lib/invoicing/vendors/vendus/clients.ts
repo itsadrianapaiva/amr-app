@@ -112,15 +112,25 @@ export async function resolveOrCreateClient(
   if (matches.length === 1) return matches[0].id;
 
   if (matches.length > 1) {
-    const best = pickBestMatch(matches, fiscal_id, email);
-    core.log?.("[vendus:client] ambiguous, picked best candidate", {
-      targetFiscal: fiscal_id,
-      targetEmail: email,
+    // Only reuse existing client if we have a key (fiscalId or email) to match on
+    if (fiscal_id || email) {
+      const best = pickBestMatch(matches, fiscal_id, email);
+      core.log?.("[vendus:client] ambiguous, picked best candidate", {
+        targetFiscal: fiscal_id,
+        targetEmail: email,
+        candidates: matches.map((m) => m.id),
+        picked: best.id,
+        mode,
+      });
+      return best.id;
+    }
+
+    // No fiscalId AND no email: ambiguous without key, create new client
+    core.log?.("[vendus:client] ambiguous_without_key, will create new client", {
       candidates: matches.map((m) => m.id),
-      picked: best.id,
       mode,
     });
-    return best.id;
+    // Fall through to creation block below
   }
 
   // ----- 2) Not found: TRY to create via POST (includes `mode` in body) -----
