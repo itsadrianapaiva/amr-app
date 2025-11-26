@@ -31,6 +31,38 @@ function getCategoryOrType(m: unknown): string {
 
 type PageParams = { id: string };
 
+/**
+ * Client component that fires Meta ViewContent event once per machine view
+ * Safe to call - handles missing fbq gracefully via metaViewContent
+ */
+function MachineMetaViewContent(props: {
+  machineId: number;
+  machineName: string;
+  category: string;
+  dailyRate: number;
+}) {
+  "use client";
+
+  const { useEffect, useRef } = require("react");
+  const { metaViewContent } = require("@/lib/analytics/metaEvents");
+
+  const sentRef = useRef(false);
+
+  useEffect(() => {
+    if (sentRef.current) return;
+    sentRef.current = true;
+
+    metaViewContent({
+      machineId: props.machineId,
+      machineName: props.machineName,
+      category: props.category,
+      dailyRate: props.dailyRate,
+    });
+  }, [props.machineId, props.machineName, props.category, props.dailyRate]);
+
+  return null;
+}
+
 export default async function MachineDetailPage({
   params,
 }: {
@@ -114,6 +146,13 @@ export default async function MachineDetailPage({
   return (
     <>
       {jsonLd}
+      {/* Meta Pixel ViewContent tracking */}
+      <MachineMetaViewContent
+        machineId={machine.id}
+        machineName={displayName}
+        category={categoryOrType}
+        dailyRate={Number(s.dailyRate)}
+      />
       <section className="px-4 py-8 md:py-10 md:px-8 lg:px-12">
         <div className="container mx-auto">
           <div className="grid grid-cols-1 gap-8 lg:gap-12">
