@@ -84,3 +84,15 @@ export async function waitForGtag(
     }, 200);
   });
 }
+
+/**
+ * Logs analytics debug information when debug mode is enabled
+ * Provides consistent logging format across analytics helpers
+ *
+ * @param label - Debug message label
+ * @param payload - Data to log
+ */
+export function logAnalyticsDebug(label: string, payload?: unknown): void {
+  if (!isGaDebug()) return;
+  console.log("🔎 " + label, payload);
+}
