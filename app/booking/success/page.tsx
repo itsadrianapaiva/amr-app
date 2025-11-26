@@ -2,6 +2,7 @@ import "server-only";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import Ga4Purchase from "@/components/analytics/ga4-purchase";
+import BookingMetaPurchase from "@/components/analytics/booking-meta-purchase";
 import ScrollLink from "@/components/nav/scroll-link";
 import { Button } from "@/components/ui/button";
 
@@ -16,71 +17,6 @@ function formatYmdLisbon(d: Date): string {
     month: "2-digit",
     day: "2-digit",
   });
-}
-
-/**
- * Client component that fires Meta Purchase event once per booking
- * Uses sessionStorage for hard idempotency to prevent duplicate events on reload
- */
-function BookingMetaPurchase(props: {
-  bookingId: number;
-  value: number;
-  currency?: string;
-  machineId?: number | null;
-  machineName?: string | null;
-}) {
-  "use client";
-
-  const { useEffect, useRef } = require("react");
-  const { metaPurchase } = require("@/lib/analytics/metaEvents");
-
-  const sentRef = useRef(false);
-
-  useEffect(() => {
-    if (sentRef.current) return;
-
-    const { bookingId, value, currency = "EUR", machineId, machineName } = props;
-
-    // Guard: ensure value is finite
-    if (!Number.isFinite(value)) return;
-
-    // Idempotency via sessionStorage to prevent duplicate events on reload
-    const storageKey = `amr_meta_purchase_${bookingId}`;
-
-    try {
-      if (typeof sessionStorage !== "undefined") {
-        if (sessionStorage.getItem(storageKey)) {
-          // Already fired for this booking in this session
-          return;
-        }
-      }
-    } catch (e) {
-      // sessionStorage may throw in some environments (privacy mode, etc.)
-    }
-
-    // Mark as sent
-    sentRef.current = true;
-
-    // Fire Meta Purchase event
-    metaPurchase({
-      bookingId,
-      value,
-      currency,
-      machineId: machineId || bookingId,
-      machineName: machineName || `Booking ${bookingId}`,
-    });
-
-    // Store flag to prevent duplicates
-    try {
-      if (typeof sessionStorage !== "undefined") {
-        sessionStorage.setItem(storageKey, "1");
-      }
-    } catch (e) {
-      // Ignore storage errors
-    }
-  }, [props.bookingId, props.value, props.currency, props.machineId, props.machineName]);
-
-  return null;
 }
 
 /** Narrow, page-local query: keep it focused and small. */

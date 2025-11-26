@@ -15,6 +15,7 @@ import { buildMachineDescription } from "@/lib/content/machine-description";
 import { shouldHideDetailByName } from "@/lib/visibility";
 import ProductJsonLd from "@/components/seo/product-jsonld";
 import HowToBook from "@/components/how-to-book";
+import MachineMetaViewContent from "@/components/analytics/machine-meta-viewcontent";
 
 /** Safe reader for either 'category' (new) or 'type' (legacy) without using 'any'. */
 function getCategoryOrType(m: unknown): string {
@@ -30,38 +31,6 @@ function getCategoryOrType(m: unknown): string {
 }
 
 type PageParams = { id: string };
-
-/**
- * Client component that fires Meta ViewContent event once per machine view
- * Safe to call - handles missing fbq gracefully via metaViewContent
- */
-function MachineMetaViewContent(props: {
-  machineId: number;
-  machineName: string;
-  category: string;
-  dailyRate: number;
-}) {
-  "use client";
-
-  const { useEffect, useRef } = require("react");
-  const { metaViewContent } = require("@/lib/analytics/metaEvents");
-
-  const sentRef = useRef(false);
-
-  useEffect(() => {
-    if (sentRef.current) return;
-    sentRef.current = true;
-
-    metaViewContent({
-      machineId: props.machineId,
-      machineName: props.machineName,
-      category: props.category,
-      dailyRate: props.dailyRate,
-    });
-  }, [props.machineId, props.machineName, props.category, props.dailyRate]);
-
-  return null;
-}
 
 export default async function MachineDetailPage({
   params,
