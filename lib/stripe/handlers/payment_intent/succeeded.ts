@@ -154,6 +154,35 @@ async function fetchBookingFacts(bookingId: number): Promise<BookingFacts> {
     booking.customerNIF ??
     undefined;
 
+  // Determine billing address to use:
+  // - Business bookings: use billing fields (existing behavior)
+  // - Individual bookings: opportunistically use site address when NIF is present
+  let billingAddress: BookingFacts["billing"];
+
+  if (booking.billingIsBusiness) {
+    // Business: use billing fields (existing behavior)
+    billingAddress = {
+      line1: booking.billingAddressLine1 ?? undefined,
+      city: booking.billingCity ?? undefined,
+      postalCode: booking.billingPostalCode ?? undefined,
+      country: (booking.billingCountry as any) ?? "PT",
+    };
+  } else if (
+    nif &&
+    (booking.siteAddressLine1 || booking.siteAddressCity || booking.siteAddressPostalCode)
+  ) {
+    // Individual with NIF + at least some site address: reuse site address
+    billingAddress = {
+      line1: booking.siteAddressLine1 ?? undefined,
+      city: booking.siteAddressCity ?? undefined,
+      postalCode: booking.siteAddressPostalCode ?? undefined,
+      country: "PT", // no siteAddressCountry field; safe default
+    };
+  } else {
+    // Individual without NIF or without site address: no billing data
+    billingAddress = undefined;
+  }
+
   return {
     id: booking.id,
     startDate: booking.startDate,
@@ -166,14 +195,7 @@ async function fetchBookingFacts(bookingId: number): Promise<BookingFacts> {
     customerEmail: booking.customerEmail ?? undefined,
     customerNIF: nif,
 
-    billing: booking.billingIsBusiness
-      ? {
-          line1: booking.billingAddressLine1 ?? undefined,
-          city: booking.billingCity ?? undefined,
-          postalCode: booking.billingPostalCode ?? undefined,
-          country: (booking.billingCountry as any) ?? "PT",
-        }
-      : undefined,
+    billing: billingAddress,
   };
 }
 

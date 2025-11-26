@@ -38,33 +38,44 @@ function pick<T = string>(obj: any, ...keys: string[]): T | undefined {
 
 /** Map our InvoiceCreateInput into a Vendus ClientInput (tolerant to field names). */
 function mapInvoiceToClientInput(input: InvoiceCreateInput): ClientInput {
+  // FIRST: read from nested customer object (primary source)
   const fiscalId =
+    pick<string>(input.customer, "nif") ??
     pick<string>(input, "customerNIF") ??
     pick<string>(input, "billingTaxId") ??
     pick<string>(input, "taxId");
 
   const email =
-    pick<string>(input, "customerEmail") ?? pick<string>(input, "email");
+    pick<string>(input.customer, "email") ??
+    pick<string>(input, "customerEmail") ??
+    pick<string>(input, "email");
 
   const name =
+    pick<string>(input.customer, "name") ??
     pick<string>(input, "customerName") ??
     pick<string>(input, "billingCompanyName") ??
     pick<string>(input, "name") ??
     (email ? email.split("@")[0] : undefined);
 
   const address =
+    pick<string>(input.customer?.address, "line1") ??
     pick<string>(input, "billingAddressLine1") ??
     pick<string>(input, "addressLine1");
 
   const postalcode =
+    pick<string>(input.customer?.address, "postalCode") ??
     pick<string>(input, "billingPostalCode") ??
     pick<string>(input, "postalCode");
 
   const city =
-    pick<string>(input, "billingCity") ?? pick<string>(input, "city");
+    pick<string>(input.customer?.address, "city") ??
+    pick<string>(input, "billingCity") ??
+    pick<string>(input, "city");
 
   const country =
-    pick<string>(input, "billingCountry") ?? pick<string>(input, "country");
+    pick<string>(input.customer?.address, "country") ??
+    pick<string>(input, "billingCountry") ??
+    pick<string>(input, "country");
 
   const external_reference = pick<number | string>(input, "bookingId", "id")
     ? `booking:${pick<number | string>(input, "bookingId", "id")}`
