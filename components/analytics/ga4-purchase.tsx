@@ -1,7 +1,7 @@
 "use client";
-import { isGaDebug } from "@/lib/analytics";
-import { debug } from "console";
+import { isGaDebug, waitForGtag } from "@/lib/analytics";
 import { useEffect, useRef } from "react";
+
 type Item = {
   item_id: string;
   item_name?: string;
@@ -20,24 +20,6 @@ function readAnalyticsConsent(): boolean {
   }
 }
 
-function waitForGtag(maxMs = 5000): Promise<((...a: any[]) => void) | null> {
-  return new Promise((resolve) => {
-    const g = (window as any).gtag as ((...a: any[]) => void) | undefined;
-    if (g) return resolve(g);
-    const t0 = Date.now();
-    const iv = setInterval(() => {
-      const gg = (window as any).gtag as ((...a: any[]) => void) | undefined;
-      if (gg) {
-        clearInterval(iv);
-        resolve(gg);
-      } else if (Date.now() - t0 > maxMs) {
-        clearInterval(iv);
-        resolve(null);
-      }
-    }, 200);
-  });
-}
-
 export default function Ga4Purchase(props: {
   transactionId: string;
   value: number;
@@ -49,7 +31,29 @@ export default function Ga4Purchase(props: {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!Number.isFinite(value)) return;
+    if (!Number.isFinite(value)) {
+      if (isGaDebug()) {
+        console.log("🔎 Ga4Purchase: invalid value", { transactionId, value });
+      }
+      return;
+    }
+
+    // SessionStorage-based idempotency guard to prevent duplicate events on reload
+    const storageKey = `amr_ga4_purchase_${transactionId}`;
+    try {
+      if (typeof sessionStorage !== "undefined") {
+        if (sessionStorage.getItem(storageKey)) {
+          if (isGaDebug()) {
+            console.log("🔎 Ga4Purchase: already fired this session", {
+              transactionId,
+            });
+          }
+          return;
+        }
+      }
+    } catch {
+      // Ignore storage access errors
+    }
 
     console.log("🔎 Ga4Purchase mount", {
       transactionId,
@@ -62,8 +66,15 @@ export default function Ga4Purchase(props: {
 
     const fire = async () => {
       if (sentRef.current) return;
+
       const gtag = await waitForGtag();
-      if (!gtag) return;
+      if (!gtag) {
+        if (isGaDebug()) {
+          console.log("🔎 Ga4Purchase: gtag not available", { transactionId });
+        }
+        return;
+      }
+
       gtag("event", "purchase", {
         transaction_id: transactionId,
         value,
@@ -71,7 +82,18 @@ export default function Ga4Purchase(props: {
         items,
         debug_mode: isGaDebug(),
       });
+
       sentRef.current = true;
+
+      // Store flag to prevent duplicates on reload
+      try {
+        if (typeof sessionStorage !== "undefined") {
+          sessionStorage.setItem(storageKey, "1");
+        }
+      } catch {
+        // Ignore storage errors
+      }
+
       console.log("🔎 Ga4Purchase fired", { transactionId, value });
     };
 

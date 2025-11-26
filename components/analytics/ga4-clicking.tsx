@@ -1,6 +1,6 @@
 "use client";
 
-import { isGaDebug } from "@/lib/analytics";
+import { isGaDebug, waitForGtag } from "@/lib/analytics";
 import React, { useRef, useCallback, cloneElement } from "react";
 
 type Ga4ClickProps = {
@@ -19,18 +19,6 @@ function readAnalyticsConsent(): boolean {
   } catch {
     return false;
   }
-}
-
-async function waitForGtag(
-  maxMs = 5000
-): Promise<((...a: any[]) => void) | null> {
-  const start = Date.now();
-  while (Date.now() - start <= maxMs) {
-    const g = (window as any).gtag as ((...a: any[]) => void) | undefined;
-    if (g) return g;
-    await new Promise((r) => setTimeout(r, 200));
-  }
-  return null;
 }
 
 export default function Ga4Click({
