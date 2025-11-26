@@ -210,6 +210,7 @@ export default async function CustomerSuccessPage({
             item_id: String(booking.machine?.id ?? ""),
             item_name: booking.machine?.name ?? "Machine",
             quantity: 1,
+            price: purchaseValue,
           },
         ]}
       />

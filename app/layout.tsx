@@ -149,7 +149,11 @@ export default async function RootLayout({
               strategy="afterInteractive"
             />
 
-            {/* 3) Base GA4 config (no auto page_view; we send SPA views explicitly) */}
+            {/* 3) Base GA4 config
+                 Note: send_page_view is disabled because SPA page views are handled
+                 explicitly in Ga4Pageview component to avoid double-counting and
+                 to include proper page_location, page_path, and page_title params.
+            */}
             <Script id="ga4-init" strategy="afterInteractive">
               {`
                 gtag('js', new Date());
