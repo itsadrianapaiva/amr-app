@@ -18,6 +18,71 @@ function formatYmdLisbon(d: Date): string {
   });
 }
 
+/**
+ * Client component that fires Meta Purchase event once per booking
+ * Uses sessionStorage for hard idempotency to prevent duplicate events on reload
+ */
+function BookingMetaPurchase(props: {
+  bookingId: number;
+  value: number;
+  currency?: string;
+  machineId?: number | null;
+  machineName?: string | null;
+}) {
+  "use client";
+
+  const { useEffect, useRef } = require("react");
+  const { metaPurchase } = require("@/lib/analytics/metaEvents");
+
+  const sentRef = useRef(false);
+
+  useEffect(() => {
+    if (sentRef.current) return;
+
+    const { bookingId, value, currency = "EUR", machineId, machineName } = props;
+
+    // Guard: ensure value is finite
+    if (!Number.isFinite(value)) return;
+
+    // Idempotency via sessionStorage to prevent duplicate events on reload
+    const storageKey = `amr_meta_purchase_${bookingId}`;
+
+    try {
+      if (typeof sessionStorage !== "undefined") {
+        if (sessionStorage.getItem(storageKey)) {
+          // Already fired for this booking in this session
+          return;
+        }
+      }
+    } catch (e) {
+      // sessionStorage may throw in some environments (privacy mode, etc.)
+    }
+
+    // Mark as sent
+    sentRef.current = true;
+
+    // Fire Meta Purchase event
+    metaPurchase({
+      bookingId,
+      value,
+      currency,
+      machineId: machineId || bookingId,
+      machineName: machineName || `Booking ${bookingId}`,
+    });
+
+    // Store flag to prevent duplicates
+    try {
+      if (typeof sessionStorage !== "undefined") {
+        sessionStorage.setItem(storageKey, "1");
+      }
+    } catch (e) {
+      // Ignore storage errors
+    }
+  }, [props.bookingId, props.value, props.currency, props.machineId, props.machineName]);
+
+  return null;
+}
+
 /** Narrow, page-local query: keep it focused and small. */
 async function getBookingSummary(bookingId: number) {
   return db.booking.findUnique({
@@ -212,6 +277,17 @@ export default async function CustomerSuccessPage({
           },
         ]}
       />
+
+      {/* Meta Pixel purchase: fires once on mount with sessionStorage idempotency */}
+      {Number.isFinite(purchaseValue) && (
+        <BookingMetaPurchase
+          bookingId={booking.id}
+          value={purchaseValue}
+          currency="EUR"
+          machineId={booking.machine?.id ?? null}
+          machineName={booking.machine?.name ?? null}
+        />
+      )}
     </div>
   );
 }
