@@ -39,7 +39,7 @@ export default function CatalogSection({
       </div>
 
       {/* Teaser grid: two columns on desktop, single column on mobile */}
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto max-w-4xl mb-28">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
           {CATALOG_TEASER_ITEMS.map((item) => {
             const machineImage = imageContent.machines[item.imageKey];
