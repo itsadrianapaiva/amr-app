@@ -57,9 +57,9 @@ export function PromoModal() {
   };
 
   const handleBrowse = () => {
-    const catalog = document.getElementById("catalog");
-    if (catalog) {
-      catalog.scrollIntoView({ behavior: "smooth", block: "start" });
+    const hero = document.getElementById("hero");
+    if (hero) {
+      hero.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
 

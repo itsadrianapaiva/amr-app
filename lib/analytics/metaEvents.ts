@@ -205,6 +205,34 @@ export function metaPurchase(args: {
 }
 
 /**
+ * Fires a Meta ViewContent event for the catalog page
+ * Should be called when the catalog list is viewed
+ * Represents the catalog as a product group
+ *
+ * @param args.contentIds - Array of machine IDs in the catalog
+ * @param args.numItems - Number of machines in the catalog
+ */
+export function metaCatalogViewContent(args: {
+  contentIds: string[];
+  numItems: number;
+}): void {
+  const fbq = getFbq();
+  if (!fbq) return;
+
+  const payload: Record<string, any> = {
+    content_type: "product_group",
+    content_ids: args.contentIds,
+    num_items: args.numItems,
+  };
+
+  fbq("track", "ViewContent", payload);
+
+  if (isGaDebug()) {
+    console.log("🔎 Meta Catalog ViewContent", payload);
+  }
+}
+
+/**
  * Fires a custom Meta CTA_Click event
  * Should be called when users interact with high-intent CTAs
  *

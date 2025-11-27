@@ -33,7 +33,7 @@ export const FOOTER_CONTENT: FooterContent = {
   email: "support@amr-rentals.com", //add correct one later
 
   // Small CTA in the footer. Mirrors primary funnel.
-  footerCta: { label: "Book Online Now", href: "/#catalog" },
+  footerCta: { label: "Book Online Now", href: "/catalog" },
 
   // Credits (can hide by setting to nulls).
   copyrightOwner: "AMR Rentals",

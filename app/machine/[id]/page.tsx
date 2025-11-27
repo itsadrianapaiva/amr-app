@@ -180,7 +180,6 @@ export default async function MachineDetailPage({
       </section>
       {/* AMR: HowToBook section start */}
       <HowToBook />
-      {/* AMR: HowToBook section end */}
     </>
   );
 }

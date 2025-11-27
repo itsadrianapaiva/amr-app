@@ -143,3 +143,14 @@ export function trackGaContactCtaClick(params: {
 }): void {
   trackGaClick("contact_cta_click", params);
 }
+
+/**
+ * Catalog page view_item_list event
+ * Fires when the catalog list page is viewed
+ */
+export function trackGaCatalogViewItemList(params: {
+  item_list_id: string;
+  item_list_name: string;
+}): void {
+  trackGaClick("view_item_list", params);
+}
