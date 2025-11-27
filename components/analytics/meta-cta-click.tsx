@@ -1,6 +1,7 @@
 "use client";
 
-import { cloneElement, type ReactElement } from "react";
+import { cloneElement } from "react";
+import type { MouseEvent, ReactElement } from "react";
 import { metaCtaClick } from "@/lib/analytics/metaEvents";
 
 type MetaCtaClickProps = {
@@ -8,7 +9,7 @@ type MetaCtaClickProps = {
   ctaText: string;
   ctaDestination: string;
   ctaLocation: string;
-  children: ReactElement<{ onClick?: React.MouseEventHandler }>;
+  children: ReactElement<{ onClick?: (event: MouseEvent<any>) => void }>;
 };
 
 /**
@@ -28,18 +29,24 @@ export default function MetaCtaClickWrapper({
   ctaLocation,
   children,
 }: MetaCtaClickProps) {
-  const handleClick: React.MouseEventHandler = (e) => {
-    // Fire Meta CTA event
-    metaCtaClick({
-      cta_type: ctaType,
-      cta_text: ctaText,
-      cta_destination: ctaDestination,
-      cta_location: ctaLocation,
-    });
+  const originalOnClick = children.props.onClick;
 
-    // Call original onClick if present
-    if (typeof children.props.onClick === "function") {
-      children.props.onClick(e);
+  const handleClick = (event: MouseEvent<any>) => {
+    // Call original onClick so navigation / ScrollLink logic still works
+    if (typeof originalOnClick === "function") {
+      originalOnClick(event);
+    }
+
+    // Fire Meta CTA event
+    try {
+      metaCtaClick({
+        cta_type: ctaType,
+        cta_text: ctaText,
+        cta_destination: ctaDestination,
+        cta_location: ctaLocation,
+      });
+    } catch {
+      // Never break UX because of tracking
     }
   };
 
