@@ -41,3 +41,58 @@ export function isGaDebug(): boolean {
 
   return env === "staging" || env === "preview";
 }
+
+/**
+ * Waits for window.gtag to become available
+ * Returns gtag function or null if timeout expires
+ * Safe to call from SSR (returns null immediately)
+ *
+ * @param maxMs - Maximum time to wait in milliseconds (default 5000)
+ * @returns Promise resolving to gtag function or null
+ */
+export async function waitForGtag(
+  maxMs = 5000
+): Promise<((...args: any[]) => void) | null> {
+  // SSR safety: return null immediately if window is not available
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  // Check if gtag is already available
+  const existingGtag = (window as any).gtag as
+    | ((...args: any[]) => void)
+    | undefined;
+  if (existingGtag) {
+    return existingGtag;
+  }
+
+  // Poll for gtag with 200ms interval
+  return new Promise((resolve) => {
+    const startTime = Date.now();
+    const intervalId = setInterval(() => {
+      const gtag = (window as any).gtag as
+        | ((...args: any[]) => void)
+        | undefined;
+
+      if (gtag) {
+        clearInterval(intervalId);
+        resolve(gtag);
+      } else if (Date.now() - startTime > maxMs) {
+        clearInterval(intervalId);
+        resolve(null);
+      }
+    }, 200);
+  });
+}
+
+/**
+ * Logs analytics debug information when debug mode is enabled
+ * Provides consistent logging format across analytics helpers
+ *
+ * @param label - Debug message label
+ * @param payload - Data to log
+ */
+export function logAnalyticsDebug(label: string, payload?: unknown): void {
+  if (!isGaDebug()) return;
+  console.log("🔎 " + label, payload);
+}

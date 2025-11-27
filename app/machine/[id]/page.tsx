@@ -15,6 +15,7 @@ import { buildMachineDescription } from "@/lib/content/machine-description";
 import { shouldHideDetailByName } from "@/lib/visibility";
 import ProductJsonLd from "@/components/seo/product-jsonld";
 import HowToBook from "@/components/how-to-book";
+import MachineMetaViewContent from "@/components/analytics/machine-meta-viewcontent";
 
 /** Safe reader for either 'category' (new) or 'type' (legacy) without using 'any'. */
 function getCategoryOrType(m: unknown): string {
@@ -114,6 +115,13 @@ export default async function MachineDetailPage({
   return (
     <>
       {jsonLd}
+      {/* Meta Pixel ViewContent tracking */}
+      <MachineMetaViewContent
+        machineId={machine.id}
+        machineName={displayName}
+        category={categoryOrType}
+        dailyRate={Number(s.dailyRate)}
+      />
       <section className="px-4 py-8 md:py-10 md:px-8 lg:px-12">
         <div className="container mx-auto">
           <div className="grid grid-cols-1 gap-8 lg:gap-12">

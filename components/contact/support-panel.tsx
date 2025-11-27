@@ -3,6 +3,8 @@
 import Pretitle from "@/components/ui/pretitle";
 import { Mail, MessageSquare, MapPin, Clock } from "lucide-react";
 import type { ContactContent } from "@/lib/content/contacts";
+import { trackGaContactCtaClick } from "@/components/analytics/ga4-clicking";
+import { metaCtaClick } from "@/lib/analytics/metaEvents";
 
 /**
  * SupportPanel
@@ -53,6 +55,19 @@ export default function SupportPanel({
               target="_blank"
               rel="noopener noreferrer"
               className="mt-2 inline-flex items-center gap-2 font-medium text-muted-background underline-offset-4 hover:underline"
+              onClick={() => {
+                trackGaContactCtaClick({
+                  contact_method: "whatsapp",
+                  cta_location: "contact_section",
+                  cta_text: support.whatsapp.display,
+                });
+                metaCtaClick({
+                  cta_type: "contact",
+                  cta_text: `WhatsApp ${support.whatsapp.display}`,
+                  cta_destination: waHref,
+                  cta_location: "contact_section",
+                });
+              }}
             >
               {support.whatsapp.display}
             </a>
@@ -72,6 +87,19 @@ export default function SupportPanel({
             <a
               href={`mailto:${support.email}`}
               className="mt-2 inline-flex items-center gap-2 font-medium text-muted-background underline-offset-4 hover:underline"
+              onClick={() => {
+                trackGaContactCtaClick({
+                  contact_method: "email",
+                  cta_location: "contact_section",
+                  cta_text: support.email,
+                });
+                metaCtaClick({
+                  cta_type: "contact",
+                  cta_text: support.email,
+                  cta_destination: `mailto:${support.email}`,
+                  cta_location: "contact_section",
+                });
+              }}
             >
               {support.email}
             </a>

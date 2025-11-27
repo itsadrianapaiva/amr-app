@@ -13,6 +13,7 @@ import { BillingSection } from "@/components/booking/sections/billing-section";
 import { Button } from "@/components/ui/button";
 import type { BookingFormValues } from "@/lib/validation/booking";
 import Ga4Click from "../analytics/ga4-clicking";
+import { metaCtaClick } from "@/lib/analytics/metaEvents";
 
 /**
  * BookingFormFields
@@ -150,7 +151,18 @@ export default function BookingFormFields(props: {
           }}
           once
         >
-          <Button type="submit" disabled={isSubmitDisabled}>
+          <Button
+            type="submit"
+            disabled={isSubmitDisabled}
+            onClick={() => {
+              metaCtaClick({
+                cta_type: "booking_submit",
+                cta_text: "Book Now",
+                cta_destination: "checkout",
+                cta_location: "machine_detail_booking_form",
+              });
+            }}
+          >
             Book Now
           </Button>
         </Ga4Click>

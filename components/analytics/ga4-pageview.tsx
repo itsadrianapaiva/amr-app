@@ -2,32 +2,15 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { isGaDebug } from "@/lib/analytics";
+import { isGaDebug, waitForGtag } from "@/lib/analytics";
 
 /**
  * Fires GA4 page_view on every client-side navigation (Next.js App Router).
  * Also sends a one-time debug ping after gtag is ready.
  *
- * No env reads here; ConsentProvider already loads/configs gtag.
+ * No env reads here; layout already loads/configs gtag.
  * This component ONLY emits events at the right time.
  */
-function waitForGtag(maxMs = 5000): Promise<((...a: any[]) => void) | null> {
-  return new Promise((resolve) => {
-    const g = (window as any).gtag as ((...a: any[]) => void) | undefined;
-    if (g) return resolve(g);
-    const t0 = Date.now();
-    const iv = setInterval(() => {
-      const gg = (window as any).gtag as ((...a: any[]) => void) | undefined;
-      if (gg) {
-        clearInterval(iv);
-        resolve(gg);
-      } else if (Date.now() - t0 > maxMs) {
-        clearInterval(iv);
-        resolve(null);
-      }
-    }, 200);
-  });
-}
 
 export default function Ga4Pageview() {
   const pathname = usePathname();

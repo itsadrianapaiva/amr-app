@@ -5,6 +5,7 @@ import SiteFooter from "@/components/site-footer";
 // wrap chrome that we want to hide on certain routes (e.g., success)
 import LayoutChrome from "@/components/layout-chrome";
 import Ga4Pageview from "@/components/analytics/ga4-pageview";
+import MetaPageview from "@/components/analytics/meta-pageview";
 import FacebookPixel from "@/components/analytics/facebook-pixel";
 import { getFooterCategories } from "@/lib/data/footer-categories";
 import { createDefaultMetadata } from "@/lib/seo/default-metadata";
@@ -148,7 +149,11 @@ export default async function RootLayout({
               strategy="afterInteractive"
             />
 
-            {/* 3) Base GA4 config (no auto page_view; we send SPA views explicitly) */}
+            {/* 3) Base GA4 config
+                 Note: send_page_view is disabled because SPA page views are handled
+                 explicitly in Ga4Pageview component to avoid double-counting and
+                 to include proper page_location, page_path, and page_title params.
+            */}
             <Script id="ga4-init" strategy="afterInteractive">
               {`
                 gtag('js', new Date());
@@ -175,6 +180,10 @@ export default async function RootLayout({
         {/* Mount after the rest of the UI; Suspense satisfies useSearchParams at build time */}
         <Suspense fallback={null}>
           <Ga4Pageview />
+        </Suspense>
+        {/* Meta Pixel SPA page view tracking */}
+        <Suspense fallback={null}>
+          <MetaPageview />
         </Suspense>
       </body>
     </html>
