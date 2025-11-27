@@ -63,6 +63,10 @@ export default function BookingFormFields(props: {
   // Submit visuals
   isSubmitDisabled: boolean;
   rootError?: string | null;
+
+  // Machine context for analytics
+  machineId: number;
+  machineName?: string;
 }) {
   const {
     control,
