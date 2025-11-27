@@ -5,6 +5,7 @@ import Ga4Purchase from "@/components/analytics/ga4-purchase";
 import BookingMetaPurchase from "@/components/analytics/booking-meta-purchase";
 import ScrollLink from "@/components/nav/scroll-link";
 import { Button } from "@/components/ui/button";
+import MetaCtaClickWrapper from "@/components/analytics/meta-cta-click";
 
 /**
  * Tiny helper to format a Date as YYYY-MM-DD in the Lisbon timezone,
@@ -63,26 +64,40 @@ export default async function CustomerSuccessPage({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="rounded-md bg-black px-4 py-2 text-white cursor-pointer"
+          <MetaCtaClickWrapper
+            ctaType="success_go_home"
+            ctaText="Go to homepage"
+            ctaDestination="/"
+            ctaLocation="booking_success"
           >
-            Go to homepage
-          </Link>
+            <Link
+              href="/"
+              className="rounded-md bg-black px-4 py-2 text-white cursor-pointer"
+            >
+              Go to homepage
+            </Link>
+          </MetaCtaClickWrapper>
 
           {/* Hashless in-page scroll to catalog — use Button asChild to avoid nested <button> */}
           <Button
             asChild
             className="rounded-md px-4 py-2 text-sm font-medium cursor-pointer"
           >
-            <ScrollLink
-              to="catalog"
-              offset={112}
-              ariaLabel="Browse machines"
-              className="inline-flex"
+            <MetaCtaClickWrapper
+              ctaType="success_back_to_catalog"
+              ctaText="Browse machines"
+              ctaDestination="#catalog"
+              ctaLocation="booking_success"
             >
-              Browse machines
-            </ScrollLink>
+              <ScrollLink
+                to="catalog"
+                offset={112}
+                ariaLabel="Browse machines"
+                className="inline-flex"
+              >
+                Browse machines
+              </ScrollLink>
+            </MetaCtaClickWrapper>
           </Button>
         </div>
       </div>
@@ -108,26 +123,40 @@ export default async function CustomerSuccessPage({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="rounded-md bg-black px-4 py-2 text-white cursor-pointer"
+          <MetaCtaClickWrapper
+            ctaType="success_go_home"
+            ctaText="Go to homepage"
+            ctaDestination="/"
+            ctaLocation="booking_success"
           >
-            Go to homepage
-          </Link>
+            <Link
+              href="/"
+              className="rounded-md bg-black px-4 py-2 text-white cursor-pointer"
+            >
+              Go to homepage
+            </Link>
+          </MetaCtaClickWrapper>
 
           {/* Hashless in-page scroll to catalog — avoid nested <button> */}
           <Button
             asChild
             className="rounded-md px-4 py-2 text-sm font-medium cursor-pointer"
           >
-            <ScrollLink
-              to="catalog"
-              offset={112}
-              ariaLabel="Browse machines"
-              className="inline-flex"
+            <MetaCtaClickWrapper
+              ctaType="success_back_to_catalog"
+              ctaText="Browse machines"
+              ctaDestination="#catalog"
+              ctaLocation="booking_success"
             >
-              Browse machines
-            </ScrollLink>
+              <ScrollLink
+                to="catalog"
+                offset={112}
+                ariaLabel="Browse machines"
+                className="inline-flex"
+              >
+                Browse machines
+              </ScrollLink>
+            </MetaCtaClickWrapper>
           </Button>
         </div>
       </div>
@@ -176,27 +205,48 @@ export default async function CustomerSuccessPage({
           asChild
           className="rounded-md bg-black text-white px-4 py-2 text-md font-medium cursor-pointer"
         >
-          <ScrollLink
-            to="catalog"
-            offset={112}
-            ariaLabel="Back to catalog"
-            className="inline-flex"
+          <MetaCtaClickWrapper
+            ctaType="success_back_to_catalog"
+            ctaText="Back to catalog"
+            ctaDestination="#catalog"
+            ctaLocation="booking_success"
           >
-            Back to catalog
-          </ScrollLink>
+            <ScrollLink
+              to="catalog"
+              offset={112}
+              ariaLabel="Back to catalog"
+              className="inline-flex"
+            >
+              Back to catalog
+            </ScrollLink>
+          </MetaCtaClickWrapper>
         </Button>
 
         {booking.machine?.id ? (
-          <Link
-            href={`/machine/${booking.machine.id}`}
-            className="underline cursor-pointer"
+          <MetaCtaClickWrapper
+            ctaType="success_view_machine"
+            ctaText="View machine"
+            ctaDestination={`/machine/${booking.machine.id}`}
+            ctaLocation="booking_success"
           >
-            View machine
-          </Link>
+            <Link
+              href={`/machine/${booking.machine.id}`}
+              className="underline cursor-pointer"
+            >
+              View machine
+            </Link>
+          </MetaCtaClickWrapper>
         ) : (
-          <Link href="/" className="underline cursor-pointer">
-            Go to homepage
-          </Link>
+          <MetaCtaClickWrapper
+            ctaType="success_go_home"
+            ctaText="Go to homepage"
+            ctaDestination="/"
+            ctaLocation="booking_success"
+          >
+            <Link href="/" className="underline cursor-pointer">
+              Go to homepage
+            </Link>
+          </MetaCtaClickWrapper>
         )}
       </div>
 
