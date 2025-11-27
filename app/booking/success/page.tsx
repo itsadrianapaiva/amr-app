@@ -49,7 +49,7 @@ export default async function CustomerSuccessPage({
   const bookingIdParam = searchParams?.booking_id;
   const bookingId = Number(bookingIdParam);
 
-  // Guardrail: if we don't have a numeric booking id, show a gentle error.
+  // Guardrail: if we do not have a numeric booking id, show a gentle error.
   if (!Number.isFinite(bookingId)) {
     return (
       <div className="mx-auto max-w-2xl space-y-6 p-6">
@@ -78,16 +78,16 @@ export default async function CustomerSuccessPage({
             </Link>
           </MetaCtaClickWrapper>
 
-          {/* Hashless in-page scroll to catalog — use Button asChild to avoid nested <button> */}
-          <Button
-            asChild
-            className="rounded-md px-4 py-2 text-sm font-medium cursor-pointer"
+          {/* Hashless in-page scroll to catalog - use Button asChild to avoid nested <button> */}
+          <MetaCtaClickWrapper
+            ctaType="success_back_to_catalog"
+            ctaText="Browse machines"
+            ctaDestination="#catalog"
+            ctaLocation="booking_success"
           >
-            <MetaCtaClickWrapper
-              ctaType="success_back_to_catalog"
-              ctaText="Browse machines"
-              ctaDestination="#catalog"
-              ctaLocation="booking_success"
+            <Button
+              asChild
+              className="rounded-md px-4 py-2 text-sm font-medium cursor-pointer"
             >
               <ScrollLink
                 to="catalog"
@@ -97,8 +97,8 @@ export default async function CustomerSuccessPage({
               >
                 Browse machines
               </ScrollLink>
-            </MetaCtaClickWrapper>
-          </Button>
+            </Button>
+          </MetaCtaClickWrapper>
         </div>
       </div>
     );
@@ -137,16 +137,16 @@ export default async function CustomerSuccessPage({
             </Link>
           </MetaCtaClickWrapper>
 
-          {/* Hashless in-page scroll to catalog — avoid nested <button> */}
-          <Button
-            asChild
-            className="rounded-md px-4 py-2 text-sm font-medium cursor-pointer"
+          {/* Hashless in-page scroll to catalog - avoid nested <button> */}
+          <MetaCtaClickWrapper
+            ctaType="success_back_to_catalog"
+            ctaText="Browse machines"
+            ctaDestination="#catalog"
+            ctaLocation="booking_success"
           >
-            <MetaCtaClickWrapper
-              ctaType="success_back_to_catalog"
-              ctaText="Browse machines"
-              ctaDestination="#catalog"
-              ctaLocation="booking_success"
+            <Button
+              asChild
+              className="rounded-md px-4 py-2 text-sm font-medium cursor-pointer"
             >
               <ScrollLink
                 to="catalog"
@@ -156,8 +156,8 @@ export default async function CustomerSuccessPage({
               >
                 Browse machines
               </ScrollLink>
-            </MetaCtaClickWrapper>
-          </Button>
+            </Button>
+          </MetaCtaClickWrapper>
         </div>
       </div>
     );
@@ -200,16 +200,16 @@ export default async function CustomerSuccessPage({
       </div>
 
       <div className="flex items-center gap-3">
-        {/* Hashless in-page scroll to catalog — avoid nested <button> */}
-        <Button
-          asChild
-          className="rounded-md bg-black text-white px-4 py-2 text-md font-medium cursor-pointer"
+        {/* Hashless in-page scroll to catalog - avoid nested <button> */}
+        <MetaCtaClickWrapper
+          ctaType="success_back_to_catalog"
+          ctaText="Back to catalog"
+          ctaDestination="#catalog"
+          ctaLocation="booking_success"
         >
-          <MetaCtaClickWrapper
-            ctaType="success_back_to_catalog"
-            ctaText="Back to catalog"
-            ctaDestination="#catalog"
-            ctaLocation="booking_success"
+          <Button
+            asChild
+            className="rounded-md bg-black text-white px-4 py-2 text-md font-medium cursor-pointer"
           >
             <ScrollLink
               to="catalog"
@@ -219,8 +219,8 @@ export default async function CustomerSuccessPage({
             >
               Back to catalog
             </ScrollLink>
-          </MetaCtaClickWrapper>
-        </Button>
+          </Button>
+        </MetaCtaClickWrapper>
 
         {booking.machine?.id ? (
           <MetaCtaClickWrapper
@@ -250,7 +250,7 @@ export default async function CustomerSuccessPage({
         )}
       </div>
 
-      {/* GA4 purchase: fires once on mount (no effect on SSR) */}
+      {/* GA4 purchase fires once on mount */}
       <Ga4Purchase
         transactionId={String(booking.id)}
         value={purchaseValue}
@@ -265,7 +265,7 @@ export default async function CustomerSuccessPage({
         ]}
       />
 
-      {/* Meta Pixel purchase: fires once on mount with sessionStorage idempotency */}
+      {/* Meta Pixel purchase fires once on mount with sessionStorage idempotency */}
       {Number.isFinite(purchaseValue) && (
         <BookingMetaPurchase
           bookingId={booking.id}
