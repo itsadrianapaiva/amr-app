@@ -203,3 +203,35 @@ export function metaPurchase(args: {
     console.log("🔎 Meta Purchase", payload);
   }
 }
+
+/**
+ * Fires a custom Meta CTA_Click event
+ * Should be called when users interact with high-intent CTAs
+ *
+ * @param args.cta_type - Type of CTA (e.g., "hero_primary", "catalog_nav", "machine_card", "contact")
+ * @param args.cta_text - Button/link text displayed to user
+ * @param args.cta_destination - Where the CTA leads (URL or anchor)
+ * @param args.cta_location - Where on the page the CTA appears
+ */
+export function metaCtaClick(args: {
+  cta_type: string;
+  cta_text: string;
+  cta_destination: string;
+  cta_location: string;
+}): void {
+  const fbq = getFbq();
+  if (!fbq) return;
+
+  const payload: Record<string, any> = {
+    cta_type: args.cta_type,
+    cta_text: args.cta_text,
+    cta_destination: args.cta_destination,
+    cta_location: args.cta_location,
+  };
+
+  fbq("trackCustom", "CTA_Click", payload);
+
+  if (isGaDebug()) {
+    console.log("🔎 Meta CTA_Click", payload);
+  }
+}

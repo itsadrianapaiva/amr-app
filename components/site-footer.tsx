@@ -8,6 +8,11 @@ import { FOOTER_CONTENT } from "@/lib/content/footer";
 import { SOCIAL_LINKS } from "@/lib/content/social";
 import { SocialIcon } from "@/components/social/SocialIcon";
 import { MapPin, Phone, Mail } from "lucide-react";
+import {
+  trackGaCatalogNavClick,
+  trackGaContactCtaClick,
+} from "@/components/analytics/ga4-clicking";
+import { metaCtaClick } from "@/lib/analytics/metaEvents";
 
 // helpers for section links
 function isSectionHref(href?: string) {
@@ -89,6 +94,19 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
                   <Link
                     href={`mailto:${FOOTER_CONTENT.email}`}
                     className="underline opacity-90 hover:no-underline"
+                    onClick={() => {
+                      trackGaContactCtaClick({
+                        contact_method: "email",
+                        cta_location: "footer",
+                        cta_text: FOOTER_CONTENT.email || "",
+                      });
+                      metaCtaClick({
+                        cta_type: "contact",
+                        cta_text: FOOTER_CONTENT.email || "",
+                        cta_destination: `mailto:${FOOTER_CONTENT.email}`,
+                        cta_location: "footer",
+                      });
+                    }}
                   >
                     {FOOTER_CONTENT.email}
                   </Link>
@@ -119,7 +137,7 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
               </div>
             )}
 
-            {/* Contact footer CTA — scroll to a section without '#' */}
+            {/* Contact footer CTA with tracking */}
             {FOOTER_CONTENT.footerCta && (
               <div className="mt-8">
                 {isSectionHref(FOOTER_CONTENT.footerCta.href) ? (
@@ -128,6 +146,14 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
                     offset={112}
                     ariaLabel={FOOTER_CONTENT.footerCta.label}
                     className="inline-flex rounded-lg bg-primary px-12 py-2 text-sm font-semibold text-primary-foreground hover:bg-accent/80 cursor-pointer"
+                    onClick={() => {
+                      metaCtaClick({
+                        cta_type: "footer_cta",
+                        cta_text: FOOTER_CONTENT.footerCta?.label || "",
+                        cta_destination: FOOTER_CONTENT.footerCta?.href || "",
+                        cta_location: "footer",
+                      });
+                    }}
                   >
                     {FOOTER_CONTENT.footerCta.label}
                   </ScrollLink>
@@ -135,6 +161,14 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
                   <Link
                     href={FOOTER_CONTENT.footerCta.href}
                     className="inline-flex rounded-lg bg-primary px-12 py-2 text-sm font-semibold text-primary-foreground hover:bg-accent/80 cursor-pointer"
+                    onClick={() => {
+                      metaCtaClick({
+                        cta_type: "footer_cta",
+                        cta_text: FOOTER_CONTENT.footerCta?.label || "",
+                        cta_destination: FOOTER_CONTENT.footerCta?.href || "",
+                        cta_location: "footer",
+                      });
+                    }}
                   >
                     {FOOTER_CONTENT.footerCta.label}
                   </Link>
@@ -159,6 +193,18 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
                       offset={112}
                       ariaLabel={`View ${label} in catalog`}
                       className="underline hover:no-underline cursor-pointer"
+                      onClick={() => {
+                        trackGaCatalogNavClick({
+                          link_text: label,
+                          link_location: "footer",
+                        });
+                        metaCtaClick({
+                          cta_type: "catalog_nav",
+                          cta_text: label,
+                          cta_destination: "#catalog",
+                          cta_location: "footer",
+                        });
+                      }}
                     >
                       {label}
                     </ScrollLink>
