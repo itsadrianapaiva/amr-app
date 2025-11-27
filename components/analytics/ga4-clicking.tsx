@@ -154,3 +154,14 @@ export function trackGaCatalogViewItemList(params: {
 }): void {
   trackGaClick("view_item_list", params);
 }
+
+/**
+ * Begin checkout event
+ * Fires when user successfully initiates checkout (after validation, before Stripe redirect)
+ */
+export function trackGaBeginCheckout(params: {
+  machine_id: number;
+  machine_name?: string;
+}): void {
+  trackGaClick("begin_checkout", params);
+}

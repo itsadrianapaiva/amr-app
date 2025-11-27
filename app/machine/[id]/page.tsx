@@ -64,6 +64,7 @@ export default async function MachineDetailPage({
   const formMachine: Pick<
     SerializableMachine,
     | "id"
+    | "name"
     | "dailyRate"
     | "deposit"
     | "deliveryCharge"
@@ -71,6 +72,7 @@ export default async function MachineDetailPage({
     | "minDays"
   > = {
     id: s.id,
+    name: s.name,
     dailyRate: s.dailyRate,
     deposit: s.deposit,
     deliveryCharge: s.deliveryCharge,
