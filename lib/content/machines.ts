@@ -77,18 +77,11 @@ export const CATEGORY_LABELS: Record<string, string> = {
   "pressure washer": "Power Washers",
   "pressure washers": "Power Washers",
 
-  // Hammers / demolition
-  "electric hammer": "Demolition Hammers",
-  "eletric hammer": "Demolition Hammers", // common typo safeguard
-  "demolition hammer": "Demolition Hammers",
-  jackhammer: "Demolition Hammers",
-  jackhammers: "Demolition Hammers",
+// Hole boring machines
+holeboringmachine: "Hole Boring Machines",
+  "hole boring machine": "Hole Boring Machines",
+  "hole boring machines": "Hole Boring Machines",
 
-  // Trailers / dumpers if you add them later
-  trailers: "Trailers",
-  trailer: "Trailers",
-  dumpers: "Dumpers",
-  dumper: "Dumpers",
 
   // Fallback
   uncategorized: "Uncategorized",

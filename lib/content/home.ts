@@ -49,7 +49,7 @@ export type InventorySectionContent = {
 };
 
 export const HOME_INVENTORY: InventorySectionContent = {
-  pretitle: "Our Inventory",
+  pretitle: "Our Top-Level Picks",
   title: "Everything your site needs, ready to book",
   subtitle:
     "Browse reliable machines with clear pricing. Reserve online in minutes. No phone quote required.",
