@@ -12,6 +12,8 @@ import { AMR_LOGO_YELLOW, AMR_LOGO_BW } from "@/components/logo";
 import { Sheet, SheetTrigger } from "@/components/ui/sheet";
 import ScrollLink from "@/components/nav/scroll-link";
 import { usePathname, useRouter } from "next/navigation";
+import { trackGaCatalogNavClick } from "@/components/analytics/ga4-clicking";
+import { metaCtaClick } from "@/lib/analytics/metaEvents";
 
 const STICKY_OFFSET = 112;
 
@@ -133,13 +135,28 @@ export default function SiteNav() {
               ))}
             </div>
 
-            {/* Primary CTA unchanged */}
+            {/* Primary CTA with tracking */}
             {isInPage(NAV_CONTENT.primaryCta.href) ? (
               <ScrollLink
                 to={sectionId(NAV_CONTENT.primaryCta.href)}
                 offset={STICKY_OFFSET}
                 className="ml-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground border border-primary-foreground hover:opacity-90"
                 ariaLabel={`Go to ${sectionId(NAV_CONTENT.primaryCta.href)} section`}
+                onClick={() => {
+                  const section = sectionId(NAV_CONTENT.primaryCta.href);
+                  if (section === "catalog") {
+                    trackGaCatalogNavClick({
+                      link_text: NAV_CONTENT.primaryCta.label,
+                      link_location: "nav",
+                    });
+                    metaCtaClick({
+                      cta_type: "catalog_nav",
+                      cta_text: NAV_CONTENT.primaryCta.label,
+                      cta_destination: NAV_CONTENT.primaryCta.href,
+                      cta_location: "nav",
+                    });
+                  }
+                }}
               >
                 {NAV_CONTENT.primaryCta.label}
               </ScrollLink>
@@ -147,6 +164,20 @@ export default function SiteNav() {
               <Link
                 href={NAV_CONTENT.primaryCta.href}
                 className="ml-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground border border-primary-foreground hover:opacity-90"
+                onClick={() => {
+                  if (NAV_CONTENT.primaryCta.href.includes("catalog")) {
+                    trackGaCatalogNavClick({
+                      link_text: NAV_CONTENT.primaryCta.label,
+                      link_location: "nav",
+                    });
+                    metaCtaClick({
+                      cta_type: "catalog_nav",
+                      cta_text: NAV_CONTENT.primaryCta.label,
+                      cta_destination: NAV_CONTENT.primaryCta.href,
+                      cta_location: "nav",
+                    });
+                  }
+                }}
               >
                 {NAV_CONTENT.primaryCta.label}
               </Link>

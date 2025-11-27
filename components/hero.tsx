@@ -1,7 +1,15 @@
+"use client";
+
 import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import ScrollLink from "@/components/nav/scroll-link";
+import {
+  trackGaHeroPrimaryCtaClick,
+  trackGaHeroSecondaryCtaClick,
+  trackGaContactCtaClick,
+} from "@/components/analytics/ga4-clicking";
+import { metaCtaClick } from "@/lib/analytics/metaEvents";
 
 /* Static imports unlock intrinsic size + blur + preload for priority */
 import hero01 from "@/public/images/hero/hero.jpg";
@@ -122,6 +130,18 @@ export default function Hero({
                   asChild
                   size="lg"
                   className="bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+                  onClick={() => {
+                    trackGaHeroPrimaryCtaClick({
+                      cta_text: primaryLabel,
+                      cta_destination: primaryHref,
+                    });
+                    metaCtaClick({
+                      cta_type: "hero_primary",
+                      cta_text: primaryLabel,
+                      cta_destination: primaryHref,
+                      cta_location: "hero",
+                    });
+                  }}
                 >
                   <span>{primaryLabel}</span>
                 </Button>
@@ -131,6 +151,18 @@ export default function Hero({
                 <Button
                   size="lg"
                   className="bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+                  onClick={() => {
+                    trackGaHeroPrimaryCtaClick({
+                      cta_text: primaryLabel,
+                      cta_destination: primaryHref,
+                    });
+                    metaCtaClick({
+                      cta_type: "hero_primary",
+                      cta_text: primaryLabel,
+                      cta_destination: primaryHref,
+                      cta_location: "hero",
+                    });
+                  }}
                 >
                   {primaryLabel}
                 </Button>
@@ -143,6 +175,23 @@ export default function Hero({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center rounded-md border border-white/20 px-4 py-2 text-sm font-medium text-white/90 hover:bg-white/10"
+                onClick={() => {
+                  trackGaHeroSecondaryCtaClick({
+                    cta_text: whatsappLabel,
+                    cta_destination: whatsappHref,
+                  });
+                  trackGaContactCtaClick({
+                    contact_method: "whatsapp",
+                    cta_location: "hero",
+                    cta_text: whatsappLabel,
+                  });
+                  metaCtaClick({
+                    cta_type: "hero_secondary",
+                    cta_text: whatsappLabel,
+                    cta_destination: whatsappHref,
+                    cta_location: "hero",
+                  });
+                }}
               >
                 {whatsappLabel}
               </a>

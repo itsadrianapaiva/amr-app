@@ -1,3 +1,5 @@
+"use client";
+
 import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
@@ -6,6 +8,8 @@ import type { SerializableMachine } from "@/lib/types";
 import { cn, formatCurrency, moneyDisplay, toTitleCase } from "@/lib/utils";
 import { MACHINE_CARD_COPY } from "@/lib/content/machines";
 import { resolveMachineImage } from "@/lib/content/images";
+import { trackGaMachineCardClick } from "@/components/analytics/ga4-clicking";
+import { metaCtaClick } from "@/lib/analytics/metaEvents";
 
 /** Safe reader for either 'category' (new) or 'type' (legacy) without using 'any'. */
 function getCategoryOrType(m: unknown): string {
@@ -138,6 +142,19 @@ export function MachineCard({ machine, eager = false }: MachineCardProps) {
                 "bg-primary text-primary-foreground hover:bg-primary/80"
               )}
               aria-label={`View ${displayName}`}
+              onClick={() => {
+                trackGaMachineCardClick({
+                  machine_id: machine.id,
+                  machine_name: displayName,
+                  machine_category: categoryOrType,
+                });
+                metaCtaClick({
+                  cta_type: "machine_card",
+                  cta_text: `View ${displayName}`,
+                  cta_destination: `/machine/${machine.id}`,
+                  cta_location: "catalog",
+                });
+              }}
             >
               <ArrowRight className="h-5 w-5" />
             </Link>
