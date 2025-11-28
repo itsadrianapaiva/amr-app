@@ -3,7 +3,6 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import Ga4Purchase from "@/components/analytics/ga4-purchase";
 import BookingMetaPurchase from "@/components/analytics/booking-meta-purchase";
-import ScrollLink from "@/components/nav/scroll-link";
 import { Button } from "@/components/ui/button";
 import MetaCtaClickWrapper from "@/components/analytics/meta-cta-click";
 
@@ -78,25 +77,19 @@ export default async function CustomerSuccessPage({
             </Link>
           </MetaCtaClickWrapper>
 
-          {/* Hashless in-page scroll to catalog - use Button asChild to avoid nested <button> */}
           <MetaCtaClickWrapper
             ctaType="success_back_to_catalog"
             ctaText="Browse machines"
-            ctaDestination="#catalog"
+            ctaDestination="/catalog"
             ctaLocation="booking_success"
           >
             <Button
               asChild
               className="rounded-md px-4 py-2 text-sm font-medium cursor-pointer"
             >
-              <ScrollLink
-                to="catalog"
-                offset={112}
-                ariaLabel="Browse machines"
-                className="inline-flex"
-              >
+              <Link href="/catalog">
                 Browse machines
-              </ScrollLink>
+              </Link>
             </Button>
           </MetaCtaClickWrapper>
         </div>
@@ -137,25 +130,19 @@ export default async function CustomerSuccessPage({
             </Link>
           </MetaCtaClickWrapper>
 
-          {/* Hashless in-page scroll to catalog - avoid nested <button> */}
           <MetaCtaClickWrapper
             ctaType="success_back_to_catalog"
             ctaText="Browse machines"
-            ctaDestination="#catalog"
+            ctaDestination="/catalog"
             ctaLocation="booking_success"
           >
             <Button
               asChild
               className="rounded-md px-4 py-2 text-sm font-medium cursor-pointer"
             >
-              <ScrollLink
-                to="catalog"
-                offset={112}
-                ariaLabel="Browse machines"
-                className="inline-flex"
-              >
+              <Link href="/catalog">
                 Browse machines
-              </ScrollLink>
+              </Link>
             </Button>
           </MetaCtaClickWrapper>
         </div>
@@ -200,25 +187,19 @@ export default async function CustomerSuccessPage({
       </div>
 
       <div className="flex items-center gap-3">
-        {/* Hashless in-page scroll to catalog - avoid nested <button> */}
         <MetaCtaClickWrapper
           ctaType="success_back_to_catalog"
           ctaText="Back to catalog"
-          ctaDestination="#catalog"
+          ctaDestination="/catalog"
           ctaLocation="booking_success"
         >
           <Button
             asChild
             className="rounded-md bg-black text-white px-4 py-2 text-md font-medium cursor-pointer"
           >
-            <ScrollLink
-              to="catalog"
-              offset={112}
-              ariaLabel="Back to catalog"
-              className="inline-flex"
-            >
+            <Link href="/catalog">
               Back to catalog
-            </ScrollLink>
+            </Link>
           </Button>
         </MetaCtaClickWrapper>
 

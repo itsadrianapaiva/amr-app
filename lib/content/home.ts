@@ -30,7 +30,7 @@ export const HOME_HERO: HeroContent = {
   subtitle:
     "See live availability and real time pricing. Choose dates, add extras, and confirm in minutes. Instant confirmation with fast delivery or pickup.",
 
-  primaryHref: "#catalog",
+  primaryHref: "/catalog",
   primaryLabel: "Book Online Now",
 
   // Set when ready to enable WhatsApp CTA, e.g. "+3519XXXXXXXX"
@@ -49,7 +49,7 @@ export type InventorySectionContent = {
 };
 
 export const HOME_INVENTORY: InventorySectionContent = {
-  pretitle: "Our Inventory",
+  pretitle: "Our Top-Level Picks",
   title: "Everything your site needs, ready to book",
   subtitle:
     "Browse reliable machines with clear pricing. Reserve online in minutes. No phone quote required.",

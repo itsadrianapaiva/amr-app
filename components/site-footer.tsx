@@ -34,7 +34,7 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
 
   const pageLinks: { href: string; label: string; external?: boolean }[] = [
     { href: "/#home", label: "Home" },
-    { href: "/#catalog", label: "Catalog" },
+    { href: "/catalog", label: "Catalog" },
     { href: "/#contact", label: "Contact" },
     { href: "/#faq", label: "FAQ" },
     { href: "/legal/privacy", label: "Privacy" },

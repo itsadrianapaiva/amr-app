@@ -35,6 +35,7 @@ type BookingFormProps = {
   machine: Pick<
     SerializableMachine,
     | "id"
+    | "name"
     | "dailyRate"
     | "deposit"
     | "deliveryCharge"
@@ -124,6 +125,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
     useBookingSubmit({
       form,
       machineId: machine.id,
+      machineName: machine.name,
       insuranceOn: !!insuranceSelected,
       deliveryOn: !!deliverySelected,
       pickupOn: !!pickupSelected,
@@ -208,6 +210,8 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
               showAddress={showAddress}
               isSubmitDisabled={isSubmitDisabled}
               rootError={rootError}
+              machineId={machine.id}
+              machineName={machine.name}
               summary={
                 <SummaryPanel
                   rentalDays={rentalDays}

@@ -98,23 +98,18 @@ export function metaViewContent(args: {
  * Fires a Meta InitiateCheckout event
  * Should be called when a user starts the booking/checkout process
  *
- * TODO: Wire metaInitiateCheckout from BookingForm when we refactor
- * the form handlers in a later approach. For now, this helper is ready
- * but not yet integrated into the booking flow to avoid touching
- * money-path logic.
- *
- * @param args.bookingId - Booking ID
  * @param args.machineId - Machine ID
  * @param args.machineName - Machine name
+ * @param args.bookingId - Booking ID (optional)
  * @param args.startDate - Booking start date (optional)
  * @param args.endDate - Booking end date (optional)
  * @param args.estimatedValue - Estimated booking value in EUR (optional)
  * @param args.currency - Currency code (defaults to EUR)
  */
 export function metaInitiateCheckout(args: {
-  bookingId: number;
   machineId: number;
   machineName: string;
+  bookingId?: number | null;
   startDate?: string | null;
   endDate?: string | null;
   estimatedValue?: number | null;
@@ -201,6 +196,34 @@ export function metaPurchase(args: {
 
   if (isGaDebug()) {
     console.log("🔎 Meta Purchase", payload);
+  }
+}
+
+/**
+ * Fires a Meta ViewContent event for the catalog page
+ * Should be called when the catalog list is viewed
+ * Represents the catalog as a product group
+ *
+ * @param args.contentIds - Array of machine IDs in the catalog
+ * @param args.numItems - Number of machines in the catalog
+ */
+export function metaCatalogViewContent(args: {
+  contentIds: string[];
+  numItems: number;
+}): void {
+  const fbq = getFbq();
+  if (!fbq) return;
+
+  const payload: Record<string, any> = {
+    content_type: "product_group",
+    content_ids: args.contentIds,
+    num_items: args.numItems,
+  };
+
+  fbq("track", "ViewContent", payload);
+
+  if (isGaDebug()) {
+    console.log("🔎 Meta Catalog ViewContent", payload);
   }
 }
 

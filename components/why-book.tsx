@@ -36,10 +36,10 @@ export default function WhyBook() {
   return (
     <section id="about" className="px-8 py-16 md:py-24 md:px-8 lg:px-12">
       <div className="container mx-auto">
-        <div className="flex flex-col items-center gap-12 xl:flex-row xl:gap-12">
+        <div className="flex flex-col items-center gap-12 xl:flex-row xl:gap-4">
           {/* Left: text/content */}
-          <div className="flex-1">
-            <div className="max-w-[560px]">
+          <div className="flex-1 md:order-2">
+            <div className="max-w-[660px]">
               <Pretitle text={WHY_BOOK.pretitle} />
               <h2 className="my-6 text-3xl font-bold tracking-tight md:text-4xl">
                 {WHY_BOOK.title}
