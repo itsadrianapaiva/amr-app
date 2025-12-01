@@ -259,7 +259,7 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
 
       {/* Bottom bar — unchanged */}
       <div className="border-t border-primary-foreground/15">
-        <div className="container mx-auto flex flex-col items-center justify-between gap-2 py-4 text-xs uppercase tracking-[0.8px] md:flex-row">
+        <div className="container mx-auto flex flex-col items-center justify-between gap-2 py-4 px-4 text-xs uppercase tracking-[0.8px] md:flex-row">
           <p className="opacity-80">
             &copy; {year} {owner}. All rights reserved.
           </p>
