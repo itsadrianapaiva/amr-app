@@ -7,6 +7,7 @@ import { AMR_LOGO_YELLOW } from "@/components/logo";
 import { FOOTER_CONTENT } from "@/lib/content/footer";
 import { SOCIAL_LINKS } from "@/lib/content/social";
 import { SocialIcon } from "@/components/social/SocialIcon";
+import FooterTrustBar from "@/components/trust/footer-trust-bar";
 import { MapPin, Phone, Mail } from "lucide-react";
 import {
   trackGaCatalogNavClick,
@@ -272,6 +273,9 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
           </div>
         </div>
       </div>
+
+      {/* Trust logos bar */}
+      <FooterTrustBar />
 
       {/* Bottom bar — unchanged */}
       <div className="border-t border-primary-foreground/15">

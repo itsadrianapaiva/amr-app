@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import Hero from "@/components/hero";
 import CatalogSection from "@/components/catalog-section";
 import { PromoModal } from "@/components/promo-modal";
+import TrustLogosSection from "@/components/trust-logos-section";
 // Split below-the-fold bundles:
 const WhyBook = dynamic(() => import("./why-book"), { ssr: true });
 const HowToBook = dynamic(() => import("./how-to-book"), { ssr: true });
@@ -100,6 +101,9 @@ export function HomeView({ machines }: HomeViewProps) {
 
       {/* Section: Catalog (near fold; keep eager for UX/SEO) */}
       <CatalogSection machines={machines} />
+
+      {/* Section: Trust logos (payments and invoicing) */}
+      <TrustLogosSection />
 
       {/* ---- Lazy sections need static anchors to enable reliable in-page scroll ---- */}
 
