@@ -19,6 +19,9 @@ export type FooterContent = {
   /** Credits & legal text. */
   copyrightOwner?: string; // defaults to companyName if omitted
   designedBy?: { label: string; href: string } | null;
+
+  /** Full legal business registration information (for Meta verification). */
+  legalBusinessInfo?: string[];
 };
 
 export const FOOTER_CONTENT: FooterContent = {
@@ -38,4 +41,11 @@ export const FOOTER_CONTENT: FooterContent = {
   // Credits (can hide by setting to nulls).
   copyrightOwner: "AMR Rentals",
   designedBy: { label: "Adriana Paiva", href: "https://itsadrianapaiva.com" },
+
+  // Full legal business registration (Meta verification requirement).
+  legalBusinessInfo: [
+    "Algarve Modern Rentals and Services",
+    "Aluguer de Equipamentos Unipessoal Lda",
+    "NIPC: 517530937",
+  ],
 };

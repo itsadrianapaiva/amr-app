@@ -175,6 +175,22 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
                 )}
               </div>
             )}
+
+            {/* Legal business information */}
+            {FOOTER_CONTENT.legalBusinessInfo && (
+              <div className="mt-8">
+                <p className="text-xs leading-relaxed opacity-70">
+                  {FOOTER_CONTENT.legalBusinessInfo.map((line, idx) => (
+                    <span key={idx}>
+                      {line}
+                      {idx < FOOTER_CONTENT.legalBusinessInfo!.length - 1 && (
+                        <br />
+                      )}
+                    </span>
+                  ))}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Categories — unchanged layout, but no hashes or prefetch */}
