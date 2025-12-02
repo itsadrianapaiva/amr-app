@@ -9,7 +9,8 @@
       "Bash(curl:*)",
       "Bash(npx playwright test:*)",
       "Bash(npm run dev:*)",
-      "Bash(npm run dev:netlify:*)"
+      "Bash(npm run dev:netlify:*)",
+      "Bash(timeout 10 echo:*)"
     ],
     "deny": [],
     "ask": []

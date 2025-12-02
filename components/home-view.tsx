@@ -7,6 +7,7 @@ import Hero from "@/components/hero";
 import CatalogSection from "@/components/catalog-section";
 import { PromoModal } from "@/components/promo-modal";
 import TrustLogosSection from "@/components/trust-logos-section";
+import SocialProofSection from "@/components/social-proof-section";
 // Split below-the-fold bundles:
 const WhyBook = dynamic(() => import("./why-book"), { ssr: true });
 const HowToBook = dynamic(() => import("./how-to-book"), { ssr: true });
@@ -102,9 +103,6 @@ export function HomeView({ machines }: HomeViewProps) {
       {/* Section: Catalog (near fold; keep eager for UX/SEO) */}
       <CatalogSection machines={machines} />
 
-      {/* Section: Trust logos (payments and invoicing) */}
-      <TrustLogosSection />
-
       {/* ---- Lazy sections need static anchors to enable reliable in-page scroll ---- */}
 
       {/* Anchor for "about" BEFORE the lazy chunk */}
@@ -113,6 +111,11 @@ export function HomeView({ machines }: HomeViewProps) {
       <LazySection minHeight={420}>
         <WhyBook />
       </LazySection>
+
+      {/* Section: Social proof — customer reviews and job site photos */}
+      <SocialProofSection />
+      {/* Section: Trust logos (payments and invoicing) */}
+      <TrustLogosSection />
 
       {/* Anchor for "how-to-book" BEFORE the lazy chunk */}
       <SectionAnchor id="how-to-book" />
