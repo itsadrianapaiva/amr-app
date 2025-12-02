@@ -2,6 +2,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { computeTotals, PriceInputs } from "@/lib/pricing";
 import { Card, CardContent } from "@/components/ui/card";
 import PriceRow from "@/components/booking/price-row";
+import CheckoutTrustRow from "@/components/trust/checkout-trust-row";
 
 /**
  * Pure presentational component. No business logic, no RHF.
@@ -163,6 +164,9 @@ export function PriceSummary({
           The deposit is refundable and paid at initial handover (drop-off to your site or
           pickup at our warehouse).
         </p>
+
+        {/* Checkout trust badges */}
+        <CheckoutTrustRow />
       </CardContent>
     </Card>
   );
