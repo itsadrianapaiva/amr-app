@@ -2,7 +2,7 @@ import { CONTACTS } from "@/lib/content/contacts";
 import { buildWhatsAppHref } from "@/lib/contacts/utils";
 
 type Props = {
-  /** Defaults to /assets/whatsapp.png (lives under /public). */
+  /** Defaults to /assets/optimized/whatsapp.webp (lives under /public). */
   iconSrc?: string;
   /** Portuguese label kept to mirror production behavior. */
   ariaLabel?: string;
@@ -14,13 +14,13 @@ type Props = {
  *
  * Reason:
  * - On Netlify staging, Next.js' on-demand image optimizer was returning 400
- *   for small local assets like /assets/whatsapp.png when called via <Image />.
+ *   for small local assets when called via <Image />.
  * - This FAB icon is not LCP-critical and it's a fixed-size icon, so we do NOT
  *   need responsive resizing or format negotiation here.
  * - Using <img> bypasses /_next/image entirely, so staging stops breaking.
  */
 export default function WhatsAppFab({
-  iconSrc = "/assets/whatsapp.png",
+  iconSrc = "/assets/optimized/whatsapp.webp",
   ariaLabel = "Contacte-nos no WhatsApp",
 }: Props) {
   const whatsappUrl = buildWhatsAppHref(CONTACTS.support.whatsapp);

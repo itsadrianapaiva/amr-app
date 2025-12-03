@@ -2,8 +2,8 @@
 import type { StaticImageData } from "next/image";
 import Link from "next/link";
 
-import logoYellowPng from "@/public/assets/logo-yellow.png";
-import logoBwPng from "@/public/assets/logo-bw.png";
+import logoYellowPng from "@/public/assets/optimized/logo-yellow.webp";
+import logoBwPng from "@/public/assets/optimized/logo-bw.webp";
 
 /** Variants: nav/mobile vs footer */
 type LogoVariant = "nav" | "footer";
