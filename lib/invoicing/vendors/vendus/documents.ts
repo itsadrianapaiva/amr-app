@@ -122,7 +122,33 @@ const vendusCore: VendusCore = {
     if (method === "GET") {
       // IMPORTANT: Vendus does NOT accept `mode` as a GET param. Never include it.
       const qs = toQueryString(opts?.query);
-      return http<T>("GET", `${path}${qs}`, undefined); // no body, no content-type
+      const fullPath = `${path}${qs}`;
+
+      try {
+        return await http<T>("GET", fullPath, undefined); // no body, no content-type
+      } catch (err) {
+        // Detect specific "404 No data" response for client lookup endpoint
+        const message = err instanceof Error ? err.message : String(err);
+
+        // Check if this is the specific case: 404 No data for /v1.1/clients/
+        const isClientsEndpoint = path === "/v1.1/clients/";
+        const is404 = message.includes("404");
+        const isNoData = message.includes("No data");
+        const isVendusError = message.includes("Vendus API error at /v1.1/clients/");
+
+        if (isClientsEndpoint && is404 && isNoData && isVendusError) {
+          // Log this graceful fallback
+          console.info("[vendus:client] not_found_404_no_data, treating as empty list", {
+            query: opts?.query,
+            mode: MODE,
+          });
+          // Return empty array for client lookup - allows creation flow to proceed
+          return [] as T;
+        }
+
+        // All other errors: preserve existing behavior by rethrowing
+        throw err;
+      }
     }
 
     // POST: include `mode` in the JSON body (Vendus expects it here)
