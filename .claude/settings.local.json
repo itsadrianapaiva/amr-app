@@ -12,7 +12,8 @@
       "Bash(npm run dev:netlify:*)",
       "Bash(timeout 10 echo:*)",
       "Bash(dir:*)",
-      "Bash(timeout 15 npm run dev:*)"
+      "Bash(timeout 15 npm run dev:*)",
+      "Bash(npm run optimize:images:*)"
     ],
     "deny": [],
     "ask": []

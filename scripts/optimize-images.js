@@ -8,7 +8,8 @@
  * Requirements:
  * - Never modifies or deletes original files
  * - Skips images smaller than 64x64 pixels
- * - Only keeps WebP if it's at least 10% smaller than original
+ * - Only keeps WebP if it's at least 10% smaller than original (except hero images)
+ * - Hero images (public/images/hero/**) are always kept regardless of size savings
  * - Idempotent: can be run multiple times safely
  *
  * Usage: npm run optimize:images
@@ -105,6 +106,22 @@ function getOptimizedPath(sourcePath, root) {
 }
 
 /**
+ * Check if a file is in the hero directory
+ */
+function isHeroImage(sourcePath, root) {
+  // Normalize paths for cross-platform compatibility
+  const normalizedSource = sourcePath.replace(/\\/g, '/');
+  const normalizedRoot = root.replace(/\\/g, '/');
+
+  // Get the relative path from the root
+  const relativePath = normalizedSource.substring(normalizedRoot.length + 1);
+
+  // Check if the path is within the hero directory
+  // After normalization, we can just check for hero/ in the path
+  return relativePath.includes('hero/');
+}
+
+/**
  * Process a single image file
  */
 async function processImage(sourcePath, root) {
@@ -123,6 +140,9 @@ async function processImage(sourcePath, root) {
 
     // Get output path
     const { outputPath, outputDir } = getOptimizedPath(sourcePath, root);
+
+    // Check if this is a hero image (these are always kept)
+    const isHero = isHeroImage(sourcePath, root);
 
     // Check if output already exists (idempotency)
     if (fs.existsSync(outputPath)) {
@@ -148,8 +168,22 @@ async function processImage(sourcePath, root) {
     const originalSize = fs.statSync(sourcePath).size;
     const webpSize = fs.statSync(outputPath).size;
 
-    // Keep only if WebP is significantly smaller
-    if (webpSize >= originalSize * MIN_SAVINGS_RATIO) {
+    // Hero images are always kept, regardless of size savings
+    if (isHero) {
+      const savings = originalSize - webpSize;
+      if (savings > 0) {
+        stats.bytesSaved += savings;
+      }
+      stats.created++;
+
+      const savingsPercent = savings > 0
+        ? Math.round((savings / originalSize) * 100)
+        : 0;
+      console.log(`  Forced keep (hero): ${sourcePath} -> ${outputPath}`);
+      console.log(`    ${formatBytes(originalSize)} -> ${formatBytes(webpSize)} (${savingsPercent}% savings)`);
+    }
+    // For non-hero images, keep only if WebP is significantly smaller
+    else if (webpSize >= originalSize * MIN_SAVINGS_RATIO) {
       fs.unlinkSync(outputPath);
       console.log(`  WebP not smaller, discarded: ${sourcePath} (${formatBytes(originalSize)} -> ${formatBytes(webpSize)})`);
       stats.notSmaller++;

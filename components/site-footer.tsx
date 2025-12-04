@@ -194,39 +194,38 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
             )}
           </div>
 
-          {/* Categories — unchanged layout, but no hashes or prefetch */}
+          {/* Categories */}
           {categories && categories.length > 0 ? (
             <div>
               <h4 className="mb-6 text-md font-semibold uppercase tracking-[1.2px]">
                 Categories
               </h4>
               <ul className="space-y-3 text-sm opacity-90">
-                {categories.map((label) => (
-                  <li key={label}>
-                    {/* Keep your existing behavior here if you had a handler.
-                       If you were linking with "#catalog", switch to ScrollLink. */}
-                    <ScrollLink
-                      to="catalog"
-                      offset={112}
-                      ariaLabel={`View ${label} in catalog`}
-                      className="underline hover:no-underline cursor-pointer"
-                      onClick={() => {
-                        trackGaCatalogNavClick({
-                          link_text: label,
-                          link_location: "footer",
-                        });
-                        metaCtaClick({
-                          cta_type: "catalog_nav",
-                          cta_text: label,
-                          cta_destination: "#catalog",
-                          cta_location: "footer",
-                        });
-                      }}
-                    >
-                      {label}
-                    </ScrollLink>
-                  </li>
-                ))}
+                {categories.map((label) => {
+                  const href = `/catalog?category=${encodeURIComponent(label)}`;
+                  return (
+                    <li key={label}>
+                      <Link
+                        href={href}
+                        className="underline hover:no-underline cursor-pointer"
+                        onClick={() => {
+                          trackGaCatalogNavClick({
+                            link_text: label,
+                            link_location: "footer",
+                          });
+                          metaCtaClick({
+                            cta_type: "catalog_nav",
+                            cta_text: label,
+                            cta_destination: href,
+                            cta_location: "footer",
+                          });
+                        }}
+                      >
+                        {label}
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ) : (
