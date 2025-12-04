@@ -38,7 +38,7 @@ export const PROMO_MODAL: PromoContent = {
   title: "25% Off Algarve Rentals",
   description:
     "Prices shown already include the 25% reduction. Check availability on each machine page and confirm online in minutes.",
-  ctaBrowse: "Browse Catalog",
+  ctaBrowse: "Browse Machines",
   ctaReviews: "See Reviews on Google",
   highlight: "Limited-Time Offer",
   badge: "Automatic Discount",
