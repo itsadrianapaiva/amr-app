@@ -38,7 +38,7 @@ function useCardsPerRow() {
   useEffect(() => {
     const compute = () => {
       const w = window.innerWidth;
-      // Tailwind breakpoints: md=768, xl=1280 → our grid is 1 / 2 / 4
+      // Tailwind breakpoints: md=768, xl=1280 -> our grid is 1 / 2 / 4
       if (w >= 1280) setCols(4);
       else if (w >= 768) setCols(2);
       else setCols(1);
@@ -106,6 +106,16 @@ export default function FullCatalogSection({
   // Number of eager images should equal the first visual row (1 / 2 / 4)
   const eagerCount = cardsPerRow;
 
+  // Adjust grid width and columns so filtered results stay centered
+  const gridColsClass =
+    visibleMachines.length === 1
+      ? "grid-cols-1 max-w-md mx-auto"
+      : visibleMachines.length === 2
+      ? "grid-cols-1 md:grid-cols-2 max-w-3xl mx-auto"
+      : visibleMachines.length === 3
+      ? "grid-cols-1 md:grid-cols-3 max-w-5xl mx-auto"
+      : "grid-cols-1 md:grid-cols-2 xl:grid-cols-4 mx-8";
+
   return (
     <section id="catalog-page" className="container mx-auto">
       {/* Inventory intro */}
@@ -145,7 +155,7 @@ export default function FullCatalogSection({
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+      <div className={`grid gap-6 ${gridColsClass}`}>
         {visibleMachines.map((machine, idx) => (
           <MachineCard
             key={machine.id}
