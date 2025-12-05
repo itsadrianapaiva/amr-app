@@ -1,6 +1,7 @@
 "use client";
 
-import Image, { type StaticImageData } from "next/image";
+import { type StaticImageData } from "next/image";
+import SafeImage from "@/components/safe-image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import ScrollLink from "@/components/nav/scroll-link";
@@ -75,17 +76,13 @@ export default function Hero({
       ].join(" ")}
     >
       {/* LCP: full-bleed background. One image, one priority. */}
-      <Image
+      <SafeImage
         src={heroImg}
         alt="Tracked excavator working on a job site"
         fill
         priority
-        fetchPriority="high"
         /* Full-bleed background should advertise viewport width */
         sizes="100vw"
-        /* With AVIF on, 72 gives good visual quality at smaller bytes */
-        quality={72}
-        placeholder="blur"
         className="absolute inset-0 object-cover"
       />
 

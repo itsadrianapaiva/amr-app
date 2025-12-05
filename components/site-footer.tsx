@@ -232,7 +232,7 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
             <div aria-hidden className="hidden xl:block" />
           )}
 
-          {/* Pages — section links use ScrollLink, normal links keep Link (prefetch disabled) */}
+          {/* Pages — all internal links use standard Link for cross-page navigation */}
           <div>
             <h4 className="mb-6 text-md font-semibold uppercase tracking-[1.2px]">
               Pages
@@ -249,15 +249,6 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
                     >
                       {l.label}
                     </a>
-                  ) : isSectionHref(l.href) ? (
-                    <ScrollLink
-                      to={toSectionId(l.href)}
-                      offset={112}
-                      ariaLabel={`Go to ${toSectionId(l.href)} section`}
-                      className="underline hover:no-underline cursor-pointer"
-                    >
-                      {l.label}
-                    </ScrollLink>
                   ) : (
                     <Link
                       href={l.href}
@@ -284,7 +275,7 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
           </p>
           {FOOTER_CONTENT.designedBy ? (
             <p className="opacity-80">
-              Designed by{" "}
+              Developed by{" "}
               <a
                 href={FOOTER_CONTENT.designedBy.href}
                 target="_blank"

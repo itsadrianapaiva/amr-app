@@ -1,3 +1,9 @@
+// Staging hotfix: Allow disabling image optimization via env flag
+// Production does not set this flag and continues using /_next/image
+const isUnoptimizedImages =
+  process.env.NEXT_UNOPTIMIZED_IMAGES === "1" ||
+  process.env.NEXT_UNOPTIMIZED_IMAGES?.toLowerCase() === "true";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
@@ -28,7 +34,9 @@ const nextConfig = {
     // Keep these aligned with our layouts to avoid wasteful variants.
     deviceSizes: [360, 640, 768, 1024, 1280, 1536, 1920],
     imageSizes: [64, 96, 128, 256, 384],
-    // unoptimized: true, // Safety valve if you need to disable optimizer temporarily
+
+    // Staging hotfix: disable image optimizer on staging via NEXT_UNOPTIMIZED_IMAGES env
+    unoptimized: isUnoptimizedImages,
   },
 };
 

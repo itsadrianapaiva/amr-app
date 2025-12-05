@@ -1,6 +1,7 @@
 "use client";
 
-import Image, { type StaticImageData } from "next/image";
+import { type StaticImageData } from "next/image";
+import SafeImage from "@/components/safe-image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
@@ -71,12 +72,6 @@ export function MachineCard({ machine, eager = false }: MachineCardProps) {
   const srcToUse = img.src as StaticImageData | string;
   const altToUse = img.alt;
 
-  // If we have a static import, use a blur placeholder for nicer perceived loading
-  const isStatic =
-    typeof srcToUse === "object" &&
-    srcToUse !== null &&
-    "src" in (srcToUse as any);
-
   return (
     <div className="group relative h-[492px] w-full overflow-hidden">
       {/* Optional pre-badge reinforcing USP */}
@@ -92,7 +87,7 @@ export function MachineCard({ machine, eager = false }: MachineCardProps) {
       )}
 
       {/* Background Image */}
-      <Image
+      <SafeImage
         src={srcToUse}
         alt={altToUse}
         fill
@@ -104,13 +99,9 @@ export function MachineCard({ machine, eager = false }: MachineCardProps) {
          * - else:    1 col  → 100vw
          */
         sizes="(min-width:1280px) 25vw, (min-width:1024px) 33vw, (min-width:768px) 50vw, 100vw"
-        placeholder={isStatic ? "blur" : "empty"}
-        /** Trim bytes (AVIF/WebP enabled in next.config.ts) */
-        quality={72}
         /** Only the first visible row should preload aggressively */
         priority={Boolean(eager)}
         loading={eager ? "eager" : "lazy"}
-        decoding="async"
         className="object-cover transition-transform duration-500 group-hover:scale-105"
       />
 

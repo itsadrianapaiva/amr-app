@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
+import SafeImage from "@/components/safe-image";
 import { SOCIAL_PROOF } from "@/lib/content/social-proof";
 import { SOCIAL_PROOF_IMAGES } from "@/lib/content/social-proof-images";
 import { SOCIAL_PROOF_REVIEWS } from "@/lib/content/social-proof-reviews";
@@ -114,7 +114,7 @@ export default function SocialProofSection() {
             {/* Right column: Image carousel with fixed height */}
             <div className="flex-1">
               <div className="relative overflow-hidden rounded-2xl bg-muted h-[260px] md:h-[440px] xl:h-[480px] shadow-md">
-                <Image
+                <SafeImage
                   src={currentImage.src}
                   alt={currentImage.alt}
                   width={900}
@@ -122,7 +122,6 @@ export default function SocialProofSection() {
                   sizes="(min-width:1280px) 640px, (min-width:768px) 80vw, 100vw"
                   className="h-full w-full object-cover"
                   loading="lazy"
-                  decoding="async"
                 />
               </div>
 
