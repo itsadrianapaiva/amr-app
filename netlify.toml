@@ -99,8 +99,8 @@
     OPS_AUTH_DISABLED = "0"
 
      # Staging hotfix: disable Next image optimizer (images serve directly from /images/...)
-    NEXT_UNOPTIMIZED_IMAGES = "1"
-    NEXT_PUBLIC_DISABLE_OPTIMIZED_IMAGES = "1"
+    NEXT_UNOPTIMIZED_IMAGES = "0"
+    NEXT_PUBLIC_DISABLE_OPTIMIZED_IMAGES = "0"
 
     # HARD STOP: never send branch deploys to production
   [[context.branch-deploy.redirects]]
