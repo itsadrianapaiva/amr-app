@@ -284,7 +284,7 @@ export default function SiteFooter({ categories }: SiteFooterProps) {
           </p>
           {FOOTER_CONTENT.designedBy ? (
             <p className="opacity-80">
-              Designed by{" "}
+              Developed by{" "}
               <a
                 href={FOOTER_CONTENT.designedBy.href}
                 target="_blank"

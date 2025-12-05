@@ -54,12 +54,35 @@ export default function SafeImage({
     const srcUrl = getSrcUrl(src);
     const loadingAttr = loading || (priority ? "eager" : "lazy");
 
+    // When fill=true, emulate Next.js <Image fill> behavior:
+    // - Absolutely position the image to fill its parent
+    // - Combine with caller's className for object-fit, transforms, etc.
+    if (fill) {
+      const baseFillClass = "absolute inset-0 h-full w-full";
+      const combinedClassName = [baseFillClass, className]
+        .filter(Boolean)
+        .join(" ");
+
+      return (
+        <img
+          src={srcUrl}
+          alt={alt}
+          className={combinedClassName}
+          loading={loadingAttr}
+          decoding="async"
+          onClick={onClick}
+          style={style}
+        />
+      );
+    }
+
+    // When fill=false, use explicit width/height
     return (
       <img
         src={srcUrl}
         alt={alt}
-        width={!fill ? width : undefined}
-        height={!fill ? height : undefined}
+        width={width}
+        height={height}
         className={className}
         loading={loadingAttr}
         decoding="async"
