@@ -15,7 +15,9 @@
       "Bash(timeout 15 npm run dev:*)",
       "Bash(npm run optimize:images:*)",
       "Bash(NEXT_UNOPTIMIZED_IMAGES=1 APP_URL=http://localhost:3000 NEXT_PUBLIC_APP_URL=http://localhost:3000 timeout 15 npm run dev:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(file public/images/social-proof/*.{jpg,jpeg,png,webp})",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
