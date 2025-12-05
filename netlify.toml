@@ -24,27 +24,23 @@
 # PRODUCTION CONTEXT
 # -------------------------
 [context.production]
-  # In production we run migrations, then build (and emit staging headers script won't run here)
+  # In production we run migrations, then build
   command = "node scripts/netlify-build.js"
 
-  # Environment for production
   [context.production.environment]
     APP_URL = "$URL"
     NEXT_PUBLIC_APP_URL = "$URL"
     RUN_MIGRATIONS = "1"
 
-    # Ops ON in production (auth required)
     OPS_DASHBOARD_ENABLED = "1"
     OPS_DISABLE_AUTH = "0"
     OPS_AUTH_DISABLED = "0"
 
-  # Force canonical domain in production ONLY
   [[context.production.redirects]]
     from = "/*"
     to = "https://amr-rentals.com/:splat"
     status = 301
     force = true
-    # Only match real prod-ish hosts. Do NOT include branch deploy hosts.
     conditions = { Host = [
       "www.amr-rentals.com",
       "algarvemachinery.netlify.app"
@@ -54,36 +50,39 @@
 # STAGING CONTEXT (branch: staging)
 # -------------------------
 [context."branch:staging"]
-  # Staging also runs migrations then build
+  # NOTE:
+  # Netlify *does NOT apply environment variables* from this block
+  # in this project. Verified through live testing.
+  #
+  # Redirects, commands, and ops settings DO apply.
+  # Env vars MUST be set in [context.branch-deploy] to affect staging.
+  #
+  # Keeping this block for redirects + ops behavior ONLY.
+
   command = "node scripts/netlify-build.js"
 
   [context."branch:staging".environment]
-    # In staging we want branch URL as app URL
     APP_URL = "$DEPLOY_PRIME_URL"
     NEXT_PUBLIC_APP_URL = "$DEPLOY_PRIME_URL"
     RUN_MIGRATIONS = "1"
 
-    # Ops enabled WITH auth on staging
     OPS_DASHBOARD_ENABLED = "1"
     OPS_DISABLE_AUTH = "0"
     OPS_AUTH_DISABLED = "0"
 
-    # Example: temporarily omit a key from scanner on this one branch
     SECRETS_SCAN_OMIT_KEYS = "STRIPE_SECRET_KEY"
 
-    # Staging hotfix: disable Next image optimizer (images serve directly from /images/...)
+    # Flags intentionally set to OFF here because this block does not apply env vars.
     NEXT_UNOPTIMIZED_IMAGES = "0"
     NEXT_PUBLIC_DISABLE_OPTIMIZED_IMAGES = "0"
 
-  # Hard override: NEVER redirect branch deploy traffic to production
-  # This short-circuits any other redirect rule for this context.
   [[context."branch:staging".redirects]]
     from = "/*"
     to = "/:splat"
     status = 200
 
 # -------------------------
-# GENERIC BRANCH DEPLOYS (feature/* etc)
+# GENERIC BRANCH DEPLOYS (feature/* and staging)
 # -------------------------
 [context.branch-deploy]
   command = "next build"
@@ -93,16 +92,25 @@
     NEXT_PUBLIC_APP_URL = "$DEPLOY_PRIME_URL"
     RUN_MIGRATIONS = "0"
 
-    # Ops enabled with auth (same behavior as staging unless overridden)
     OPS_DASHBOARD_ENABLED = "1"
     OPS_DISABLE_AUTH = "0"
     OPS_AUTH_DISABLED = "0"
 
-     # Staging hotfix: disable Next image optimizer (images serve directly from /images/...)
-    NEXT_UNOPTIMIZED_IMAGES = "0"
-    NEXT_PUBLIC_DISABLE_OPTIMIZED_IMAGES = "0"
+    # -----------------------------------------------
+    # IMPORTANT:
+    # These flags MUST be defined here because this is
+    # the ONLY context Netlify actually applies for the
+    # staging branch (even though a staging context exists).
+    #
+    # Verified through testing:
+    # - staging DOES NOT read [context."branch:staging"].environment
+    # - staging DOES read [context.branch-deploy].environment
+    #
+    # This ensures staging and feature branches bypass Next Image optimizer.
+    # -----------------------------------------------
+    NEXT_UNOPTIMIZED_IMAGES = "1"
+    NEXT_PUBLIC_DISABLE_OPTIMIZED_IMAGES = "1"
 
-    # HARD STOP: never send branch deploys to production
   [[context.branch-deploy.redirects]]
     from = "/*"
     to = "/:splat"
@@ -120,14 +128,12 @@
     NEXT_PUBLIC_APP_URL = "$DEPLOY_PRIME_URL"
     RUN_MIGRATIONS = "0"
 
-    # Preview env can bypass ops auth for quick smoke
     OPS_DASHBOARD_ENABLED = "1"
     OPS_DISABLE_AUTH = "1"
 
 # -------------------------
 # GLOBAL HEADERS
 # -------------------------
-# Prevent indexing of any /ops URLs in any environment
 [[headers]]
   for = "/ops-admin/*"
   [headers.values]
