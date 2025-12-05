@@ -72,8 +72,8 @@
     SECRETS_SCAN_OMIT_KEYS = "STRIPE_SECRET_KEY"
 
     # Staging hotfix: disable Next image optimizer (images serve directly from /images/...)
-    NEXT_UNOPTIMIZED_IMAGES = "1"
-    NEXT_PUBLIC_DISABLE_OPTIMIZED_IMAGES = "1"
+    NEXT_UNOPTIMIZED_IMAGES = "0"
+    NEXT_PUBLIC_DISABLE_OPTIMIZED_IMAGES = "0"
 
   # Hard override: NEVER redirect branch deploy traffic to production
   # This short-circuits any other redirect rule for this context.
