@@ -20,7 +20,7 @@ export default function LayoutChrome() {
   return (
     <>
       <WhatsAppFab
-        iconSrc="/assets/whatsapp.png"
+        iconSrc="/assets/optimized/whatsapp.webp"
         ariaLabel="Contact us on WhatsApp"
       />
       <CookieConsentBanner policyHref="/legal/privacy" />

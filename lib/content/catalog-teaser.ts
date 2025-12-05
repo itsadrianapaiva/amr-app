@@ -23,25 +23,25 @@ export const CATALOG_TEASER_ITEMS: CatalogTeaserItem[] = [
     id: "excavators",
     label: "Excavators",
     imageKey: "medium-excavator",
-    href: "/catalog",
+    href: "/catalog?category=Excavators",
   },
   {
     id: "skid-steers",
     label: "Skid steers",
     imageKey: "wheel-skid-steer-loader",
-    href: "/catalog",
+    href: "/catalog?category=Skid+Steer+Loaders",
   },
   {
     id: "telehandlers",
     label: "Telehandlers",
     imageKey: "telehandler",
-    href: "/catalog",
+    href: "/catalog?category=Heavy+Equipment",
   },
   {
     id: "small-construction-equipment",
     label: "Small construction equipment",
     imageKey: "compactor",
-    href: "/catalog",
+    href: "/catalog?category=Light+Machinery+%26+Tools",
   },
 ];
 
