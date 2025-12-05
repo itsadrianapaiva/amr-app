@@ -12,9 +12,9 @@ import {
 import { metaCtaClick } from "@/lib/analytics/metaEvents";
 
 /* Static imports unlock intrinsic size + blur + preload for priority */
-import hero01 from "@/public/images/hero/hero.jpg";
-import hero02 from "@/public/images/hero/hero-02.jpg";
-import hero03 from "@/public/images/hero/hero-03.jpg";
+import hero01 from "@/public/images/optimized/hero/hero.webp";
+import hero02 from "@/public/images/optimized/hero/hero-02.webp";
+import hero03 from "@/public/images/optimized/hero/hero-03.webp";
 
 type HeroProps = {
   pretitle?: string;

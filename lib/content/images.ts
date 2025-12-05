@@ -27,28 +27,28 @@ export interface MachineImage {
 ---------------------------------------------------------------------------*/
 
 /* Hero */
-import hero01 from "@/public/images/hero/hero.jpg";
-import hero02 from "@/public/images/hero/hero-02.jpg";
-import hero03 from "@/public/images/hero/hero-03.jpg";
+import hero01 from "@/public/images/optimized/hero/hero.webp";
+import hero02 from "@/public/images/optimized/hero/hero-02.webp";
+import hero03 from "@/public/images/optimized/hero/hero-03.webp";
 
 /* Why section */
 import whyDefault from "@/public/images/misc/homepage-02.jpg";
 import whyAlt from "@/public/images/misc/homepage.jpg";
 
 /* Machines */
-import miniExcavator from "@/public/images/machines/mini-excavator.jpg";
-import mediumExcavator from "@/public/images/machines/medium-excavator.jpg";
-import largeExcavator from "@/public/images/machines/large-excavator.jpg";
+import miniExcavator from "@/public/images/machines/mini-excavator.jpg"; // No optimized WebP variant yet
+import mediumExcavator from "@/public/images/optimized/machines/medium-excavator.webp";
+import largeExcavator from "@/public/images/machines/large-excavator.jpg"; // No optimized WebP variant yet
 
-import skidTracks from "@/public/images/machines/skid-steer-loader-tracks.jpg";
-import skidTracksLg from "@/public/images/machines/lg-skid-steer-loader-tracks-02.jpg";
-import skidWheels from "@/public/images/machines/wheel-skid-steer-loader.jpg";
+import skidTracks from "@/public/images/machines/skid-steer-loader-tracks.jpg"; // No optimized WebP variant yet
+import skidTracksLg from "@/public/images/optimized/machines/lg-skid-steer-loader-tracks-02.webp";
+import skidWheels from "@/public/images/machines/wheel-skid-steer-loader.jpg"; // No optimized WebP variant yet
 
-import telehandler from "@/public/images/machines/telehandler.jpg";
-import compactor from "@/public/images/machines/compactor.jpg";
-import cementMixer from "@/public/images/machines/cement-mixer.jpg";
-import powerWasher from "@/public/images/machines/power-washer.jpg";
-import holeBoringMachine from "@/public/images/machines/hole-boring-machine.png";
+import telehandler from "@/public/images/optimized/machines/telehandler.webp";
+import compactor from "@/public/images/optimized/machines/compactor.webp";
+import cementMixer from "@/public/images/optimized/machines/cement-mixer.webp";
+import powerWasher from "@/public/images/optimized/machines/power-washer.webp";
+import holeBoringMachine from "@/public/images/optimized/machines/hole-boring-machine.webp";
 
 /* Fallback (can remain a string path) */
 const FALLBACK_MACHINE_IMAGE = "/images/machines/_fallback.jpg" as const;
