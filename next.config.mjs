@@ -4,11 +4,6 @@ const isUnoptimizedImages =
   process.env.NEXT_UNOPTIMIZED_IMAGES === "1" ||
   process.env.NEXT_UNOPTIMIZED_IMAGES?.toLowerCase() === "true";
 
-// TEMP: image/staging debug, remove after diagnosis
-console.log("[next.config.mjs] Image optimization debug:");
-console.log("  NEXT_UNOPTIMIZED_IMAGES =", process.env.NEXT_UNOPTIMIZED_IMAGES ?? "(undefined)");
-console.log("  isUnoptimizedImages =", isUnoptimizedImages);
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
