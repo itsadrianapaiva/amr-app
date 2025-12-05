@@ -71,6 +71,9 @@
     # Example: temporarily omit a key from scanner on this one branch
     SECRETS_SCAN_OMIT_KEYS = "STRIPE_SECRET_KEY"
 
+    # Staging hotfix: disable Next image optimizer (images serve directly from /images/...)
+    NEXT_UNOPTIMIZED_IMAGES = "1"
+
   # Hard override: NEVER redirect branch deploy traffic to production
   # This short-circuits any other redirect rule for this context.
   [[context."branch:staging".redirects]]
