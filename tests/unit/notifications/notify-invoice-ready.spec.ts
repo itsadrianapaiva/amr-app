@@ -31,9 +31,9 @@ vi.mock("@/lib/db", () => ({
 // Mock mailer
 vi.mock("@/lib/emails/mailer", () => ({ sendEmail }));
 
-// Mock link builder so we don’t depend on env/HMAC
+// Mock link builder so we don't depend on env/HMAC
 vi.mock("@/lib/emails/invoice-link", () => ({
-  buildInvoiceLinkSnippet: (id: number) => ({
+  buildInvoiceLinkSnippet: async (id: number) => ({
     url: `https://example.test/invoice/${id}`,
     text: "",
     html: "",

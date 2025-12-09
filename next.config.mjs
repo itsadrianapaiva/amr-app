@@ -6,10 +6,6 @@ const isUnoptimizedImages =
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-
   // Use the experimental field for older Next versions
   experimental: {
     optimizePackageImports: ["lucide-react"],

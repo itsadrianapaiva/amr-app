@@ -38,7 +38,8 @@ export default async function OpsAdminPage({
   }
 
   // 2) Session (role for greeting only).
-  const cookieHeader = headers().get("cookie");
+  const headerStore = await headers();
+  const cookieHeader = headerStore.get("cookie");
   const secret = process.env.AUTH_COOKIE_SECRET ?? "";
   const ver = await verifySessionFromCookie(cookieHeader, secret);
   const role = ver.ok ? ver.session.role : "unknown";
