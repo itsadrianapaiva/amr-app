@@ -23,11 +23,12 @@ type ErrorState =
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams?: { next?: string };
+  searchParams?: Promise<{ next?: string }>;
 }) {
   // Accept only internal redirect targets.
+  const resolvedParams = await searchParams;
   const nextParam =
-    typeof searchParams?.next === "string" ? searchParams!.next : "";
+    typeof resolvedParams?.next === "string" ? resolvedParams.next : "";
   const nextPath = nextParam.startsWith("/") ? nextParam : "/ops-admin";
 
   // (prevState, formData) => Promise<ErrorState>

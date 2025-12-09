@@ -62,7 +62,8 @@ export async function loginAction(formData: FormData): Promise<void> {
 
   const token = await signToken({ sub: role, role }, secret, DEFAULT_TTL_SECONDS);
   const secure = process.env.NODE_ENV === "production";
-  cookies().set({
+  const cookieStore = await cookies();
+  cookieStore.set({
     name: SESSION_COOKIE,
     value: token,
     httpOnly: true,

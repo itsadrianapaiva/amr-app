@@ -98,9 +98,9 @@ function Row({ k, v }: { k: string; v: string }) {
   );
 }
 
-export default function BookingConfirmedEmail(
+export default async function BookingConfirmedEmail(
   props: CustomerBookingEmailProps
-): ReactElement {
+): Promise<ReactElement> {
   const {
     companyName,
     companyEmail,
@@ -147,7 +147,7 @@ export default function BookingConfirmedEmail(
   let invoiceHref: string | null = null;
   if (invoicePdfUrl) {
     try {
-      invoiceHref = buildInvoiceLinkSnippet(bookingId).url; // default TTL 72h
+      invoiceHref = (await buildInvoiceLinkSnippet(bookingId)).url; // default TTL 72h
     } catch {
       invoiceHref = invoicePdfUrl; // safe fallback
     }

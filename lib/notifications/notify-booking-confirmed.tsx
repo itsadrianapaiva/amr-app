@@ -211,7 +211,7 @@ export async function notifyBookingConfirmed(
 
     if (claim.count === 1) {
       const signedUrl = invoiceNow
-        ? buildInvoiceLinkSnippet(b.id).url
+        ? (await buildInvoiceLinkSnippet(b.id)).url
         : undefined;
 
       const customerView: CustomerConfirmedView = {
@@ -287,7 +287,7 @@ export async function notifyBookingConfirmed(
         depositAmount,
         invoiceNumber: invoiceNow?.number || undefined,
         invoicePdfUrl: invoiceNow
-          ? buildInvoiceLinkSnippet(b.id).url
+          ? (await buildInvoiceLinkSnippet(b.id)).url
           : undefined,
         deliverySelected: b.deliverySelected,
         pickupSelected: b.pickupSelected,

@@ -43,7 +43,7 @@ export async function notifyInvoiceReady(bookingId: number): Promise<boolean> {
   if (claim.count === 0) return false;
 
   // 4) Build signed invoice link (public-safe proxy URL).
-  const { url: invoiceUrl } = buildInvoiceLinkSnippet(bookingId);
+  const { url: invoiceUrl } = await buildInvoiceLinkSnippet(bookingId);
 
   // 5) Subject + React email
   const subjectForInvoiceReady = subjectForInvoiceReadyRaw as unknown as (

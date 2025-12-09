@@ -43,9 +43,10 @@ async function getBookingSummary(bookingId: number) {
 export default async function CustomerSuccessPage({
   searchParams,
 }: {
-  searchParams?: { booking_id?: string; session_id?: string };
+  searchParams?: Promise<{ booking_id?: string; session_id?: string }>;
 }) {
-  const bookingIdParam = searchParams?.booking_id;
+  const resolvedParams = await searchParams;
+  const bookingIdParam = resolvedParams?.booking_id;
   const bookingId = Number(bookingIdParam);
 
   // Guardrail: if we do not have a numeric booking id, show a gentle error.
