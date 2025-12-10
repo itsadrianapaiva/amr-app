@@ -82,6 +82,13 @@ holeboringmachine: "Hole Boring Machines",
   "hole boring machine": "Hole Boring Machines",
   "hole boring machines": "Hole Boring Machines",
 
+// Trucks and haulers
+trucks: "Trucks",
+  truck: "Trucks",
+  haulers: "Haulers",
+  hauler: "Haulers",
+  trucksandhaulers: "Trucks and Haulers",
+
 
   // Fallback
   uncategorized: "Uncategorized",

@@ -50,6 +50,11 @@ import cementMixer from "@/public/images/optimized/machines/cement-mixer.webp";
 import powerWasher from "@/public/images/optimized/machines/power-washer.webp";
 import holeBoringMachine from "@/public/images/optimized/machines/hole-boring-machine.webp";
 
+// Trucks and haulers
+import mercedesTipper from "@/public/images/optimized/machines/mercedes-tipper.webp";
+import tipperWithCrane from "@/public/images/optimized/machines/tipper-with-crane.webp";
+import volvoDumpTruck from "@/public/images/optimized/machines/volvo-dump-truck.webp";
+
 /* Fallback (can remain a string path) */
 const FALLBACK_MACHINE_IMAGE = "/images/machines/_fallback.jpg" as const;
 
@@ -66,6 +71,11 @@ const MACHINE_IMAGE_ALIASES: Record<string, string> = {
   "200-liter-concrete-mixer": "cement-mixer",
   "hyundai-petrol-powerwasher": "power-washer",
   "hole-boring-machine": "hole-boring-machine",
+
+  // trucks & haulers – map CSV slugs to your canonical keys
+  "3500-tipper-truck-with-driver": "mercedes-tipper",
+  "3500-tipper-with-crane-and-driver": "tipper-with-crane",
+  "16m3-truck-with-driver": "volvo-dump-truck",
 };
 
 /**
@@ -165,6 +175,20 @@ export const imageContent = {
     "hole-boring-machine": {
       src: holeBoringMachine,
       alt: "Petrol hole boring machine with auger attachment",
+    },
+
+    // Trucks and haulers
+    "mercedes-tipper": {
+      src: mercedesTipper,
+      alt: "Mercedes tipper with crane",
+    },
+    "tipper-with-crane": {
+      src: tipperWithCrane,
+      alt: "Tipper with crane on a construction site",
+    },
+    "volvo-dump-truck": {
+      src: volvoDumpTruck,
+      alt: "Volvo dump truck with crane",
     },
   } as Record<string, MachineImage>,
 
