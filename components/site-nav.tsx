@@ -14,13 +14,9 @@ import ScrollLink from "@/components/nav/scroll-link";
 import { usePathname, useRouter } from "next/navigation";
 import { trackGaCatalogNavClick } from "@/components/analytics/ga4-clicking";
 import { metaCtaClick } from "@/lib/analytics/metaEvents";
+import MobileMenu from "@/components/nav/mobile-menu";
 
 const STICKY_OFFSET = 112;
-
-const MobileMenu = dynamic(() => import("@/components/nav/mobile-menu"), {
-  ssr: false,
-  loading: () => null,
-});
 
 export default function SiteNav() {
   const [open, setOpen] = useState(false);
