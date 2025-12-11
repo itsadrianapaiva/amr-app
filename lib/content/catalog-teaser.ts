@@ -41,7 +41,7 @@ export const CATALOG_TEASER_ITEMS: CatalogTeaserItem[] = [
     id: "trucks-and-haulers",
     label: "Trucks and Haulers",
     imageKey: "volvo-dump-truck",
-    href: "/catalog?category=Trucks+%26+Haulers",
+    href: "/catalog?category=Trucks+and+Haulers",
   },
   {
     id: "light-machinery",
