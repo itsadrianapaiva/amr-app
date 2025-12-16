@@ -6,7 +6,7 @@ import type { LogFn } from "@/lib/stripe/webhook-service";
 //  per-event handlers
 import { onCheckoutSessionCompleted } from "@/lib/stripe/handlers/checkout/completed";
 import { onCheckoutSessionAsyncPaymentSucceeded } from "@/lib/stripe/handlers/checkout/async-payment-succeeded";
-import { onCheckoutSessionAsyncPaymentFailed } from "@/lib/stripe/handlers/checkout/async-payment-failed"; // 🆕 new import
+import { onCheckoutSessionAsyncPaymentFailed } from "@/lib/stripe/handlers/checkout/async-payment-failed"; 
 import { onCheckoutSessionExpired } from "@/lib/stripe/handlers/checkout/expired";
 
 import { onPaymentIntentSucceeded } from "@/lib/stripe/handlers/payment_intent/succeeded";
