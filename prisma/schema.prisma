@@ -126,6 +126,7 @@ model Booking {
 
   @@unique([invoiceProvider, invoiceProviderId])
   @@index([status, holdExpiresAt])
+  @@index([machineId, status, startDate, endDate, customerEmail])
 }
 
 /// Idempotency guard for webhook processing.
