@@ -31,13 +31,19 @@ export default async (_req: Request, _ctx: Context): Promise<Response> => {
     process.env.APP_URL ||
     "http://localhost:8888";
 
-  const endpoint = `${base.replace(/\/$/, "")}/api/cron/expire-holds`;
+  const baseNoSlash = base.replace(/\/$/, "");
+  const secret = process.env.CRON_SECRET;
+
+  // Build endpoint with query param auth as fallback (survives redirects)
+  const endpoint = secret
+    ? `${baseNoSlash}/api/cron/expire-holds?token=${encodeURIComponent(secret)}`
+    : `${baseNoSlash}/api/cron/expire-holds`;
 
   const headers: Record<string, string> = {
     "user-agent": "amr-cron/expire-holds",
   };
-  if (process.env["CRON_SECRET"])
-    headers["x-cron-secret"] = process.env["CRON_SECRET"];
+  // Keep header auth for direct calls (redundant but harmless)
+  if (secret) headers["x-cron-secret"] = secret;
 
   try {
     const res = await fetchWithTimeout(
@@ -48,9 +54,11 @@ export default async (_req: Request, _ctx: Context): Promise<Response> => {
     const text = await res.text(); // capture once for logs
 
     if (!res.ok) {
-      return new Response(`expire-holds failed: ${res.status} ${text}`, {
-        status: 500,
-      });
+      // Log failure details (no secrets - URL params not logged here)
+      return new Response(
+        `expire-holds failed: ${res.status} ${text} (host: ${new URL(base).hostname}, token_present: ${!!secret})`,
+        { status: 500 }
+      );
     }
     return new Response(`expire-holds OK: ${text}`, { status: 200 });
   } catch (err: any) {
