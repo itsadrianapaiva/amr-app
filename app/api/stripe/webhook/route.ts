@@ -5,6 +5,7 @@ import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { handleStripeEvent } from "@/lib/stripe/webhook-handlers";
 import type { LogFn } from "@/lib/stripe/webhook-service";
+import { db } from "@/lib/db";
 
 // Stripe requires the Node runtime & raw body
 export const runtime = "nodejs";
@@ -61,7 +62,27 @@ export async function POST(req: NextRequest) {
 
   log("received", { type: event.type, id: event.id, livemode: event.livemode });
 
-  // 3) Delegate to centralized handler (flow-aware logic lives outside the route)
+  // 3) Idempotency gate: ensure each event.id is processed at most once
+  try {
+    await db.stripeEvent.create({
+      data: { eventId: event.id, type: event.type, bookingId: null },
+    });
+  } catch (err: any) {
+    // Unique constraint violation = duplicate delivery
+    if (err && err.code === "P2002") {
+      log("duplicate_event", { id: event.id, type: event.type });
+      return new Response("ok", { status: 200 });
+    }
+    // Other DB errors: log & ACK to avoid retry storms
+    log("idempotency_record_error", {
+      id: event.id,
+      type: event.type,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return new Response("ok", { status: 200 });
+  }
+
+  // 4) Delegate to centralized handler (flow-aware logic lives outside the route)
   try {
     await handleStripeEvent(event, log);
   } catch (err) {
@@ -73,6 +94,6 @@ export async function POST(req: NextRequest) {
     return new Response("ok", { status: 200 });
   }
 
-  // 4) Always ACK handled/ignored events
+  // 5) Always ACK handled/ignored events
   return new Response("ok", { status: 200 });
 }
