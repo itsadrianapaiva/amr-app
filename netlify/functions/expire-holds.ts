@@ -7,17 +7,39 @@ export const config: Config = {
   schedule: "*/5 * * * *", // every 5 minutes
 };
 
-// 2) Select base URL and track which env var was used
+// 2) Validate that a string is a valid absolute http/https URL
+function isValidAbsoluteHttpUrl(value: string | undefined): boolean {
+  if (!value || value.trim().length === 0) return false;
+  // Reject literal placeholder strings like "$DEPLOY_PRIME_URL"
+  if (value.trim().startsWith("$")) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+// 3) Select base URL and track which env var was used
+// Prioritize DEPLOY_PRIME_URL for staging/branch deploys, then URL for prod
 function selectBase(): { base: string; source: string } {
-  if (process.env.APP_URL) return { base: process.env.APP_URL, source: "APP_URL" };
-  if (process.env.DEPLOY_PRIME_URL)
-    return { base: process.env.DEPLOY_PRIME_URL, source: "DEPLOY_PRIME_URL" };
-  if (process.env.DEPLOY_URL) return { base: process.env.DEPLOY_URL, source: "DEPLOY_URL" };
-  if (process.env.URL) return { base: process.env.URL, source: "URL" };
+  const candidates: Array<{ value: string | undefined; source: string }> = [
+    { value: process.env.DEPLOY_PRIME_URL, source: "DEPLOY_PRIME_URL" },
+    { value: process.env.URL, source: "URL" },
+    { value: process.env.DEPLOY_URL, source: "DEPLOY_URL" },
+    { value: process.env.APP_URL, source: "APP_URL" },
+  ];
+
+  for (const { value, source } of candidates) {
+    if (isValidAbsoluteHttpUrl(value)) {
+      return { base: value!, source };
+    }
+  }
+
   return { base: "http://localhost:8888", source: "localhost_fallback" };
 }
 
-// 3) Small timeout helper to avoid silent hangs
+// 4) Small timeout helper to avoid silent hangs
 async function fetchWithTimeout(
   input: RequestInfo,
   init: RequestInit = {},
@@ -32,7 +54,7 @@ async function fetchWithTimeout(
   }
 }
 
-// 4) Default export handler (modern Netlify Functions contract)
+// 5) Default export handler (modern Netlify Functions contract)
 export default async (_req: Request, _ctx: Context): Promise<Response> => {
   const { base, source: baseSource } = selectBase();
   const baseNoSlash = base.replace(/\/$/, "");
