@@ -125,6 +125,7 @@ model Booking {
   discountedSubtotalExVatCents  Int?
 
   @@unique([invoiceProvider, invoiceProviderId])
+  @@index([status, holdExpiresAt])
 }
 
 /// Idempotency guard for webhook processing.
