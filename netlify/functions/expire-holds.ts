@@ -7,7 +7,39 @@ export const config: Config = {
   schedule: "*/5 * * * *", // every 5 minutes
 };
 
-// 2) Small timeout helper to avoid silent hangs
+// 2) Validate that a string is a valid absolute http/https URL
+function isValidAbsoluteHttpUrl(value: string | undefined): boolean {
+  if (!value || value.trim().length === 0) return false;
+  // Reject literal placeholder strings like "$DEPLOY_PRIME_URL"
+  if (value.trim().startsWith("$")) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+// 3) Select base URL and track which env var was used
+// Prioritize DEPLOY_PRIME_URL for staging/branch deploys, then URL for prod
+function selectBase(): { base: string; source: string } {
+  const candidates: Array<{ value: string | undefined; source: string }> = [
+    { value: process.env.DEPLOY_PRIME_URL, source: "DEPLOY_PRIME_URL" },
+    { value: process.env.URL, source: "URL" },
+    { value: process.env.DEPLOY_URL, source: "DEPLOY_URL" },
+    { value: process.env.APP_URL, source: "APP_URL" },
+  ];
+
+  for (const { value, source } of candidates) {
+    if (isValidAbsoluteHttpUrl(value)) {
+      return { base: value!, source };
+    }
+  }
+
+  return { base: "http://localhost:8888", source: "localhost_fallback" };
+}
+
+// 4) Small timeout helper to avoid silent hangs
 async function fetchWithTimeout(
   input: RequestInfo,
   init: RequestInit = {},
@@ -22,15 +54,9 @@ async function fetchWithTimeout(
   }
 }
 
-// 3) Default export handler (modern Netlify Functions contract)
+// 5) Default export handler (modern Netlify Functions contract)
 export default async (_req: Request, _ctx: Context): Promise<Response> => {
-  const base =
-    process.env.URL || // production published URL
-    process.env.DEPLOY_PRIME_URL || // preview deploy URL (won't schedule, but safe)
-    process.env.DEPLOY_URL ||
-    process.env.APP_URL ||
-    "http://localhost:8888";
-
+  const { base, source: baseSource } = selectBase();
   const baseNoSlash = base.replace(/\/$/, "");
   const secret = process.env.CRON_SECRET;
 
@@ -45,7 +71,31 @@ export default async (_req: Request, _ctx: Context): Promise<Response> => {
   // Keep header auth for direct calls (redundant but harmless)
   if (secret) headers["x-cron-secret"] = secret;
 
+  const endpointUrl = new URL(endpoint);
+  const tokenPresent = !!secret;
+  const headerPresent = !!secret;
+
+  // Log start (safe diagnostic info, no secrets)
+  console.log(
+    JSON.stringify({
+      event: "start",
+      baseSource,
+      baseHost: new URL(base).hostname,
+      token_present: tokenPresent,
+      header_present: headerPresent,
+    })
+  );
+
   try {
+    // Log request (safe: host + path only, no query params)
+    console.log(
+      JSON.stringify({
+        event: "request",
+        endpointHost: endpointUrl.hostname,
+        endpointPath: endpointUrl.pathname,
+      })
+    );
+
     const res = await fetchWithTimeout(
       endpoint,
       { method: "GET", headers },
@@ -53,16 +103,33 @@ export default async (_req: Request, _ctx: Context): Promise<Response> => {
     );
     const text = await res.text(); // capture once for logs
 
+    // Log response (truncate body to 500 chars)
+    console.log(
+      JSON.stringify({
+        event: "response",
+        status: res.status,
+        ok: res.ok,
+        body: text.substring(0, 500),
+      })
+    );
+
     if (!res.ok) {
-      // Log failure details (no secrets - URL params not logged here)
       return new Response(
-        `expire-holds failed: ${res.status} ${text} (host: ${new URL(base).hostname}, token_present: ${!!secret})`,
+        `expire-holds failed: ${res.status} ${text}`,
         { status: 500 }
       );
     }
     return new Response(`expire-holds OK: ${text}`, { status: 200 });
   } catch (err: any) {
-    return new Response(`expire-holds error: ${err?.message ?? String(err)}`, {
+    const errMsg = err?.message ?? String(err);
+    // Log error
+    console.log(
+      JSON.stringify({
+        event: "error",
+        message: errMsg,
+      })
+    );
+    return new Response(`expire-holds error: ${errMsg}`, {
       status: 500,
     });
   }
