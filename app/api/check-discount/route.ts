@@ -17,46 +17,59 @@ import { db } from "@/lib/db";
  *   /api/check-discount?nif=999999999   // Returns 0 if not found
  */
 
+/**
+ * Normalize and validate NIF: remove non-digits, ensure exactly 9 digits.
+ * Returns normalized NIF or null if invalid.
+ */
+function normalizeAndValidateNIF(nif: string | null): string | null {
+  if (!nif) return null;
+  const digits = nif.replace(/\D/g, "");
+  return digits.length === 9 ? digits : null;
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const nif = searchParams.get("nif");
 
-  // Validate NIF parameter
-  if (!nif || nif.trim() === "") {
+  // Normalize and validate NIF parameter
+  const normalizedNIF = normalizeAndValidateNIF(nif);
+  if (!normalizedNIF) {
     return NextResponse.json(
-      { error: "Missing or invalid NIF parameter." },
+      { error: "Invalid NIF parameter." },
       { status: 400, headers: { "Cache-Control": "no-store" } }
     );
   }
 
   try {
-    // Look up the company discount
+    // Look up the company discount using normalized NIF
     const companyDiscount = await db.companyDiscount.findUnique({
       where: {
-        nif: nif.trim(),
+        nif: normalizedNIF,
       },
     });
 
+    // Cache headers for successful responses (5 min TTL, 1 min stale-while-revalidate)
+    const cacheHeaders = {
+      "Cache-Control":
+        "public, max-age=300, s-maxage=300, stale-while-revalidate=60",
+    };
+
     // If found and active, return the discount percentage
     if (companyDiscount && companyDiscount.active) {
-      const res = NextResponse.json(
+      return NextResponse.json(
         {
           discountPercentage: Number(companyDiscount.discountPercentage),
           companyName: companyDiscount.companyName,
         },
-        { status: 200 }
+        { status: 200, headers: cacheHeaders }
       );
-      res.headers.set("Cache-Control", "no-store");
-      return res;
     }
 
     // No discount found or inactive
-    const res = NextResponse.json(
+    return NextResponse.json(
       { discountPercentage: 0 },
-      { status: 200 }
+      { status: 200, headers: cacheHeaders }
     );
-    res.headers.set("Cache-Control", "no-store");
-    return res;
   } catch (error) {
     console.error("Error checking discount:", error);
     return NextResponse.json(
