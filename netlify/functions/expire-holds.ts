@@ -21,22 +21,34 @@ function isValidAbsoluteHttpUrl(value: string | undefined): boolean {
 }
 
 // 3) Select base URL and track which env var was used
-// Prioritize DEPLOY_PRIME_URL for staging/branch deploys, then URL for prod
-function selectBase(): { base: string; source: string } {
-  const candidates: Array<{ value: string | undefined; source: string }> = [
-    { value: process.env.DEPLOY_PRIME_URL, source: "DEPLOY_PRIME_URL" },
-    { value: process.env.URL, source: "URL" },
-    { value: process.env.DEPLOY_URL, source: "DEPLOY_URL" },
-    { value: process.env.APP_URL, source: "APP_URL" },
-  ];
+// Context-aware: production uses URL (custom domain), staging uses DEPLOY_PRIME_URL/DEPLOY_URL
+function selectBase(): { base: string; source: string; context: string } {
+  const context = process.env.CONTEXT?.trim() || "";
+  const isProduction = context === "production";
+
+  // Production: prefer URL (custom domain), then deploy URLs
+  // Staging/branch: prefer DEPLOY_PRIME_URL/DEPLOY_URL (deploy-specific), then URL
+  const candidates: Array<{ value: string | undefined; source: string }> = isProduction
+    ? [
+        { value: process.env.URL, source: "URL" },
+        { value: process.env.DEPLOY_URL, source: "DEPLOY_URL" },
+        { value: process.env.DEPLOY_PRIME_URL, source: "DEPLOY_PRIME_URL" },
+        { value: process.env.APP_URL, source: "APP_URL" },
+      ]
+    : [
+        { value: process.env.DEPLOY_PRIME_URL, source: "DEPLOY_PRIME_URL" },
+        { value: process.env.DEPLOY_URL, source: "DEPLOY_URL" },
+        { value: process.env.URL, source: "URL" },
+        { value: process.env.APP_URL, source: "APP_URL" },
+      ];
 
   for (const { value, source } of candidates) {
     if (isValidAbsoluteHttpUrl(value)) {
-      return { base: value!, source };
+      return { base: value!, source, context };
     }
   }
 
-  return { base: "http://localhost:8888", source: "localhost_fallback" };
+  return { base: "http://localhost:8888", source: "localhost_fallback", context };
 }
 
 // 4) Small timeout helper to avoid silent hangs
@@ -56,7 +68,7 @@ async function fetchWithTimeout(
 
 // 5) Default export handler (modern Netlify Functions contract)
 export default async (_req: Request, _ctx: Context): Promise<Response> => {
-  const { base, source: baseSource } = selectBase();
+  const { base, source: baseSource, context } = selectBase();
   const baseNoSlash = base.replace(/\/$/, "");
   const secret = process.env.CRON_SECRET;
 
@@ -79,10 +91,16 @@ export default async (_req: Request, _ctx: Context): Promise<Response> => {
   console.log(
     JSON.stringify({
       event: "start",
+      context,
       baseSource,
       baseHost: new URL(base).hostname,
       token_present: tokenPresent,
       header_present: headerPresent,
+      env_vars_present: {
+        DEPLOY_PRIME_URL: !!process.env.DEPLOY_PRIME_URL,
+        DEPLOY_URL: !!process.env.DEPLOY_URL,
+        URL: !!process.env.URL,
+      },
     })
   );
 
