@@ -21,11 +21,19 @@ function isValidAbsoluteHttpUrl(value: string | undefined): boolean {
 }
 
 // 3) Select base URL and track which env var was used
-// Context-aware: production uses URL (custom domain), staging uses DEPLOY_PRIME_URL/DEPLOY_URL
+// Explicit override: CRON_BASE_URL takes precedence for deterministic env-specific targeting
+// Fallback: context-aware selection (production uses URL, staging uses DEPLOY_PRIME_URL/DEPLOY_URL)
 function selectBase(): { base: string; source: string; context: string } {
   const context = process.env.CONTEXT?.trim() || "";
   const isProduction = context === "production";
 
+  // 1) Explicit override: if CRON_BASE_URL is set and valid, use it
+  const cronBase = process.env.CRON_BASE_URL;
+  if (isValidAbsoluteHttpUrl(cronBase)) {
+    return { base: cronBase!, source: "CRON_BASE_URL", context };
+  }
+
+  // 2) Fallback: context-aware auto-selection
   // Production: prefer URL (custom domain), then deploy URLs
   // Staging/branch: prefer DEPLOY_PRIME_URL/DEPLOY_URL (deploy-specific), then URL
   const candidates: Array<{ value: string | undefined; source: string }> = isProduction
@@ -97,6 +105,7 @@ export default async (_req: Request, _ctx: Context): Promise<Response> => {
       token_present: tokenPresent,
       header_present: headerPresent,
       env_vars_present: {
+        CRON_BASE_URL: !!process.env.CRON_BASE_URL,
         DEPLOY_PRIME_URL: !!process.env.DEPLOY_PRIME_URL,
         DEPLOY_URL: !!process.env.DEPLOY_URL,
         URL: !!process.env.URL,
