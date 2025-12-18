@@ -27,13 +27,15 @@ jobs:
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/amr_test
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/amr_test
+
       PRISMA_CLIENT_ENGINE_TYPE: library
 
-      # ✅ Make ops available in PR builds (don’t depend on secrets for these)
+      # Make ops available in PR builds (don’t depend on secrets for these)
       OPS_DASHBOARD_ENABLED: "1"
       OPS_DISABLE_AUTH: "0"
 
-      # ✅ Deterministic header for dev-gated routes (probe, webhooks, etc.)
+      # Deterministic header for dev-gated routes (probe, webhooks, etc.)
       E2E_SECRET: "local-e2e-secret"
 
       # Stripe / mail / cron / vendus (as before)
