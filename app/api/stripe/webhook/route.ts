@@ -94,6 +94,52 @@ export async function POST(req: NextRequest) {
     return new Response("ok", { status: 200 });
   }
 
+  // 4.1) Immediate non-blocking kick to process jobs (A3.5)
+  //      Best-effort: failure does not affect webhook ACK
+  //      Cron fallback ensures jobs are processed even if kick fails
+  kickJobProcessor(log);
+
   // 5) Always ACK handled/ignored events
   return new Response("ok", { status: 200 });
+}
+
+/**
+ * Kick job processor immediately (non-blocking, best-effort).
+ * Uses internal route with cron auth.
+ */
+function kickJobProcessor(log: LogFn): void {
+  // Fire and forget - do not await
+  const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL;
+  if (!appUrl) {
+    if (dbg()) log("kick:no_app_url");
+    return;
+  }
+
+  const secret = process.env.CRON_SECRET;
+  const endpoint = secret
+    ? `${appUrl}/api/cron/process-booking-jobs?token=${encodeURIComponent(secret)}`
+    : `${appUrl}/api/cron/process-booking-jobs`;
+
+  const headers: Record<string, string> = {};
+  if (secret) headers["x-cron-secret"] = secret;
+
+  // Non-blocking fetch with short timeout
+  fetch(endpoint, {
+    method: "GET",
+    headers,
+    signal: AbortSignal.timeout(2000), // 2s timeout
+  })
+    .then((res) => {
+      if (dbg()) {
+        log("kick:done", { status: res.status, ok: res.ok });
+      }
+    })
+    .catch((err) => {
+      // Ignore errors - cron fallback will process jobs
+      if (dbg()) {
+        log("kick:error", {
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+    });
 }
