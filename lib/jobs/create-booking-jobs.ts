@@ -1,13 +1,14 @@
 // Idempotent job creation for booking-related side effects
 
 import { db } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import type { BookingJobType } from "./booking-job-types";
 import type { LogFn } from "@/lib/stripe/webhook-service";
 
 /** Job creation input */
 export interface CreateJobInput {
   type: BookingJobType;
-  payload?: Record<string, unknown>;
+  payload?: Prisma.InputJsonValue;
 }
 
 /** Default no-op logger */
@@ -44,7 +45,7 @@ export async function createBookingJobs(
           bookingId,
           type: job.type,
           status: "pending",
-          payload: job.payload ?? {},
+          payload: job.payload ?? Prisma.JsonNull,
           attempts: 0,
         },
       });
