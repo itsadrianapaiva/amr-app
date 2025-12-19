@@ -16,7 +16,7 @@ The architecture separates public customer-facing APIs, authenticated webhook en
 
 ## Core Backend Features
 
-- **Booking state machine**: PENDING ’ CONFIRMED ’ CANCELLED transitions with hold expiration (30-minute rolling windows), overlap detection via PostgreSQL tsrange exclusion constraints, and optimistic concurrency control
+- **Booking state machine**: PENDING ï¿½ CONFIRMED ï¿½ CANCELLED transitions with hold expiration (30-minute rolling windows), overlap detection via PostgreSQL tsrange exclusion constraints, and optimistic concurrency control
 - **Full payment lifecycle**: Stripe integration handling checkout sessions, card/MB WAY/SEPA payment methods, webhook event processing with exactly-once semantics via idempotency tracking, refund state synchronization, and dispute logging
 - **Automated invoicing**: Integration with Vendus API for Portuguese tax-compliant invoice generation, metadata persistence for offline serving, and time-limited signed PDF links (72-hour TTL)
 - **Transactional email orchestration**: Confirmation emails, invoice delivery, and internal notifications with non-fatal failure handling to prevent blocking critical paths
@@ -35,6 +35,8 @@ The **Booking** model is the central entity, capturing customer identity (name, 
 
 The **StripeEvent** model implements webhook idempotency by storing unique event IDs with a database-level uniqueness constraint, ensuring each payment event processes exactly once even under retry storms.
 
+The **BookingJob** model implements a durable async job queue for booking-related side effects (invoice issuance, email notifications). Jobs are claimed atomically by the processor using updateMany semantics, track retry attempts with configurable max attempts, and store execution results as JSON. A unique constraint on (bookingId, type) ensures exactly-once job creation per booking action, providing idempotency at the queue level.
+
 The **CompanyDiscount** model stores percentage-based discounts keyed by Portuguese NIF for B2B customer pricing.
 
 Date handling deserves special attention: all dates are stored in UTC but normalized to Lisbon calendar days to handle DST transitions correctly. The booking's `during` column is a generated PostgreSQL tsrange that enables efficient overlap queries using the `@>` containment operator.
@@ -47,11 +49,13 @@ Availability checking wraps database queries in advisory locks to serialize conc
 
 The payment workflow uses Stripe Checkout Sessions with full upfront payment. When the customer completes payment, Stripe fires a webhook to `/api/stripe/webhook`. The handler verifies the signature, extracts the event, and dispatches to type-specific handlers in the registry pattern. The `checkout.session.completed` handler checks payment status and either promotes immediately (card payments) or defers to `async_payment_succeeded` for MB WAY and SEPA.
 
-Promotion from PENDING to CONFIRMED is atomic: update booking status, attach payment intent ID, clear hold expiration, issue invoice, send confirmation email, send internal notification. Each step is wrapped in try-catch with structured logging. Invoice issuance and email delivery are non-fatal: failures log errors but do not throw exceptions, ensuring the webhook always returns 200 to prevent Stripe retries.
+Promotion from PENDING to CONFIRMED is atomic: update booking status, attach payment intent ID, clear hold expiration, and create async jobs for invoice issuance and notifications. The webhook returns 200 immediately (typically <1 second), and a scheduled job processor executes the side effects within seconds. This async pattern keeps webhooks fast, makes side effects retryable with automatic failure tracking, and prevents external service timeouts from blocking payment confirmation. The webhook handler fires a non-blocking immediate kick to the job processor for sub-5-second end-to-end latency in typical cases.
 
 The invoicing workflow transforms booking data into Vendus API format, issues the document, and persists metadata (provider ID, document number, PDF URL, ATCUD validation code) to the booking record. Invoice PDFs are served via a proxy endpoint (`/api/invoices/[id]/pdf`) that validates time-limited JWT tokens in query parameters, preventing unauthorized access while allowing email links to remain functional for 72 hours.
 
 Refund handling is reactive: when Stripe fires `charge.refunded` events, the handler calculates total refunded amounts across all refund transactions, updates the booking's `refundStatus` (NONE, PARTIAL, FULL), and appends new refund IDs to the tracking array. This provides a full audit trail without requiring a separate refunds table.
+
+Job processing runs via a scheduled Netlify function (`netlify/functions/process-booking-jobs.ts`) every minute, plus an immediate non-blocking kick after each webhook event. The processor fetches pending jobs ordered by creation time, claims them atomically using updateMany with a status predicate, executes the job logic (invoice issuance via Vendus API, email sending via Resend), and updates the job record with completion status or error details. Failed jobs retry up to 3 times with exponential backoff before marking as permanently failed for manual investigation. The processor exposes metrics (processed count, remaining pending) via structured JSON logs for operational monitoring.
 
 ## API Design
 
@@ -111,3 +115,4 @@ The frontend is a server-rendered Next.js application that consumes the backend 
 - PostgreSQL managed database
 - Stripe webhooks for payment events
 - Automated migrations in production/staging
+- Scheduled job processing for async side effects (invoice, email)
