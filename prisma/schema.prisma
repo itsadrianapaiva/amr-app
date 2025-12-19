@@ -125,6 +125,9 @@ model Booking {
   /// Discounted subtotal after discount (cents, ex VAT) from Stripe metadata
   discountedSubtotalExVatCents  Int?
 
+  /// Async jobs for this booking (invoice issuance, email sending, etc.)
+  jobs                 BookingJob[]
+
   @@unique([invoiceProvider, invoiceProviderId])
   @@index([status, holdExpiresAt])
   @@index([machineId, status, startDate, endDate, customerEmail])
@@ -158,6 +161,31 @@ enum DisputeStatus {
   OPEN
   WON
   LOST
+}
+
+/// Durable async job queue for booking-related side effects
+model BookingJob {
+  id          Int      @id @default(autoincrement())
+  bookingId   Int
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  type        String   // "issue_invoice" | "send_customer_confirmation" | "send_internal_confirmation" | "send_invoice_ready"
+  status      String   // "pending" | "processing" | "completed" | "failed"
+
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(3)
+
+  payload     Json?    // Optional job-specific data
+  result      Json?    // Result or error message
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  processedAt DateTime?
+
+  @@unique([bookingId, type])
+  @@index([status, createdAt])
+  @@index([bookingId, type])
 }
 
 /// Company-specific discounts based on NIF
