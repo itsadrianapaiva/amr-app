@@ -1,9 +1,8 @@
 // Full-upfront pivot:
 // - Ignore legacy manual-capture auth sessions.
-// - Promote the booking to CONFIRMED on async success (MB WAY / SEPA), attach PI, notify.
+// - Promote the booking to CONFIRMED on async success (MB WAY / SEPA), attach PI, create async jobs.
 
 import type Stripe from "stripe";
-import { notifyBookingConfirmed } from "@/lib/notifications/notify-booking-confirmed";
 import {
   extractSessionFacts,
   ensurePaymentIntentIdFromSession,
@@ -11,14 +10,7 @@ import {
   type LogFn,
 } from "@/lib/stripe/webhook-service";
 
-// glue to issue invoice (decoupled, feature-flagged)
-import {
-  maybeIssueInvoice,
-  type BookingFacts,
-} from "@/lib/invoicing/issue-for-booking";
-
-// Use your Prisma singleton
-import { db } from "@/lib/db";
+import { createBookingJobs } from "@/lib/jobs/create-booking-jobs";
 
 /** Public handler used by the registry */
 export async function onCheckoutSessionAsyncPaymentSucceeded(
@@ -79,128 +71,33 @@ export async function onCheckoutSessionAsyncPaymentSucceeded(
     log
   );
 
-  // 5.1) Issue legal invoice (feature-flagged, non-fatal on error).
-  //      If we couldn't resolve a PI id, we skip issuing (and log) to keep invariants tight.
-  try {
-    if (piId) {
-      const facts = await fetchBookingFacts(bookingId);
-      const paidAt = new Date(
-        (session.created ?? Math.floor(Date.now() / 1000)) * 1000
-      );
-
-      const record = await maybeIssueInvoice({
-        booking: facts,
-        stripePaymentIntentId: piId,
-        paidAt,
-        notes: undefined,
-      });
-
-      if (record) {
-        // Persist invoice fields on Booking (MVP)
-        await db.booking.update({
-          where: { id: bookingId },
-          data: {
-            invoiceProvider: record.provider, // "vendus"
-            invoiceProviderId: record.providerInvoiceId, // provider doc ID
-            invoiceNumber: record.number, // e.g., "FT 2025/123"
-            invoicePdfUrl: record.pdfUrl, // public PDF URL
-            invoiceAtcud: record.atcud ?? null, // ATCUD if series validated
-          },
-        });
-        // Keep structured log for Ops/diagnostics
-        log("invoice:issued", {
-          bookingId,
-          provider: record.provider,
-          providerInvoiceId: record.providerInvoiceId,
-          number: record.number,
-          atcud: record.atcud ?? null,
-          pdfUrl: record.pdfUrl,
-        });
-      } else {
-        log("invoice:skipped_flag", {
-          bookingId,
-          INVOICING_ENABLED: process.env.INVOICING_ENABLED,
-        });
-      }
-    } else {
-      log("invoice:skipped_no_pi", {
-        bookingId,
-        reason: "missing_payment_intent_id",
-      });
-    }
-  } catch (err) {
-    log("invoice:error", {
+  // 5.1) Create async jobs for invoice issuance and notifications (A3.5)
+  //      Jobs are processed by cron every 1 minute + immediate kick
+  if (piId) {
+    log("jobs:creating", { bookingId });
+    await createBookingJobs(
       bookingId,
-      err: err instanceof Error ? err.message : String(err),
-    });
-    // Do not throw — webhook must return 200 to Stripe.
-  }
-
-  // 6) Notify customer (best-effort; non-fatal on error).
-  try {
-    await notifyBookingConfirmed(bookingId, "customer");
-    log("notify:done", { bookingId });
-  } catch (err) {
-    log("notify:error", {
+      [
+        {
+          type: "issue_invoice",
+          payload: { stripePaymentIntentId: piId },
+        },
+        {
+          type: "send_customer_confirmation",
+          payload: {},
+        },
+        {
+          type: "send_internal_confirmation",
+          payload: {},
+        },
+      ],
+      log
+    );
+    log("jobs:created", { bookingId });
+  } else {
+    log("jobs:skipped_no_pi", {
       bookingId,
-      err: err instanceof Error ? err.message : String(err),
+      reason: "missing_payment_intent_id",
     });
   }
-}
-
-// ---- Local helpers (tiny, focused) ----
-// NOTE: This duplicates the small helper from the PI path. After both compile, we can
-// extract to lib/invoicing/booking-facts.ts to DRY it up (one-file-at-a-time rule today).
-
-async function fetchBookingFacts(bookingId: number): Promise<BookingFacts> {
-  const booking = await db.booking.findUnique({
-    where: { id: bookingId },
-    include: {
-      machine: { select: { name: true, dailyRate: true } },
-    },
-  });
-
-  if (!booking) throw new Error(`Booking ${bookingId} not found`);
-  if (!booking.machine)
-    throw new Error(`Booking ${bookingId} has no machine relation`);
-
-  const unitDailyCents = decimalToCents(booking.machine.dailyRate);
-
-  const nif =
-    (booking.billingIsBusiness ? booking.billingTaxId : undefined) ??
-    booking.customerNIF ??
-    undefined;
-
-  return {
-    id: booking.id,
-    startDate: booking.startDate,
-    endDate: booking.endDate,
-    machineName: booking.machine.name,
-    unitDailyCents,
-    vatPercent: 23, // PT standard
-
-    customerName: booking.customerName,
-    customerEmail: booking.customerEmail ?? undefined,
-    customerNIF: nif,
-
-    billing: booking.billingIsBusiness
-      ? {
-          line1: booking.billingAddressLine1 ?? undefined,
-          city: booking.billingCity ?? undefined,
-          postalCode: booking.billingPostalCode ?? undefined,
-          country: (booking.billingCountry as any) ?? "PT",
-        }
-      : undefined,
-  };
-}
-
-// Prisma Decimal-safe cents conversion.
-function decimalToCents(value: unknown): number {
-  const n =
-    typeof value === "number"
-      ? value
-      : (value as any)?.toNumber
-        ? (value as any).toNumber()
-        : Number(value);
-  return Math.round(n * 100);
 }
