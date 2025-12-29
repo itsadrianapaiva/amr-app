@@ -40,7 +40,10 @@ export const FOOTER_CONTENT: FooterContent = {
 
   // Credits (can hide by setting to nulls).
   copyrightOwner: "AMR Rentals",
-  designedBy: { label: "Adriana Paiva", href: "https://itsadrianapaiva.com" },
+  designedBy: {
+    label: "Adriana Paiva",
+    href: "https://itsadrianapaiva.github.io",
+  },
 
   // Full legal business registration (Meta verification requirement).
   legalBusinessInfo: [

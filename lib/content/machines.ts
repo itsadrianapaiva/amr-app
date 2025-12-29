@@ -77,11 +77,18 @@ export const CATEGORY_LABELS: Record<string, string> = {
   "pressure washer": "Power Washers",
   "pressure washers": "Power Washers",
 
-// Hole boring machines
-holeboringmachine: "Hole Boring Machines",
+  // Hole boring machines
+  holeboringmachine: "Hole Boring Machines",
   "hole boring machine": "Hole Boring Machines",
   "hole boring machines": "Hole Boring Machines",
 
+  // Trucks and haulers
+  trucks: "Trucks",
+  truck: "Trucks",
+  haulers: "Haulers",
+  hauler: "Haulers",
+  trucksandhaulers: "Trucks and Haulers",
+  "trucks and haulers": "Trucks and Haulers",
 
   // Fallback
   uncategorized: "Uncategorized",

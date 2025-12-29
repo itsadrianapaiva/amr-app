@@ -92,10 +92,11 @@ async function safePreview(res: Response): Promise<string> {
  */
 export async function GET(
   req: Request,
-  ctx: { params: { bookingId: string } }
+  { params }: { params: Promise<{ bookingId: string }> }
 ) {
   try {
-    const id = Number(ctx.params.bookingId);
+    const resolvedParams = await params;
+    const id = Number(resolvedParams.bookingId);
     if (!Number.isFinite(id)) {
       return NextResponse.json(
         { ok: false, error: "Invalid bookingId" },

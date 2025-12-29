@@ -15,12 +15,6 @@ import {
   type NotifySource as MailerNotifySource,
 } from "@/lib/notifications/mailers/internal-confirmed";
 
-import {
-  waitForInvoice,
-  getCustomerInvoiceGraceMs,
-  getInternalInvoiceGraceMs,
-} from "@/lib/notifications/wait-for-invoice";
-
 /** Call-site type stays the same for webhooks and ops. */
 export type NotifySource = "customer" | "ops";
 
@@ -196,12 +190,8 @@ export async function notifyBookingConfirmed(
   // 3) Customer confirmation — atomic claim
   let customerPromise: Promise<unknown> = Promise.resolve();
   if (source !== "ops" && b.customerEmail && !isInternalPlaceholder) {
-    // use async getter (complies with "use server" export rule)
-    const customerGraceMs = await getCustomerInvoiceGraceMs();
-    if (!invoiceNow) {
-      const waited = await waitForInvoice(b.id, customerGraceMs);
-      if (waited) invoiceNow = waited;
-    }
+    // A2: No longer wait for invoice (removed polling)
+    // Invoice will be sent separately via notifyInvoiceReady when available
 
     const data: Record<string, Date> = { confirmationEmailSentAt: new Date() };
     const where: any = { id: b.id, confirmationEmailSentAt: null };
@@ -211,7 +201,7 @@ export async function notifyBookingConfirmed(
 
     if (claim.count === 1) {
       const signedUrl = invoiceNow
-        ? buildInvoiceLinkSnippet(b.id).url
+        ? (await buildInvoiceLinkSnippet(b.id)).url
         : undefined;
 
       const customerView: CustomerConfirmedView = {
@@ -255,11 +245,8 @@ export async function notifyBookingConfirmed(
   // 4) Internal email — send exactly once via atomic claim
   let internalPromise: Promise<unknown> = Promise.resolve();
   {
-    const internalGraceMs = await getInternalInvoiceGraceMs();
-    if (!invoiceNow) {
-      const waited = await waitForInvoice(b.id, internalGraceMs);
-      if (waited) invoiceNow = waited;
-    }
+    // A2: No longer wait for invoice (removed polling)
+    // Invoice info will be included only if already available
 
     // Try to flip internalEmailSentAt only if it's still null.
     const internalClaim = await db.booking.updateMany({
@@ -287,7 +274,7 @@ export async function notifyBookingConfirmed(
         depositAmount,
         invoiceNumber: invoiceNow?.number || undefined,
         invoicePdfUrl: invoiceNow
-          ? buildInvoiceLinkSnippet(b.id).url
+          ? (await buildInvoiceLinkSnippet(b.id)).url
           : undefined,
         deliverySelected: b.deliverySelected,
         pickupSelected: b.pickupSelected,

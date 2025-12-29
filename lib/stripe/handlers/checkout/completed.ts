@@ -1,14 +1,15 @@
 // Full-upfront pivot: promote the booking on completion (card immediate),
-// and ignore legacy manual-capture auth sessions gracefully.
+// create async jobs, and ignore legacy manual-capture auth sessions gracefully.
 
 import type Stripe from "stripe";
-import { notifyBookingConfirmed } from "@/lib/notifications/notify-booking-confirmed";
 import {
   extractSessionFacts,
   ensurePaymentIntentIdFromSession,
   promoteBookingToConfirmed,
   type LogFn,
 } from "@/lib/stripe/webhook-service";
+
+import { createBookingJobs } from "@/lib/jobs/create-booking-jobs";
 
 /** Public handler signature used by the registry */
 export async function onCheckoutSessionCompleted(
@@ -92,15 +93,33 @@ export async function onCheckoutSessionCompleted(
     log
   );
 
-  // Best-effort notification (non-fatal if it errors).
-  log("notify:start", { bookingId, SEND_EMAILS: process.env.SEND_EMAILS });
-  try {
-    await notifyBookingConfirmed(bookingId, "customer");
-    log("notify:done", { bookingId });
-  } catch (err) {
-    log("notify:error", {
+  // Create async jobs for invoice issuance and notifications (A3.5)
+  // Jobs are processed by cron every 1 minute + immediate kick
+  if (piId) {
+    log("jobs:creating", { bookingId });
+    await createBookingJobs(
       bookingId,
-      err: err instanceof Error ? err.message : String(err),
+      [
+        {
+          type: "issue_invoice",
+          payload: { stripePaymentIntentId: piId },
+        },
+        {
+          type: "send_customer_confirmation",
+          payload: {},
+        },
+        {
+          type: "send_internal_confirmation",
+          payload: {},
+        },
+      ],
+      log
+    );
+    log("jobs:created", { bookingId });
+  } else {
+    log("jobs:skipped_no_pi", {
+      bookingId,
+      reason: "missing_payment_intent_id",
     });
   }
 }

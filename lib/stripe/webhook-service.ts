@@ -132,6 +132,7 @@ export async function promoteBookingToConfirmed(
     };
 
     // Persist totalCost from Stripe amount_total (VAT-inclusive)
+    // TODO: fix dead logic with totalCost
     if (args.totalCostEuros != null && existing.totalCost == null) {
       updateData.totalCost = args.totalCostEuros;
     }

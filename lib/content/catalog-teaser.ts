@@ -27,20 +27,32 @@ export const CATALOG_TEASER_ITEMS: CatalogTeaserItem[] = [
   },
   {
     id: "skid-steers",
-    label: "Skid steers",
+    label: "Skid Steers",
     imageKey: "wheel-skid-steer-loader",
     href: "/catalog?category=Skid+Steer+Loaders",
   },
   {
-    id: "telehandlers",
-    label: "Telehandlers",
+    id: "heavy-equipment",
+    label: "Heavy Equipment",
     imageKey: "telehandler",
     href: "/catalog?category=Heavy+Equipment",
   },
   {
-    id: "small-construction-equipment",
-    label: "Small construction equipment",
+    id: "trucks-and-haulers",
+    label: "Trucks and Haulers",
+    imageKey: "volvo-dump-truck",
+    href: "/catalog?category=Trucks+and+Haulers",
+  },
+  {
+    id: "light-machinery",
+    label: "Light Machinery",
     imageKey: "compactor",
+    href: "/catalog?category=Light+Machinery+%26+Tools",
+  },
+  {
+    id: "construction-tools",
+    label: "Construction Tools",
+    imageKey: "hole-boring-machine",
     href: "/catalog?category=Light+Machinery+%26+Tools",
   },
 ];

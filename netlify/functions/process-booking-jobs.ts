@@ -1,10 +1,10 @@
-// Scheduled every 5 minutes (UTC). Calls the Next API route to expire holds.
+// Scheduled every 1 minute (UTC). Calls the Next API route to process booking jobs.
 
 import type { Config, Context } from "@netlify/functions";
 
-// 1) Declare schedule inline, as per docs
+// 1) Declare schedule inline
 export const config: Config = {
-  schedule: "*/5 * * * *", // every 5 minutes
+  schedule: "*/1 * * * *", // every 1 minute
 };
 
 // 2) Validate that a string is a valid absolute http/https URL
@@ -82,11 +82,11 @@ export default async (_req: Request, _ctx: Context): Promise<Response> => {
 
   // Build endpoint with query param auth as fallback (survives redirects)
   const endpoint = secret
-    ? `${baseNoSlash}/api/cron/expire-holds?token=${encodeURIComponent(secret)}`
-    : `${baseNoSlash}/api/cron/expire-holds`;
+    ? `${baseNoSlash}/api/cron/process-booking-jobs?token=${encodeURIComponent(secret)}`
+    : `${baseNoSlash}/api/cron/process-booking-jobs`;
 
   const headers: Record<string, string> = {
-    "user-agent": "amr-cron/expire-holds",
+    "user-agent": "amr-cron/process-booking-jobs",
   };
   // Keep header auth for direct calls (redundant but harmless)
   if (secret) headers["x-cron-secret"] = secret;
@@ -142,11 +142,11 @@ export default async (_req: Request, _ctx: Context): Promise<Response> => {
 
     if (!res.ok) {
       return new Response(
-        `expire-holds failed: ${res.status} ${text}`,
+        `process-booking-jobs failed: ${res.status} ${text}`,
         { status: 500 }
       );
     }
-    return new Response(`expire-holds OK: ${text}`, { status: 200 });
+    return new Response(`process-booking-jobs OK: ${text}`, { status: 200 });
   } catch (err: any) {
     const errMsg = err?.message ?? String(err);
     // Log error
@@ -156,7 +156,7 @@ export default async (_req: Request, _ctx: Context): Promise<Response> => {
         message: errMsg,
       })
     );
-    return new Response(`expire-holds error: ${errMsg}`, {
+    return new Response(`process-booking-jobs error: ${errMsg}`, {
       status: 500,
     });
   }

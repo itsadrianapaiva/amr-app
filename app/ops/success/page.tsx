@@ -2,15 +2,16 @@ import Link from "next/link";
 
 /**
  * OpsSuccessPage
- * - App Router passes `searchParams` as a plain object (not a Promise).
+ * - App Router passes `searchParams` as a Promise in Next.js 16.
  * - Read bookingId directly and show it if present.
  */
-export default function OpsSuccessPage({
+export default async function OpsSuccessPage({
   searchParams,
 }: {
-  searchParams?: { bookingId?: string };
+  searchParams?: Promise<{ bookingId?: string }>;
 }) {
-  const bookingId = searchParams?.bookingId;
+  const resolvedParams = await searchParams;
+  const bookingId = resolvedParams?.bookingId;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">

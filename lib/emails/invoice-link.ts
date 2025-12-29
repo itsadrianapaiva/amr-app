@@ -54,11 +54,11 @@ function headerHostAllowed(host: string): boolean {
 }
 
 /** Read current request headers (if any) and build a safe absolute base. */
-function getHeaderBoundBase(): string | undefined {
+async function getHeaderBoundBase(): Promise<string | undefined> {
   // Will throw if not in a request context; catch and treat as undefined
   let hdrs: Headers | undefined;
   try {
-    hdrs = nextHeaders();
+    hdrs = await nextHeaders();
   } catch {
     return undefined;
   }
@@ -82,10 +82,10 @@ function getHeaderBoundBase(): string | undefined {
  * 2) header-bound base from the executing request (when safe)
  * 3) environment-based resolver (existing behavior)
  */
-export function buildInvoiceLinkSnippet(
+export async function buildInvoiceLinkSnippet(
   bookingId: number,
   opts?: InvoiceLinkOptions
-): { url: string; text: string; html: string } {
+): Promise<{ url: string; text: string; html: string }> {
   if (!Number.isFinite(bookingId)) {
     throw new Error("bookingId must be a finite number");
   }
@@ -99,7 +99,7 @@ export function buildInvoiceLinkSnippet(
   }
 
   // 2) Try to bind to the real executing host (staging/previews will stay in their lane)
-  const headerBase = getHeaderBoundBase();
+  const headerBase = await getHeaderBoundBase();
   if (headerBase) {
     const url = makeInvoicePdfLink(headerBase, bookingId, {
       ttlSeconds: opts?.ttlSeconds,
