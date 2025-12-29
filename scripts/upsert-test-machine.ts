@@ -14,9 +14,11 @@ const prisma = new PrismaClient();
 async function main() {
   // Keep the name unique and clearly internal-only.
   const name = "ZZZ Internal Test Machine (€1 - Do Not Rent)";
+  const code = "test-internal-machine";
 
   const data = {
-    name,                           // unique key for upsert
+    code,                           // stable unique identifier
+    name,
     category: "Light Machinery & Tools",
     model: "TEST-1",
     weight: "",                     // optional
@@ -27,18 +29,18 @@ async function main() {
     minDays: 1,                     // 1-day rental
     deliveryCharge: 0,              // keep totals tiny
     pickupCharge: 0,                // keep totals tiny
-    imageUrl: "/images/machines/_fallback.jpg", // we don’t render DB URLs
+    imageUrl: "/images/machines/_fallback.jpg", // we don't render DB URLs
     referenceUrl: null,             // reference-only; not used by UI
   };
 
   const row = await prisma.machine.upsert({
-    where: { name },
+    where: { code },
     create: data,
     update: data,
   });
 
   console.log(
-    `Upserted test machine: id=${row.id} name="${row.name}" price=${row.dailyRate} deposit=${row.deposit}`
+    `Upserted test machine: id=${row.id} code="${row.code}" name="${row.name}" price=${row.dailyRate} deposit=${row.deposit}`
   );
 }
 

@@ -10,6 +10,7 @@ datasource db {
 
 model Machine {
   id             Int       @id @default(autoincrement())
+  code           String    @unique
   name           String    @unique
   description    String
   
