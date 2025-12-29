@@ -106,8 +106,9 @@ async function createBooking(
   });
 }
 
-/** Upsert machine by unique name. */
+/** Upsert machine by unique code. */
 async function upsertMachine(data: {
+  code: string;
   name: string;
   description: string;
   imageUrl: string;
@@ -122,7 +123,7 @@ async function upsertMachine(data: {
   model?: string | null;
 }) {
   return db.machine.upsert({
-    where: { name: data.name },
+    where: { code: data.code },
     update: { ...data },
     create: { ...data },
   });
@@ -134,6 +135,7 @@ async function main() {
   // 1) Small, realistic catalog
   const machines = await Promise.all([
     upsertMachine({
+      code: "ops-mini-excavator-27t",
       name: "Mini-Excavator 2.7T",
       description: "Compact excavator ideal for tight access works.",
       imageUrl: "/images/machines/mini-excavator-27t.jpg",
@@ -148,6 +150,7 @@ async function main() {
       model: "Bobcat E27",
     }),
     upsertMachine({
+      code: "ops-skid-steer-loader",
       name: "Skid Steer Loader",
       description: "Versatile loader for site clearing and material handling.",
       imageUrl: "/images/machines/skid-steer.jpg",
@@ -162,6 +165,7 @@ async function main() {
       model: "CAT 226D3",
     }),
     upsertMachine({
+      code: "ops-plate-compactor",
       name: "Plate Compactor",
       description: "Soil compaction for paving and trench backfill.",
       imageUrl: "/images/machines/plate-compactor.jpg",
