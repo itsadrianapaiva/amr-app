@@ -4,6 +4,19 @@ A production machinery rental platform handling online bookings, payment process
 
 The backend is built on Next.js 14 (App Router) with TypeScript, serving a REST-like API consumed by a server-rendered frontend. The architecture emphasizes transactional correctness, payment reliability, and auditability for regulated invoicing requirements in the Portuguese market.
 
+## Documentation
+
+Comprehensive documentation is available in the [/docs](docs/index.md) directory:
+
+- **[Architecture](docs/architecture/overview.md)** - System design, data model, core workflows
+- **[Operations](docs/ops/runbooks.md)** - Deployment guides, runbooks, environment configuration
+- **[Testing](docs/testing/e2e.md)** - E2E, unit, and integration testing
+- **[Security](docs/security/security-notes.md)** - Security architecture and threat model
+- **[Development](docs/development/local-setup.md)** - Local setup and development patterns
+- **[Reference](docs/reference/api-routes.md)** - API routes and environment variables
+
+For development workflows and conventions, see [CLAUDE.md](CLAUDE.md).
+
 ## Backend Architecture
 
 The system follows a domain-driven organization pattern where business logic is grouped by domain responsibility rather than technical layer. The `/lib` directory contains core server-side logic organized into modules (booking, stripe, invoicing, auth, notifications), each encapsulating a specific area of business concern.
