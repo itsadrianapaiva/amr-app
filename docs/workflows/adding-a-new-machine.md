@@ -1,0 +1,239 @@
+# Adding a New Machine
+
+Step-by-step guide for adding a new machine to the rental inventory.
+
+---
+
+## Overview
+
+Machines are defined in a CSV file and seeded into the database via Prisma. The CSV is the source of truth for machine data.
+
+**Source of Truth:** [prisma/data/machines.csv](../../prisma/data/machines.csv)
+
+**Seeding Script:** [prisma/seed.ts](../../prisma/seed.ts)
+
+---
+
+## Prerequisites
+
+- Access to repository
+- Node.js environment with dependencies installed
+- Database access (local or staging)
+
+---
+
+## Step-by-Step Process
+
+### 1. Add Machine to CSV
+
+**File:** `prisma/data/machines.csv`
+
+Add a new row with the following columns (in order):
+
+| Column | Required | Description | Example |
+|--------|----------|-------------|---------|
+| **Code** | Yes | Unique machine identifier (stable, unchanging) | `MINI-DUMPER-500` |
+| **Deposits** | Yes | Deposit amount in EUR | `100.00` |
+| **Category** | Yes | Machine category (maps to `type` in DB) | `Dumpers` |
+| **Name** | Yes | Display name | `Mini Dumper 500kg` |
+| **Model** | No | Model/spec info | `Yanmar C12R` |
+| **Weight** | No | Machine weight | `450kg` |
+| **Delivery charge** | No | Delivery fee in EUR | `50.00` |
+| **Pick up charge** | No | Pickup fee in EUR | `50.00` |
+| **Day minimum** | No | Minimum rental days (>=1 if set) | `1` |
+| **Price per day** | Yes | Daily rate in EUR (must be >0) | `35.00` |
+| **Image** | No | Reference URL only (NOT rendered in UI) | `https://example.com/ref.jpg` |
+| **Description** | No | Machine description | `Compact tracked dumper...` |
+
+**Example CSV row:**
+```csv
+MINI-DUMPER-500,100.00,Dumpers,Mini Dumper 500kg,Yanmar C12R,450kg,50.00,50.00,1,35.00,https://example.com/ref.jpg,Compact tracked dumper for narrow spaces
+```
+
+### 2. Validation Rules
+
+The seed script validates:
+
+**Required Fields:**
+- `code` - Must be unique across all machines
+- `name` - Cannot be empty
+- `category` - Must match existing categories
+- `dailyRate` (Price per day) - Must be >0
+- `deposit` (Deposits) - Must be >=0
+
+**Optional but Validated:**
+- `minDays` (Day minimum) - If set, must be >=1
+- All numeric fields must parse correctly
+
+**Failure:** Script exits with error if validation fails
+
+### 3. Run the Seeding Script
+
+**Seed all machines:**
+```bash
+npm run db:seed
+```
+
+**Seed only the new machine (faster):**
+```bash
+SEED_ONLY_CODE=MINI-DUMPER-500 npm run db:seed
+```
+
+**Expected Output:**
+```
+Seeding machines...
+  ✓ Upserted machine: MINI-DUMPER-500
+```
+
+### 4. Verify in Database
+
+**Using Prisma Studio:**
+```bash
+npx prisma studio
+```
+
+Navigate to `Machine` model and verify:
+- New machine appears
+- All fields populated correctly
+- `code` is unique
+- `category` maps to correct category
+
+**Using SQL:**
+```sql
+SELECT code, name, category, "dailyRate", deposit
+FROM "Machine"
+WHERE code = 'MINI-DUMPER-500';
+```
+
+---
+
+## Important Notes
+
+### Machine Code Best Practices
+
+- Use descriptive, stable identifiers (e.g., `MINI-DUMPER-500`, not `machine-16`)
+- Codes NEVER change (they're used for upsert matching)
+- Use UPPERCASE with hyphens for readability
+- Include capacity/size in code when relevant
+
+### Image Handling
+
+**CRITICAL:** The `Image` column in CSV is stored as `referenceUrl` and is NOT rendered by the UI.
+
+- UI uses curated local assets from `/public/images/machines/`
+- CSV `Image` field is for ops reference only
+- See [updating-machine-images.md](updating-machine-images.md) for how to add images to UI
+
+### Upsert Behavior
+
+The seed script uses `upsert` by machine code:
+- If code exists: updates all fields
+- If code doesn't exist: creates new machine
+
+This means you can edit CSV values and re-run seed to update existing machines.
+
+### Safety Rails
+
+- `SEED_RESET=1` is forbidden in production (prevents accidental data loss)
+- Validation exits immediately on first error
+- Numeric fields must be valid numbers
+- Empty required fields fail validation
+
+---
+
+## Troubleshooting
+
+### Error: "Unique constraint failed on fields: `code`"
+
+**Cause:** Code already exists in database but doesn't match CSV code
+
+**Fix:** Check for typos in CSV code, or use different code
+
+### Error: "dailyRate must be greater than 0"
+
+**Cause:** Price per day is 0 or negative
+
+**Fix:** Set valid positive price in CSV
+
+### Error: "deposit must be non-negative"
+
+**Cause:** Deposits column is negative
+
+**Fix:** Set deposit to 0 or positive value
+
+### Machine not appearing in UI
+
+**Likely causes:**
+1. Category doesn't match existing categories (check `lib/content/machines.ts`)
+2. Machine seeded but UI filters don't include it
+3. Cache issue (try hard refresh)
+
+**Verify:**
+```bash
+# Check machine exists in DB
+npx prisma studio
+```
+
+---
+
+## Testing the New Machine
+
+### Local Testing Checklist
+
+1. Machine appears on homepage machine grid
+2. Machine detail page renders correctly (`/machine/[code]`)
+3. Booking form shows correct pricing
+4. Availability calendar works
+5. Checkout includes correct daily rate and deposit
+
+### E2E Testing
+
+Run booking flow E2E test with new machine:
+```bash
+npm run test:e2e
+```
+
+Or manually test:
+1. Navigate to machine page
+2. Select dates
+3. Complete booking form
+4. Verify pricing in checkout
+
+---
+
+## Rollback
+
+If you need to remove a machine:
+
+### Option 1: Remove from CSV and Re-seed
+1. Delete row from `machines.csv`
+2. Run `SEED_RESET=1 npm run db:seed` (local/staging only)
+
+### Option 2: Database Deletion
+```sql
+DELETE FROM "Machine" WHERE code = 'MINI-DUMPER-500';
+```
+
+**WARNING:** Cannot delete machines with existing bookings (foreign key constraint)
+
+---
+
+## Related Documentation
+
+- [Updating Machine Images](updating-machine-images.md) - How to add/change machine photos
+- [Pricing and Availability Changes](pricing-and-availability-changes.md) - How to update pricing
+- [Local Setup](../development/local-setup.md) - Database setup guide
+
+---
+
+## Source Pointers
+
+- **CSV Source:** `prisma/data/machines.csv`
+- **Seed Script:** `prisma/seed.ts` (lines 15-120)
+- **Prisma Schema:** `prisma/schema.prisma` (Machine model)
+- **Machine Display Logic:** `lib/content/machines.ts`
+- **Machine Pages:** `app/machine/[code]/page.tsx`
+
+---
+
+**Last Updated:** 2025-12-29

@@ -28,6 +28,11 @@ Project changelog for tracking significant changes, features, and fixes.
 
 ### Added
 - Comprehensive documentation set in `/docs`
+- Workflow documentation for operational changes:
+  - Adding a new machine (CSV management, seeding, validation)
+  - Updating machine images (static imports, image mapping, optimization)
+  - Changing copy and content (centralized content modules)
+  - Pricing and availability changes (rates, deposits, minimum days)
 
 ---
 

@@ -82,6 +82,24 @@ Directory structure conventions, path aliases (@/*), adding API routes and pages
 
 ---
 
+## Workflows
+
+Practical guides for common operational changes (non-developer safe).
+
+### [Adding a New Machine](workflows/adding-a-new-machine.md)
+Step-by-step guide for adding machines to the rental inventory via CSV, including validation rules, seeding, troubleshooting, and safety rails.
+
+### [Updating Machine Images](workflows/updating-machine-images.md)
+How to add or update machine photos, static imports, image mapping, aliases, optimization (WebP conversion), and troubleshooting image resolution.
+
+### [Changing Copy and Content](workflows/changing-copy-and-content.md)
+Updating text content, headlines, CTAs, and marketing copy across all pages using centralized content modules in `/lib/content`.
+
+### [Pricing and Availability Changes](workflows/pricing-and-availability-changes.md)
+Adjusting daily rates, deposits, minimum rental days, delivery fees, bulk updates, VAT handling, and testing checklist.
+
+---
+
 ## Reference
 
 API routes and environment variables reference.
