@@ -9,14 +9,14 @@ datasource db {
 }
 
 model Machine {
-  id             Int       @id @default(autoincrement())
-  code           String    @unique
-  name           String    @unique
-  description    String
-  
+  id          Int    @id @default(autoincrement())
+  code        String @unique
+  name        String @unique
+  description String
+
   /// Deprecated for rendering; we now use curated local assets.
   /// Keep for compatibility until we fully remove usages.
-  imageUrl       String
+  imageUrl String
 
   /// Reference-only link to the exact model (CSV "Image" column).
   /// Not rendered in the UI; for Ops/context.
@@ -25,109 +25,127 @@ model Machine {
   weight         String
   deposit        Decimal
   deliveryCharge Decimal?
-  minDays        Int       @default(1)
+  minDays        Int      @default(1)
   pickupCharge   Decimal?
 
   /// Renamed in Prisma to 'category' but still mapped to the existing DB column 'type'.
-  category       String    @default("Uncategorized") @map("type")
+  category String @default("Uncategorized") @map("type")
 
- /// Optional machine model (e.g., "Bobcat E35", "CAT 259D3")
-  model          String?
-  bookings       Booking[]
+  /// Optional machine model (e.g., "Bobcat E35", "CAT 259D3")
+  model String?
+
+  /// Option B: Item type (PRIMARY for machines, ADDON for accessories)
+  itemType    MachineItemType @default(PRIMARY)
+  /// Option B: Charge model (PER_BOOKING flat or PER_UNIT with quantity)
+  chargeModel ChargeModel     @default(PER_BOOKING)
+  /// Option B: Time unit (DAY or HOUR for future hourly)
+  timeUnit    TimeUnit        @default(DAY)
+
+  bookings     Booking[]
+  bookingItems BookingItem[]
 }
 
 model Booking {
-  id                         Int                     @id @default(autoincrement())
-  machineId                  Int
-  machine                    Machine                 @relation(fields: [machineId], references: [id])
+  id        Int     @id @default(autoincrement())
+  machineId Int
+  machine   Machine @relation(fields: [machineId], references: [id])
 
-  startDate                  DateTime
-  endDate                    DateTime
-  holdExpiresAt              DateTime?               @db.Timestamp(6)
+  startDate     DateTime
+  endDate       DateTime
+  holdExpiresAt DateTime? @db.Timestamp(6)
 
-  status                     BookingStatus           @default(PENDING)
+  status BookingStatus @default(PENDING)
 
-  customerName               String
-  customerEmail              String
-  customerPhone              String
+  customerName  String
+  customerEmail String
+  customerPhone String
 
-  totalCost                  Decimal
+  totalCost   Decimal
   /// Temporarily reused to mean "fully paid" after the pivot.
   /// (Optional: rename to `paid` in a later migration.)
-  depositPaid           Boolean          @default(false)
+  depositPaid Boolean @default(false)
 
   /// PI for the successful full payment (card/MB WAY/SEPA once confirmed).
-  stripePaymentIntentId String?          @unique
+  stripePaymentIntentId String? @unique
 
-  customerNIF                String?
+  customerNIF String?
 
-  insuranceSelected          Boolean                 @default(true)
-  deliverySelected           Boolean                 @default(true)
-  pickupSelected             Boolean                 @default(true)
+  insuranceSelected Boolean @default(true)
+  deliverySelected  Boolean @default(true)
+  pickupSelected    Boolean @default(true)
 
-  billingAddressLine1        String?
-  billingCity                String?
-  billingCompanyName         String?
-  billingCountry             String?
-  billingIsBusiness          Boolean                 @default(false)
-  billingPostalCode          String?
-  billingTaxId               String?
+  billingAddressLine1 String?
+  billingCity         String?
+  billingCompanyName  String?
+  billingCountry      String?
+  billingIsBusiness   Boolean @default(false)
+  billingPostalCode   String?
+  billingTaxId        String?
 
-  operatorSelected           Boolean                 @default(false)
+  operatorSelected Boolean @default(false)
 
-  siteAddressCity            String?
+  siteAddressCity       String?
   /// Operational site address (NOT for invoicing)
-  siteAddressLine1           String?
-  siteAddressNotes           String?
-  siteAddressPostalCode      String?
+  siteAddressLine1      String?
+  siteAddressNotes      String?
+  siteAddressPostalCode String?
 
-  during                     Unsupported("tsrange")? @default(dbgenerated("tsrange(\"startDate\", \"endDate\", '[]'::text)"))
-  
-  createdAt                  DateTime                @default(now())
-  updatedAt                  DateTime                @updatedAt
-  
- // Invoicing persistence (MVP) 
+  during Unsupported("tsrange")? @default(dbgenerated("tsrange(\"startDate\", \"endDate\", '[]'::text)"))
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Invoicing persistence (MVP) 
   /// e.g., "vendus" for now; keeps door open to swap providers later.
-  invoiceProvider            String?
+  invoiceProvider   String?
   /// Provider’s internal document ID (stringified); paired with provider for uniqueness.
-  invoiceProviderId          String?
+  invoiceProviderId String?
   /// Human-facing document number (e.g., "FT 2025/123").
-  invoiceNumber              String?
+  invoiceNumber     String?
   /// Public HTTPS link to the PDF (as returned by provider).
-  invoicePdfUrl              String?
+  invoicePdfUrl     String?
   /// ATCUD (if the series has a validation code configured).
-  invoiceAtcud               String?
-  
-  confirmationEmailSentAt    DateTime? @db.Timestamp(6)
-  invoiceEmailSentAt         DateTime? @db.Timestamp(6)
-  internalEmailSentAt        DateTime? @db.Timestamp(6)
+  invoiceAtcud      String?
 
-   /// Aggregated refund info (Stripe amounts are in cents).
-  refundStatus         RefundStatus   @default(NONE)
-  refundedAmountCents  Int            @default(0)
+  confirmationEmailSentAt DateTime? @db.Timestamp(6)
+  invoiceEmailSentAt      DateTime? @db.Timestamp(6)
+  internalEmailSentAt     DateTime? @db.Timestamp(6)
+
+  /// Aggregated refund info (Stripe amounts are in cents).
+  refundStatus        RefundStatus @default(NONE)
+  refundedAmountCents Int          @default(0)
   /// Collected refund IDs from Stripe (e.g., ["re_123", "re_456"])
-  refundIds            String[]
+  refundIds           String[]
 
   /// Latest dispute snapshot (if any).
-  disputeId            String?
-  disputeStatus        DisputeStatus  @default(NONE)
-  disputeReason        String?
-  disputeClosedAt      DateTime?
+  disputeId       String?
+  disputeStatus   DisputeStatus @default(NONE)
+  disputeReason   String?
+  disputeClosedAt DateTime?
 
   /// Optional Stripe charge id for reconciliation.
-  stripeChargeId       String?
+  stripeChargeId String?
 
   /// Discount percentage applied (0-100)
-  discountPercentage   Decimal?         @default(0)
+  discountPercentage Decimal? @default(0)
 
   /// Original subtotal before discount (cents, ex VAT) from Stripe metadata
-  originalSubtotalExVatCents    Int?
+  originalSubtotalExVatCents Int?
 
   /// Discounted subtotal after discount (cents, ex VAT) from Stripe metadata
-  discountedSubtotalExVatCents  Int?
+  discountedSubtotalExVatCents Int?
+
+  /// Option B: Duration unit (DAY or HOUR for future hourly)
+  durationUnit BookingDurationUnit @default(DAY)
+  /// Option B: Hourly start timestamp (future use)
+  startAt      DateTime?
+  /// Option B: Hourly end timestamp (future use)
+  endAt        DateTime?
 
   /// Async jobs for this booking (invoice issuance, email sending, etc.)
-  jobs                 BookingJob[]
+  jobs  BookingJob[]
+  /// Option B: Itemized booking items (machines + addons)
+  items BookingItem[]
 
   @@unique([invoiceProvider, invoiceProviderId])
   @@index([status, holdExpiresAt])
@@ -166,21 +184,21 @@ enum DisputeStatus {
 
 /// Durable async job queue for booking-related side effects
 model BookingJob {
-  id          Int      @id @default(autoincrement())
-  bookingId   Int
-  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  id        Int     @id @default(autoincrement())
+  bookingId Int
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
-  type        String   // "issue_invoice" | "send_customer_confirmation" | "send_internal_confirmation" | "send_invoice_ready"
-  status      String   // "pending" | "processing" | "completed" | "failed"
+  type   String // "issue_invoice" | "send_customer_confirmation" | "send_internal_confirmation" | "send_invoice_ready"
+  status String // "pending" | "processing" | "completed" | "failed"
 
-  attempts    Int      @default(0)
-  maxAttempts Int      @default(3)
+  attempts    Int @default(0)
+  maxAttempts Int @default(3)
 
-  payload     Json?    // Optional job-specific data
-  result      Json?    // Result or error message
+  payload Json? // Optional job-specific data
+  result  Json? // Result or error message
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   processedAt DateTime?
 
@@ -198,4 +216,59 @@ model CompanyDiscount {
   active             Boolean  @default(true)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+}
+
+/// Option B: Itemized booking line items (machines + addons with quantity)
+model BookingItem {
+  id        Int     @id @default(autoincrement())
+  bookingId Int
+  machineId Int
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  machine   Machine @relation(fields: [machineId], references: [id])
+
+  /// Quantity of this item (1 for PRIMARY machines, N for PER_UNIT addons)
+  quantity Int @default(1)
+
+  /// Snapshot: item type at booking time
+  itemType    MachineItemType @default(PRIMARY)
+  /// Snapshot: charge model at booking time
+  chargeModel ChargeModel     @default(PER_BOOKING)
+  /// Snapshot: time unit at booking time
+  timeUnit    TimeUnit        @default(DAY)
+  /// Snapshot: unit price at booking time (required, always set)
+  unitPrice   Decimal
+
+  /// Marks the primary machine for this booking (backward compat)
+  isPrimary Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([bookingId])
+  @@index([machineId])
+  @@index([bookingId, isPrimary])
+}
+
+/// Option B: Machine item type
+enum MachineItemType {
+  PRIMARY
+  ADDON
+}
+
+/// Option B: Charge model
+enum ChargeModel {
+  PER_BOOKING
+  PER_UNIT
+}
+
+/// Option B: Time unit for pricing
+enum TimeUnit {
+  DAY
+  HOUR
+}
+
+/// Option B: Booking duration unit
+enum BookingDurationUnit {
+  DAY
+  HOUR
 }
