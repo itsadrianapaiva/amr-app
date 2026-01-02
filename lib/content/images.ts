@@ -42,7 +42,7 @@ import largeExcavator from "@/public/images/machines/large-excavator.jpg"; // No
 
 import skidTracks from "@/public/images/machines/skid-steer-loader-tracks.jpg"; // No optimized WebP variant yet
 import skidTracksLg from "@/public/images/optimized/machines/lg-skid-steer-loader-tracks-02.webp";
-import skidWheels from "@/public/images/machines/wheel-skid-steer-loader.jpg"; // No optimized WebP variant yet
+import skidWheels from "@/public/images/machines/wheel-skid-steer-loader-02.webp";
 
 import telehandler from "@/public/images/optimized/machines/telehandler.webp";
 import compactor from "@/public/images/optimized/machines/compactor.webp";
