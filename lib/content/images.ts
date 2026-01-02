@@ -63,21 +63,33 @@ const MACHINE_IMAGE_ALIASES: Record<string, string> = {
   // old naming
   "mini-bobcat-with-wheels": "wheel-skid-steer-loader",
 
-  // new naming
+  // new naming (updated to match CSV codes)
   "mini-skid-steer-w-wheels": "wheel-skid-steer-loader",
   "mini-bobcat-wheel": "wheel-skid-steer-loader",
+  "mini-excavator-jcb": "mini-excavator",
   "mini-excavator": "mini-excavator",
+  "bobcat-t450-track": "skid-steer-loader-tracks",
   "medium-bobcat-skid-steer-w-tracks": "skid-steer-loader-tracks",
+  "bobcat-t190-track": "lg-skid-steer-loader-tracks",
   "larger-bobcat-skid-steer-w-tracks": "lg-skid-steer-loader-tracks",
+  "bobcat-e80-excavator": "medium-excavator",
   "medium-excavator": "medium-excavator",
+  "jcb-85z1-excavator": "large-excavator",
   "large-excavator": "large-excavator",
+  "bobcat-tl619-telehandler": "telehandler",
   telehandler: "telehandler",
+  "crommelins-compactor": "compactor",
   compactor: "compactor",
+  "concrete-mixer-200l": "cement-mixer",
   "200-liter-concrete-mixer": "cement-mixer",
-  "hyundai-petrol-powerwasher": "power-washer",
+  "vevor-post-hole-digger": "hole-boring-machine",
   "hole-boring-machine": "hole-boring-machine",
+  "hyundai-petrol-powerwasher": "power-washer",
+  "mercedes-tipper-3500": "mercedes-tipper",
+  "isuzu-tipper-crane": "tipper-with-crane",
+  "volvo-16m3-truck": "volvo-dump-truck",
 
-  // trucks & haulers – map CSV slugs to your canonical keys
+  // legacy aliases (trucks & haulers)
   "3500-tipper-truck-with-driver": "mercedes-tipper",
   "3500-tipper-with-crane-and-driver": "tipper-with-crane",
   "16m3-truck-with-driver": "volvo-dump-truck",
@@ -255,31 +267,53 @@ export function getMachineImage(slugOrType: string) {
 
 /**
  * Decide the best image for a machine by trying:
- *   1) type -> alias -> image map
- *   2) name -> alias -> image map
- *   3) optional DB URL (only if safe: no SVG, not a placeholder host)
+ *   1) code -> alias -> image map (stable identifier, preferred)
+ *   2) type -> alias -> image map
+ *   3) name -> alias -> image map
+ *   4) optional DB URL (only if safe: no SVG, not a placeholder host)
  * Falls back to the global machine image if nothing matches.
  */
 export function resolveMachineImage(input: {
+  code?: string | null;
   type?: string | null;
   name?: string | null;
   dbUrl?: string | null;
 }): MachineImage {
-  // 1) Try by type
-  let hit = getMachineImage(input.type ?? "");
+  // 1) Try by code first (stable identifier)
+  // Normalize code to slug format to handle inconsistent casing/formatting
+  const rawCode = (input.code ?? "").trim();
+  const normalizedCode = rawCode ? toSlugLike(rawCode) : "";
 
-  // 2) Try by name if still the global fallback
+  let hit = normalizedCode ? getMachineImage(normalizedCode) : { src: imageContent.fallback.machine, alt: "Construction machinery on site" } satisfies MachineImage;
+
+  // Dev-only: warn when code exists but didn't resolve (helps catch missing aliases)
+  if (
+    process.env.NODE_ENV === "development" &&
+    normalizedCode &&
+    hit.src === imageContent.fallback.machine
+  ) {
+    console.warn(
+      `[resolveMachineImage] Code "${rawCode}" (normalized: "${normalizedCode}") exists but no image match found. Falling back to type/name. Consider adding alias mapping.`
+    );
+  }
+
+  // 2) Try by type if still the fallback
+  if (hit.src === imageContent.fallback.machine) {
+    hit = getMachineImage(input.type ?? "");
+  }
+
+  // 3) Try by name if still the global fallback
   if (hit.src === imageContent.fallback.machine) {
     hit = getMachineImage(input.name ?? "");
   }
 
-  // 3) Prefer DB URL if it's safe (remote SVGs/placeholder hosts are ignored)
+  // 4) Prefer DB URL if it's safe (remote SVGs/placeholder hosts are ignored)
   const url = (input.dbUrl ?? "").trim();
   if (url && isSafeRemoteImageUrl(url)) {
     return { src: url, alt: hit.alt }; // reuse alt (or set "Image of ..." at callsite)
   }
 
-  // 4) Map/local image or fallback
+  // 5) Map/local image or fallback
   return hit;
 }
 

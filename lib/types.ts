@@ -4,6 +4,7 @@
 
 export type SerializableMachine = {
   id: number;
+  code: string;
   name: string;
   type: string;                 // keep UI-decoupled from Prisma enums
   description: string | null;

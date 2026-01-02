@@ -25,6 +25,7 @@ export function serializeMachine(m: Machine): SerializableMachine {
   return {
     // primitives / nullable text
     id: m.id,
+    code: m.code,
     name: m.name,
 
     // Back-compat: keep 'type' as strict string (empty string if absent)

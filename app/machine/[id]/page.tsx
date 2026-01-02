@@ -89,6 +89,7 @@ export default async function MachineDetailPage({
 
   // Centralized image resolution
   const img = resolveMachineImage({
+    code: machine.code,
     type: categoryOrType,
     name: String(machine.name ?? ""),
     dbUrl: null, // avoid external hosts in Next/Image on detail page
