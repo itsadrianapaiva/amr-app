@@ -14,8 +14,7 @@ function readStringKey(obj: unknown, key: string): string | undefined {
 
 /** Check if running in production runtime (for graceful degradation). */
 function isProdRuntime(): boolean {
-  const env = process.env.NEXT_PUBLIC_ENV ?? process.env.NODE_ENV ?? "";
-  return env.toLowerCase() === "production";
+  return process.env.NODE_ENV === "production";
 }
 
 /**
@@ -27,15 +26,18 @@ export function serializeMachine(m: Machine): SerializableMachine {
   // Runtime guard: Ensure code field is present (prevents silent fallbacks from partial selects)
   let code = m.code;
   if (!code || typeof code !== "string" || code.trim() === "") {
+    const rawCode = String(m.code ?? "null");
+    const category = readStringKey(m, "category") ?? "";
     const msg =
       `Machine ${m.id} (${m.name}) missing valid code field. ` +
-      `Check that your query includes 'code' in the select statement or uses findMany/findUnique without a partial select.`;
+      `Check that your query includes 'code' in the select statement or uses findMany/findUnique without a partial select. ` +
+      `rawCode="${rawCode}" category="${category}"`;
 
     if (isProdRuntime()) {
       // Production: warn but don't crash (availability > correctness for this edge case)
-      // Fallback to a safe dummy value to prevent type errors downstream
-      console.warn(`[serializeMachine] ${msg} Using fallback code.`);
-      code = `fallback-machine-${m.id}`;
+      // Set to empty string to let natural fallback chain work (type -> name -> fallback)
+      console.warn(`[serializeMachine] ${msg}`);
+      code = "";
     } else {
       // Dev/Staging: fail fast to catch during development
       throw new Error(msg);
