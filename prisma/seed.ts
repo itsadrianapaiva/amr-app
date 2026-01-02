@@ -22,6 +22,10 @@
  * - Validates required fields and numeric sanity
  * - Fails fast before any DB writes if validation fails
  * - always run seed and backfill with explicit dotenv or explicit DATABASE_URL.
+ * 
+ * EXAMPLES:
+ * SEED_ONLY_CODE=mini-bobcat-wheel npx dotenv -e .env.production -- npm run db:seed
+OR npx dotenv -e .env.staging -- npm run db:seed
  */
 
 import { PrismaClient, Prisma } from "@prisma/client";
