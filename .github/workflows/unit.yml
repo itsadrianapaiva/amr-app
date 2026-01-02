@@ -47,6 +47,9 @@ jobs:
             npm install
           fi
 
+      - name: Validate machine image mappings
+        run: npx tsx scripts/validate-machine-images-csv.ts
+
       - name: Run unit tests (Vitest)
         shell: bash
         run: |

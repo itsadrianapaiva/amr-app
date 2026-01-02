@@ -5,10 +5,11 @@ import HowToBook from "@/components/how-to-book";
 import CatalogMetaViewContent from "@/components/analytics/catalog-meta-viewcontent";
 import CatalogGa4ViewList from "@/components/analytics/catalog-ga4-viewlist";
 
-// Revalidate the catalog page HTML/data every 5 minutes to mirror the homepage behavior.
-// Safe because the catalog doesn't change every request and webhooks/bookings
-// do not mutate the catalog payload.
-export const revalidate = 300;
+// Revalidate the catalog page HTML/data every 60 seconds for faster feedback after DB updates.
+// Balances performance (reduces DB load) with freshness (CSV updates visible within 1 minute).
+// Catalog content changes infrequently, so this provides good cache hit ratio while ensuring
+// machine name/image changes are reflected promptly after seeding.
+export const revalidate = 60;
 
 export default async function CatalogPage() {
   const machines = await getMachines();
