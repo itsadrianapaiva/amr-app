@@ -125,7 +125,7 @@ SEED_ONLY_CODE=MINI-EXCAVATOR npm run db:seed
 npm run db:seed
 ```
 
-**Option B: Via Deployment**
+**Cart-ready: Via Deployment**
 
 1. Commit CSV changes
 2. Push to `staging` branch
@@ -255,7 +255,7 @@ Booking form will now require minimum 3-day rental.
 4. Update CSV back to original price
 5. Re-seed
 
-**Option B: Code-Level Discount (Requires Dev Work)**
+**Cart-ready: Code-Level Discount (Requires Dev Work)**
 
 Create a promotional discount in code (not recommended for simple ops changes):
 

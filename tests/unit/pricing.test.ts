@@ -7,7 +7,7 @@ import {
   type PricingItemInput,
 } from "@/lib/pricing";
 
-describe("computeTotalsFromItems (Option B pricing engine)", () => {
+describe("computeTotalsFromItems (Cart-ready pricing engine)", () => {
   describe("parity with computeTotals for single-item, day-based bookings", () => {
     it("matches computeTotals for basic rental only", () => {
       const inputs: PriceInputs = {
@@ -230,8 +230,20 @@ describe("computeTotalsFromItems (Option B pricing engine)", () => {
     it("throws for HOUR timeUnit (not yet implemented)", () => {
       expect(() =>
         computeTotalsFromItems(
-          { rentalDays: 1, deliverySelected: false, pickupSelected: false, insuranceSelected: false },
-          [{ quantity: 1, chargeModel: "PER_BOOKING", timeUnit: "HOUR", unitPrice: 100 }]
+          {
+            rentalDays: 1,
+            deliverySelected: false,
+            pickupSelected: false,
+            insuranceSelected: false,
+          },
+          [
+            {
+              quantity: 1,
+              chargeModel: "PER_BOOKING",
+              timeUnit: "HOUR",
+              unitPrice: 100,
+            },
+          ]
         )
       ).toThrow("HOUR-based pricing not yet implemented");
     });
