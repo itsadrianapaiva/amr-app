@@ -68,6 +68,7 @@ export function MachineCard({ machine, eager = false }: MachineCardProps) {
     name: machine.name ?? "",
     dbUrl: null, // explicitly ignore external URLs on cards
   });
+  
 
   const srcToUse = img.src as StaticImageData | string;
   const altToUse = img.alt;

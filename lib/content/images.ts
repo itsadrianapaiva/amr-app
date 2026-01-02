@@ -42,7 +42,7 @@ import largeExcavator from "@/public/images/machines/large-excavator.jpg"; // No
 
 import skidTracks from "@/public/images/machines/skid-steer-loader-tracks.jpg"; // No optimized WebP variant yet
 import skidTracksLg from "@/public/images/optimized/machines/lg-skid-steer-loader-tracks-02.webp";
-import skidWheels from "@/public/images/machines/wheel-skid-steer-loader.jpg"; // No optimized WebP variant yet
+import skidWheels from "@/public/images/machines/wheel-skid-steer-loader-02.webp";
 
 import telehandler from "@/public/images/optimized/machines/telehandler.webp";
 import compactor from "@/public/images/optimized/machines/compactor.webp";
@@ -60,7 +60,12 @@ const FALLBACK_MACHINE_IMAGE = "/images/machines/_fallback.jpg" as const;
 
 /* CSV "Type"/Name slugs -> canonical machine-image keys */
 const MACHINE_IMAGE_ALIASES: Record<string, string> = {
+  // old naming
   "mini-bobcat-with-wheels": "wheel-skid-steer-loader",
+
+  // new naming
+  "mini-skid-steer-w-wheels": "wheel-skid-steer-loader",
+  "mini-bobcat-wheel": "wheel-skid-steer-loader",
   "mini-excavator": "mini-excavator",
   "medium-bobcat-skid-steer-w-tracks": "skid-steer-loader-tracks",
   "larger-bobcat-skid-steer-w-tracks": "lg-skid-steer-loader-tracks",
