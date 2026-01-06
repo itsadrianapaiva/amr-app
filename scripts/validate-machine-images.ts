@@ -7,49 +7,10 @@
  */
 
 import { db } from "@/lib/db";
-
-// Copy of the alias map from lib/content/images.ts
-const MACHINE_IMAGE_ALIASES: Record<string, string> = {
-  // old naming
-  "mini-bobcat-with-wheels": "wheel-skid-steer-loader",
-
-  // new naming
-  "mini-skid-steer-w-wheels": "wheel-skid-steer-loader",
-  "mini-bobcat-wheel": "wheel-skid-steer-loader",
-  "mini-excavator": "mini-excavator",
-  "medium-bobcat-skid-steer-w-tracks": "skid-steer-loader-tracks",
-  "larger-bobcat-skid-steer-w-tracks": "lg-skid-steer-loader-tracks",
-  "medium-excavator": "medium-excavator",
-  "large-excavator": "large-excavator",
-  telehandler: "telehandler",
-  compactor: "compactor",
-  "200-liter-concrete-mixer": "cement-mixer",
-  "hyundai-petrol-powerwasher": "power-washer",
-  "hole-boring-machine": "hole-boring-machine",
-
-  // trucks & haulers
-  "3500-tipper-truck-with-driver": "mercedes-tipper",
-  "3500-tipper-with-crane-and-driver": "tipper-with-crane",
-  "16m3-truck-with-driver": "volvo-dump-truck",
-};
-
-// Canonical image keys that exist in the images map
-const CANONICAL_IMAGE_KEYS = [
-  "mini-excavator",
-  "medium-excavator",
-  "large-excavator",
-  "skid-steer-loader-tracks",
-  "lg-skid-steer-loader-tracks",
-  "wheel-skid-steer-loader",
-  "telehandler",
-  "compactor",
-  "cement-mixer",
-  "power-washer",
-  "hole-boring-machine",
-  "mercedes-tipper",
-  "tipper-with-crane",
-  "volvo-dump-truck",
-];
+import {
+  MACHINE_IMAGE_ALIASES,
+  CANONICAL_IMAGE_KEYS,
+} from "@/lib/content/images/config";
 
 // Normalize to slug format (same as resolveMachineImage)
 function toSlugLike(s: string): string {

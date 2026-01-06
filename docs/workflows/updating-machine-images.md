@@ -10,11 +10,15 @@ Machine images are managed as **local static assets** in the codebase, not loade
 
 Images are resolved using a static import system with fallback logic based on machine name/category.
 
-**Image Directory:** [public/images/machines/](../../public/images/machines/)
+**Image Directories:**
+- [public/images/machines/](../../public/images/machines/) - Main image assets
+- [public/images/optimized/machines/](../../public/images/optimized/machines/) - WebP-optimized versions
 
-**Image Mapping:** [lib/content/images.ts](../../lib/content/images.ts)
-
-**Optimized Images:** [public/images/optimized/machines/](../../public/images/optimized/machines/)
+**Image Configuration:**
+- [lib/content/images/config.ts](../../lib/content/images/config.ts) - Alias mappings & canonical keys
+- [lib/content/images/machines.ts](../../lib/content/images/machines.ts) - Machine static imports & image map
+- [lib/content/images/helpers.ts](../../lib/content/images/helpers.ts) - Resolution utilities
+- [lib/content/images.ts](../../lib/content/images.ts) - Main export (hero, why, machines)
 
 ---
 
@@ -64,13 +68,13 @@ public/images/optimized/machines/new-machine.webp
 
 The optimization directory is preferred for production images but not required.
 
-### 3. Import Image in images.ts
+### 3. Import Image in machines.ts
 
-**File:** `lib/content/images.ts`
+**File:** `lib/content/images/machines.ts`
 
-**Add Static Import (Recommended):**
+**Add Static Import:**
 
-Near the top of the file (around lines 38-56), add your import:
+Near the top of the file (around lines 14-35), add your import:
 
 ```typescript
 // Add to existing imports section
@@ -84,27 +88,24 @@ import newMachine from "@/public/images/optimized/machines/new-machine.webp";
 
 ### 4. Add to Image Map
 
-**File:** `lib/content/images.ts`
+**File:** `lib/content/images/machines.ts`
 
-**Location:** `imageContent.machines` object (lines 121-193)
+**Location:** `machineImages` object (around lines 45-125)
 
 Add your machine entry with appropriate alt text:
 
 ```typescript
-export const imageContent = {
-  // ... existing content
-  machines: {
-    // ... existing machines
+export const machineImages = {
+  // ... existing machines
 
-    // Add your new machine (use canonical slug as key)
-    "new-machine": {
-      src: newMachine,  // Use the imported variable
-      alt: "Description of machine for accessibility",  // SEO & accessibility
-    },
+  // Add your new machine (use canonical slug as key)
+  "new-machine": {
+    src: newMachine,  // Use the imported variable
+    alt: "Description of machine for accessibility",  // SEO & accessibility
+  },
 
-    // ... rest of machines
-  }
-}
+  // ... rest of machines
+} as Record<string, MachineImage>;
 ```
 
 **Alt Text Best Practices:**
@@ -114,19 +115,30 @@ export const imageContent = {
 - Good: "Mini excavator working at a residential job site"
 - Bad: "Mini excavator"
 
-### 5. Add Alias Mapping
+### 5. Update Config File
 
-**File:** `lib/content/images.ts`
+**File:** `lib/content/images/config.ts`
 
-**Location:** `MACHINE_IMAGE_ALIASES` object (lines 62-79)
+**Step 5a - Add to CANONICAL_IMAGE_KEYS:**
 
-Add aliases so the image resolves correctly from CSV machine names:
+Add the canonical key to the array (around line 57-75):
 
 ```typescript
-const MACHINE_IMAGE_ALIASES: Record<string, string> = {
+export const CANONICAL_IMAGE_KEYS = [
+  // ... existing keys
+  "new-machine",  // Add your new key
+];
+```
+
+**Step 5b - Add Alias Mapping (if needed):**
+
+If the CSV machine code differs from your canonical key, add an alias:
+
+```typescript
+export const MACHINE_IMAGE_ALIASES: Record<string, string> = {
   // ... existing aliases
 
-  // Map CSV machine name slug to canonical image key
+  // Map CSV machine code to canonical image key
   "new-machine-from-csv": "new-machine",
 
   // You can add multiple aliases pointing to same image
@@ -167,9 +179,10 @@ Navigate to the machine's page and verify the correct image loads.
 
 **Steps:**
 1. Add image file: `public/images/machines/new-excavator.webp`
-2. Import in `images.ts`: `import newExcavator from "@/public/images/machines/new-excavator.webp"`
-3. Add to map: `"new-excavator": { src: newExcavator, alt: "..." }`
-4. Add alias: `"new-excavator-from-csv": "new-excavator"`
+2. Import in `lib/content/images/machines.ts`: `import newExcavator from "@/public/images/machines/new-excavator.webp"`
+3. Add to map in `machines.ts`: `"new-excavator": { src: newExcavator, alt: "..." }`
+4. Add key to `lib/content/images/config.ts` CANONICAL_IMAGE_KEYS: `"new-excavator"`
+5. Add alias in `config.ts` if needed: `"new-excavator-from-csv": "new-excavator"`
 
 ### Scenario 2: Replace Existing Machine Image
 
@@ -180,8 +193,8 @@ Navigate to the machine's page and verify the correct image loads.
 
 **Or, if changing filename:**
 1. Add new file with new name
-2. Update import in `images.ts`
-3. Update src in `imageContent.machines[key]`
+2. Update import in `lib/content/images/machines.ts`
+3. Update src in `machineImages[key]`
 
 ### Scenario 3: Add Alternate/Secondary Image
 
@@ -201,7 +214,7 @@ Currently, the system uses ONE primary image per machine. Secondary images exist
 3. Update import path in `images.ts` to point to optimized version
 4. No other changes needed
 
-**Example:**
+**Example (in lib/content/images/machines.ts):**
 ```typescript
 // Before
 import miniExcavator from "@/public/images/machines/mini-excavator.jpg";
@@ -322,14 +335,28 @@ This keeps files organized and makes it clear which are alternates.
 
 ## Source Pointers
 
-- **Image Resolution:** `lib/content/images.ts` (entire file)
-- **Static Imports:** `lib/content/images.ts:29-56`
-- **Image Map:** `lib/content/images.ts:121-193`
-- **Alias Map:** `lib/content/images.ts:62-79`
-- **Helper Functions:** `lib/content/images.ts:204-293`
-- **Machine Card Component:** `components/machine-card.tsx:66-70`
-- **Image Directory:** `public/images/machines/`
-- **Optimized Directory:** `public/images/optimized/machines/`
+**Configuration & Data:**
+- **Alias Mappings:** `lib/content/images/config.ts` (MACHINE_IMAGE_ALIASES)
+- **Canonical Keys:** `lib/content/images/config.ts` (CANONICAL_IMAGE_KEYS)
+
+**Machine Images:**
+- **Static Imports:** `lib/content/images/machines.ts:14-35`
+- **Image Map:** `lib/content/images/machines.ts:45-125` (machineImages object)
+- **Sync Validation:** `lib/content/images/machines.ts:130-145`
+
+**Utilities:**
+- **Helper Functions:** `lib/content/images/helpers.ts` (getMachineImage, resolveMachineImage, etc)
+
+**Main Export:**
+- **Barrel File:** `lib/content/images.ts` (re-exports all modules)
+- **Hero & Why Images:** `lib/content/images.ts:29-75`
+
+**Components:**
+- **Machine Card:** `components/machine-card.tsx:66-70`
+
+**Directories:**
+- **Image Assets:** `public/images/machines/`
+- **Optimized Assets:** `public/images/optimized/machines/`
 
 ---
 
