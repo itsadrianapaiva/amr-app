@@ -19,7 +19,8 @@
       "Bash(file public/images/social-proof/*.{jpg,jpeg,png,webp})",
       "Bash(find:*)",
       "Bash(git checkout:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []
