@@ -64,10 +64,12 @@ export function MachineCard({ machine, eager = false }: MachineCardProps) {
 
   // Resolve local/static or remote image (remote is guarded)
   const img = resolveMachineImage({
+    code: machine.code,
     type: categoryOrType,
     name: machine.name ?? "",
     dbUrl: null, // explicitly ignore external URLs on cards
   });
+  
 
   const srcToUse = img.src as StaticImageData | string;
   const altToUse = img.alt;

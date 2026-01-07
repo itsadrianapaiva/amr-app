@@ -12,6 +12,8 @@ Machines are defined in a CSV file and seeded into the database via Prisma. The 
 
 **Seeding Script:** [prisma/seed.ts](../../prisma/seed.ts)
 
+Deploying code does not modify machine data. All machine changes require running the seed script.
+
 ---
 
 ## Prerequisites
@@ -30,22 +32,23 @@ Machines are defined in a CSV file and seeded into the database via Prisma. The 
 
 Add a new row with the following columns (in order):
 
-| Column | Required | Description | Example |
-|--------|----------|-------------|---------|
-| **Code** | Yes | Unique machine identifier (stable, unchanging) | `MINI-DUMPER-500` |
-| **Deposits** | Yes | Deposit amount in EUR | `100.00` |
-| **Category** | Yes | Machine category (maps to `type` in DB) | `Dumpers` |
-| **Name** | Yes | Display name | `Mini Dumper 500kg` |
-| **Model** | No | Model/spec info | `Yanmar C12R` |
-| **Weight** | No | Machine weight | `450kg` |
-| **Delivery charge** | No | Delivery fee in EUR | `50.00` |
-| **Pick up charge** | No | Pickup fee in EUR | `50.00` |
-| **Day minimum** | No | Minimum rental days (>=1 if set) | `1` |
-| **Price per day** | Yes | Daily rate in EUR (must be >0) | `35.00` |
-| **Image** | No | Reference URL only (NOT rendered in UI) | `https://example.com/ref.jpg` |
-| **Description** | No | Machine description | `Compact tracked dumper...` |
+| Column              | Required | Description                                    | Example                       |
+| ------------------- | -------- | ---------------------------------------------- | ----------------------------- |
+| **Code**            | Yes      | Unique machine identifier (stable, unchanging) | `MINI-DUMPER-500`             |
+| **Deposits**        | Yes      | Deposit amount in EUR                          | `100.00`                      |
+| **Category**        | Yes      | Machine category (maps to `type` in DB)        | `Dumpers`                     |
+| **Name**            | Yes      | Display name                                   | `Mini Dumper 500kg`           |
+| **Model**           | No       | Model/spec info                                | `Yanmar C12R`                 |
+| **Weight**          | No       | Machine weight                                 | `450kg`                       |
+| **Delivery charge** | No       | Delivery fee in EUR                            | `50.00`                       |
+| **Pick up charge**  | No       | Pickup fee in EUR                              | `50.00`                       |
+| **Day minimum**     | No       | Minimum rental days (>=1 if set)               | `1`                           |
+| **Price per day**   | Yes      | Daily rate in EUR (must be >0)                 | `35.00`                       |
+| **Image**           | No       | Reference URL only (NOT rendered in UI)        | `https://example.com/ref.jpg` |
+| **Description**     | No       | Machine description                            | `Compact tracked dumper...`   |
 
 **Example CSV row:**
+
 ```csv
 MINI-DUMPER-500,100.00,Dumpers,Mini Dumper 500kg,Yanmar C12R,450kg,50.00,50.00,1,35.00,https://example.com/ref.jpg,Compact tracked dumper for narrow spaces
 ```
@@ -55,6 +58,7 @@ MINI-DUMPER-500,100.00,Dumpers,Mini Dumper 500kg,Yanmar C12R,450kg,50.00,50.00,1
 The seed script validates:
 
 **Required Fields:**
+
 - `code` - Must be unique across all machines
 - `name` - Cannot be empty
 - `category` - Must match existing categories
@@ -62,6 +66,7 @@ The seed script validates:
 - `deposit` (Deposits) - Must be >=0
 
 **Optional but Validated:**
+
 - `minDays` (Day minimum) - If set, must be >=1
 - All numeric fields must parse correctly
 
@@ -70,40 +75,97 @@ The seed script validates:
 ### 3. Run the Seeding Script
 
 **Seed all machines:**
+
 ```bash
 npm run db:seed
 ```
 
 **Seed only the new machine (faster):**
+
 ```bash
 SEED_ONLY_CODE=MINI-DUMPER-500 npm run db:seed
 ```
 
 **Expected Output:**
+
 ```
 Seeding machines...
   ✓ Upserted machine: MINI-DUMPER-500
 ```
 
-### 4. Verify in Database
+### 3A. Running the Seed Script in Production (IMPORTANT)
+
+Deploying code **does not update machine data** in production.
+
+If you change **name, description, category, model, pricing, or min days**
+in `machines.csv`, you **must run the seed script against the production database**.
+
+#### Safety Rules
+
+- Production seeding is **UPSERT ONLY**
+- Machines are matched by `code`
+- Existing bookings are **not affected**
+- `SEED_RESET=1` is **hard-blocked** in production
+
+#### Required Setup
+
+Before running the seed in production:
+
+- Ensure `.env.production` is present
+- Never run from CI or Netlify build
+
+#### Recommended: Targeted Production Seed
+
+Use this when updating a single machine:
+
+```bash
+SEED_ONLY_CODE=<machine-code> npx dotenv -e .env.production -- npm run db:seed
+```
+
+Example:
+
+```bash
+SEED_ONLY_CODE=mini-bobcat-wheel npx dotenv -e .env.production -- npm run db:seed
+```
+
+This will:
+
+- Update name, description, model, category, and pricing
+- Create the machine if it does not exist
+- Leave all other machines untouched
+
+**Full Production Seed (Use with Caution):**
+
+Only run this if the CSV is fully trusted as the source of truth:
+
+```bash
+npx dotenv -e .env.production -- npm run db:seed
+```
+
+### 4. Verify in Database (staging and production)
 
 **Using Prisma Studio:**
+
 ```bash
-npx prisma studio
+npx dotenv -e .env.staging -- npx prisma studio
 ```
 
 Navigate to `Machine` model and verify:
+
 - New machine appears
 - All fields populated correctly
 - `code` is unique
 - `category` maps to correct category
 
 **Using SQL:**
+
 ```sql
 SELECT code, name, category, "dailyRate", deposit
 FROM "Machine"
-WHERE code = 'MINI-DUMPER-500';
+WHERE code = '<machine-code>';
 ```
+
+Always verify after seeding production.
 
 ---
 
@@ -127,6 +189,7 @@ WHERE code = 'MINI-DUMPER-500';
 ### Upsert Behavior
 
 The seed script uses `upsert` by machine code:
+
 - If code exists: updates all fields
 - If code doesn't exist: creates new machine
 
@@ -164,11 +227,13 @@ This means you can edit CSV values and re-run seed to update existing machines.
 ### Machine not appearing in UI
 
 **Likely causes:**
+
 1. Category doesn't match existing categories (check `lib/content/machines.ts`)
 2. Machine seeded but UI filters don't include it
 3. Cache issue (try hard refresh)
 
 **Verify:**
+
 ```bash
 # Check machine exists in DB
 npx prisma studio
@@ -189,11 +254,13 @@ npx prisma studio
 ### E2E Testing
 
 Run booking flow E2E test with new machine:
+
 ```bash
 npm run test:e2e
 ```
 
 Or manually test:
+
 1. Navigate to machine page
 2. Select dates
 3. Complete booking form
@@ -206,10 +273,12 @@ Or manually test:
 If you need to remove a machine:
 
 ### Option 1: Remove from CSV and Re-seed
+
 1. Delete row from `machines.csv`
 2. Run `SEED_RESET=1 npm run db:seed` (local/staging only)
 
 ### Option 2: Database Deletion
+
 ```sql
 DELETE FROM "Machine" WHERE code = 'MINI-DUMPER-500';
 ```
@@ -236,4 +305,4 @@ DELETE FROM "Machine" WHERE code = 'MINI-DUMPER-500';
 
 ---
 
-**Last Updated:** 2025-12-29
+**Last Updated:** 2026-01-02

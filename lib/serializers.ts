@@ -12,12 +12,38 @@ function readStringKey(obj: unknown, key: string): string | undefined {
   return undefined;
 }
 
+/** Check if running in production runtime (for graceful degradation). */
+function isProdRuntime(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
 /**
  * serializeMachine
  * Convert Prisma Decimal fields into strings and pick only client-safe fields.
  * Keeps UI types decoupled from the DB schema.
  */
 export function serializeMachine(m: Machine): SerializableMachine {
+  // Runtime guard: Ensure code field is present (prevents silent fallbacks from partial selects)
+  let code = m.code;
+  if (!code || typeof code !== "string" || code.trim() === "") {
+    const rawCode = String(m.code ?? "null");
+    const category = readStringKey(m, "category") ?? "";
+    const msg =
+      `Machine ${m.id} (${m.name}) missing valid code field. ` +
+      `Check that your query includes 'code' in the select statement or uses findMany/findUnique without a partial select. ` +
+      `rawCode="${rawCode}" category="${category}"`;
+
+    if (isProdRuntime()) {
+      // Production: warn but don't crash (availability > correctness for this edge case)
+      // Set to empty string to let natural fallback chain work (type -> name -> fallback)
+      console.warn(`[serializeMachine] ${msg}`);
+      code = "";
+    } else {
+      // Dev/Staging: fail fast to catch during development
+      throw new Error(msg);
+    }
+  }
+
   // Prefer new 'category'; fall back to legacy 'type'
   const category = readStringKey(m, "category");
   const legacyType: string = readStringKey(m, "type") ?? category ?? "";
@@ -25,6 +51,7 @@ export function serializeMachine(m: Machine): SerializableMachine {
   return {
     // primitives / nullable text
     id: m.id,
+    code,
     name: m.name,
 
     // Back-compat: keep 'type' as strict string (empty string if absent)
