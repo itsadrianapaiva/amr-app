@@ -8,7 +8,11 @@
 
 import { getMachineById } from "@/lib/data";
 import { parseBookingInput } from "@/lib/booking/parse-input";
-import { computeTotals } from "@/lib/pricing";
+import {
+  computeTotalsFromItems,
+  type PricingContextInput,
+  type PricingItemInput,
+} from "@/lib/pricing";
 import { INSURANCE_CHARGE, OPERATOR_CHARGE } from "@/lib/config";
 import { buildFullCheckoutSessionParams } from "@/lib/stripe/checkout.full";
 import { createCheckoutSessionWithGuards } from "@/lib/stripe/create-session";
@@ -98,19 +102,33 @@ export async function createCheckoutAction(
 
     // 3) Compute totals server-side (authoritative), PRE-VAT
     const discountPercentage = Number(payload.discountPercentage ?? 0);
-    const totals = computeTotals({
+
+    // Build pricing context for item-aware pricing engine
+    const context: PricingContextInput = {
       rentalDays: days,
-      dailyRate: Number(machine.dailyRate),
       deliverySelected: payload.deliverySelected,
       pickupSelected: payload.pickupSelected,
       insuranceSelected: payload.insuranceSelected,
+      operatorSelected: Boolean(payload.operatorSelected),
       deliveryCharge: Number(machine.deliveryCharge ?? 0),
       pickupCharge: Number(machine.pickupCharge ?? 0),
       insuranceCharge: INSURANCE_CHARGE,
-      operatorSelected: Boolean(payload.operatorSelected),
       operatorCharge: OPERATOR_CHARGE,
       discountPercentage,
-    });
+    };
+
+    // Build single-item array (Slice 4: single-machine behavior preserved)
+    // Hardcoded overrides ensure safety even if Machine has HOUR or PER_UNIT configured
+    const items: PricingItemInput[] = [
+      {
+        quantity: 1,
+        chargeModel: "PER_BOOKING", // Slice 4 safety override: force legacy behavior
+        timeUnit: "DAY", // Slice 4 safety override: force legacy behavior
+        unitPrice: Number(machine.dailyRate),
+      },
+    ];
+
+    const totals = computeTotalsFromItems(context, items);
 
     // Calculate original total (before discount) for metadata tracking
     const originalTotal =

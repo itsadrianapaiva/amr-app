@@ -1,6 +1,13 @@
 # AMR Machinery Rental Platform - Documentation
 
-Welcome to the technical documentation for the AMR (Algarve Machinery Rental) platform. This is a production Next.js 14 full-stack application handling online machinery rentals with complete payment processing, automated invoicing, and operational dashboards.
+Welcome to the technical documentation for the AMR (Algarve Machinery Rental) platform. This is a production Next.js 15 full-stack application handling online machinery rentals with complete payment processing, automated invoicing, and operational dashboards.
+
+## Start Here (for contributors and assistants)
+
+If you are new to the codebase or resuming work:
+1. Read this index page fully
+2. Review the relevant section under Architecture, Operations, or Development
+3. Do not assume behavior. Follow documented flows and constraints.
 
 ## Quick Links
 
@@ -84,7 +91,7 @@ Directory structure conventions, path aliases (@/*), adding API routes and pages
 
 ## Workflows
 
-Practical guides for common operational changes (non-developer safe).
+Operational workflows (safe for non-developers when followed exactly).
 
 ### [Adding a New Machine](workflows/adding-a-new-machine.md)
 Step-by-step guide for adding machines to the rental inventory via CSV, including validation rules, seeding, troubleshooting, and safety rails.
@@ -132,4 +139,4 @@ For questions or issues with the documentation, please reach out to the engineer
 
 ---
 
-**Last Updated:** 2025-12-29
+**Last Updated:** 2026-01-07
