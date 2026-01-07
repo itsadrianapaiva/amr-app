@@ -34,11 +34,11 @@ model Machine {
   /// Optional machine model (e.g., "Bobcat E35", "CAT 259D3")
   model String?
 
-  /// Option B: Item type (PRIMARY for machines, ADDON for accessories)
+  /// Cart-ready: Item type (PRIMARY for machines, ADDON for accessories)
   itemType    MachineItemType @default(PRIMARY)
-  /// Option B: Charge model (PER_BOOKING flat or PER_UNIT with quantity)
+  /// Cart-ready: Charge model (PER_BOOKING flat or PER_UNIT with quantity)
   chargeModel ChargeModel     @default(PER_BOOKING)
-  /// Option B: Time unit (DAY or HOUR for future hourly)
+  /// Cart-ready: Time unit (DAY or HOUR for future hourly)
   timeUnit    TimeUnit        @default(DAY)
 
   bookings     Booking[]
@@ -135,16 +135,16 @@ model Booking {
   /// Discounted subtotal after discount (cents, ex VAT) from Stripe metadata
   discountedSubtotalExVatCents Int?
 
-  /// Option B: Duration unit (DAY or HOUR for future hourly)
+  /// Cart-ready: Duration unit (DAY or HOUR for future hourly)
   durationUnit BookingDurationUnit @default(DAY)
-  /// Option B: Hourly start timestamp (future use)
+  /// Cart-ready: Hourly start timestamp (future use)
   startAt      DateTime?
-  /// Option B: Hourly end timestamp (future use)
+  /// Cart-ready: Hourly end timestamp (future use)
   endAt        DateTime?
 
   /// Async jobs for this booking (invoice issuance, email sending, etc.)
   jobs  BookingJob[]
-  /// Option B: Itemized booking items (machines + addons)
+  /// Cart-ready: Itemized booking items (machines + addons)
   items BookingItem[]
 
   @@unique([invoiceProvider, invoiceProviderId])
@@ -218,7 +218,7 @@ model CompanyDiscount {
   updatedAt          DateTime @updatedAt
 }
 
-/// Option B: Itemized booking line items (machines + addons with quantity)
+/// Cart-ready: Itemized booking line items (machines + addons with quantity)
 model BookingItem {
   id        Int     @id @default(autoincrement())
   bookingId Int
@@ -249,25 +249,25 @@ model BookingItem {
   @@index([bookingId, isPrimary])
 }
 
-/// Option B: Machine item type
+/// Cart-ready: Machine item type
 enum MachineItemType {
   PRIMARY
   ADDON
 }
 
-/// Option B: Charge model
+/// Cart-ready: Charge model
 enum ChargeModel {
   PER_BOOKING
   PER_UNIT
 }
 
-/// Option B: Time unit for pricing
+/// Cart-ready: Time unit for pricing
 enum TimeUnit {
   DAY
   HOUR
 }
 
-/// Option B: Booking duration unit
+/// Cart-ready: Booking duration unit
 enum BookingDurationUnit {
   DAY
   HOUR

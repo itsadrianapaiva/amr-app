@@ -177,7 +177,8 @@ export async function createPendingBooking(dto: PendingBookingDTO) {
  * 2) Takes a per-machine advisory transaction lock.
  * 3) Reuses an existing PENDING hold when it is the *same customer email* and *exact same dates*.
  * 4) Otherwise attempts to create a new PENDING row.
- * 5) If the DB exclusion constraint blocks us (someone else holds it), throw OverlapError.
+ * 5) Writes BookingItem rows for the booking (single-item for now).
+ * 6) If the DB exclusion constraint blocks us (someone else holds it), throw OverlapError.
  */
 export async function createOrReusePendingBooking(
   dto: PendingBookingDTO,
@@ -234,6 +235,23 @@ export async function createOrReusePendingBooking(
       // 2) Serialize concurrent attempts for the same machine.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(${1}::int4, ${machineId}::int4)`;
 
+      // Fetch machine snapshot for BookingItem creation
+      const machine = await tx.machine.findUnique({
+        where: { id: machineId },
+        select: {
+          dailyRate: true,
+          itemType: true,
+          chargeModel: true,
+          timeUnit: true,
+        },
+      });
+
+      if (!machine) {
+        throw new Error(
+          `Machine with id ${machineId} not found. This should not happen.`
+        );
+      }
+
       // 3) Reuse: same machine + same exact dates + same email + still PENDING.
       const existing = await tx.booking.findFirst({
         where: {
@@ -262,12 +280,30 @@ export async function createOrReusePendingBooking(
           select: { id: true },
         });
 
+        // Write BookingItem rows (idempotent: delete + create)
+        await tx.bookingItem.deleteMany({
+          where: { bookingId: existing.id },
+        });
+
+        await tx.bookingItem.create({
+          data: {
+            bookingId: existing.id,
+            machineId,
+            quantity: 1,
+            isPrimary: true,
+            unitPrice: machine.dailyRate,
+            itemType: machine.itemType,
+            chargeModel: machine.chargeModel,
+            timeUnit: machine.timeUnit,
+          },
+        });
+
         return { id: existing.id };
       }
 
       // (4) Create fresh PENDING; keep overlap guard
       try {
-        return await tx.booking.create({
+        const created = await tx.booking.create({
           data: {
             machineId,
             startDate,
@@ -304,6 +340,22 @@ export async function createOrReusePendingBooking(
           },
           select: { id: true },
         });
+
+        // Write BookingItem row for new booking
+        await tx.bookingItem.create({
+          data: {
+            bookingId: created.id,
+            machineId,
+            quantity: 1,
+            isPrimary: true,
+            unitPrice: machine.dailyRate,
+            itemType: machine.itemType,
+            chargeModel: machine.chargeModel,
+            timeUnit: machine.timeUnit,
+          },
+        });
+
+        return created;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         const looksLikeOverlap =

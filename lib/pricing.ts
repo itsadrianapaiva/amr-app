@@ -99,7 +99,7 @@ export function computeTotals({
 }
 
 // ============================================================================
-// Option B: Item-aware pricing engine
+// Cart-ready: Item-aware pricing engine
 // ============================================================================
 
 /**
@@ -142,7 +142,7 @@ export type PricingContextInput = {
 };
 
 /**
- * Compute totals from a list of items (Option B pricing engine).
+ * Compute totals from a list of items (Cart-ready pricing engine).
  * Preserves exact parity with computeTotals for single-item, day-based bookings.
  *
  * @param context - Shared pricing factors (days, add-ons, discount)
