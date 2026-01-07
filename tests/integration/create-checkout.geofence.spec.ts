@@ -49,7 +49,17 @@ vi.mock("@/lib/booking/parse-input", () => ({
 }))
 
 vi.mock("@/lib/pricing", () => ({
-  computeTotals: vi.fn(() => ({ total: 100 })), // pre-VAT total
+  computeTotals: vi.fn(() => ({ total: 100 })), // pre-VAT total (legacy)
+  computeTotalsFromItems: vi.fn(() => ({
+    total: 100,
+    subtotal: 100,
+    delivery: 0,
+    pickup: 0,
+    insurance: 0,
+    operator: 0,
+    discount: 0,
+    rentalDays: 1,
+  })),
 }))
 
 vi.mock("@/lib/booking/persist-pending", () => ({
