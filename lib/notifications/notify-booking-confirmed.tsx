@@ -59,16 +59,16 @@ function rentalDaysInclusive(start: Date, end: Date): number {
 }
 
 /**
- * Split a VAT-inclusive total into ex-VAT + VAT at 23%.
- * Assumes totalIncl = ex * 1.23 → ex = total / 1.23
+ * Compute VAT and totals from EX-VAT cents (source of truth).
+ * Uses integer cents for precise VAT calculation at 23%.
  */
-function splitVatFromTotal(totalIncl: number) {
-  const ex = totalIncl / 1.23;
-  const vat = totalIncl - ex;
+function computeTotalsFromExVatCents(netExVatCents: number) {
+  const vatCents = Math.round(netExVatCents * 0.23);
+  const grossCents = netExVatCents + vatCents;
   return {
-    subtotalExVat: toMoneyString(ex),
-    vatAmount: toMoneyString(vat),
-    totalInclVat: toMoneyString(totalIncl),
+    subtotalExVat: toMoneyString(netExVatCents / 100),
+    vatAmount: toMoneyString(vatCents / 100),
+    totalInclVat: toMoneyString(grossCents / 100),
   };
 }
 
@@ -141,7 +141,13 @@ export async function notifyBookingConfirmed(
   const endYmd = toYmdUTC(b.endDate);
   const machineName = b.machine?.name ?? `Machine #${b.machineId}`;
   const rentalDays = rentalDaysInclusive(b.startDate, b.endDate);
-  const totals = splitVatFromTotal(decimalToNumber(b.totalCost));
+
+  // Determine net EX-VAT cents (source of truth for totals)
+  // Prefer Stripe metadata if available, else fall back to Booking.totalCost (which is EX-VAT)
+  const netExVatCents =
+    b.discountedSubtotalExVatCents ?? Math.round(decimalToNumber(b.totalCost) * 100);
+
+  const totals = computeTotalsFromExVatCents(netExVatCents);
   const depositAmount = toMoneyString(decimalToNumber(b.machine?.deposit ?? 0));
   const siteAddress = [b.siteAddressLine1 || "", b.siteAddressCity || ""]
     .filter(Boolean)
@@ -213,7 +219,7 @@ export async function notifyBookingConfirmed(
         customerName: b.customerName,
         siteAddress: siteAddress || null,
         addonsList,
-        subtotalExVat: originalSubtotalExVat || totals.subtotalExVat,
+        subtotalExVat: totals.subtotalExVat,
         vatAmount: totals.vatAmount,
         totalInclVat: totals.totalInclVat,
         depositAmount,
@@ -222,7 +228,7 @@ export async function notifyBookingConfirmed(
         pickupSelected: b.pickupSelected,
         discountPercentage: discountPercentage > 0 ? discountPercentage : undefined,
         discountAmountExVat,
-        discountedSubtotalExVat,
+        discountedSubtotalExVat: discountedSubtotalExVat || originalSubtotalExVat,
         partnerCompanyName: partnerCompanyName || undefined,
         partnerNif: partnerNif || undefined,
       };
@@ -268,7 +274,7 @@ export async function notifyBookingConfirmed(
         customerPhone: b.customerPhone || undefined,
         siteAddress: siteAddress || undefined,
         addonsList,
-        subtotalExVat: originalSubtotalExVat || totals.subtotalExVat,
+        subtotalExVat: totals.subtotalExVat,
         vatAmount: totals.vatAmount,
         totalInclVat: totals.totalInclVat,
         depositAmount,
@@ -280,7 +286,7 @@ export async function notifyBookingConfirmed(
         pickupSelected: b.pickupSelected,
         discountPercentage: discountPercentage > 0 ? discountPercentage : undefined,
         discountAmountExVat,
-        discountedSubtotalExVat,
+        discountedSubtotalExVat: discountedSubtotalExVat || originalSubtotalExVat,
         partnerCompanyName: partnerCompanyName || undefined,
         partnerNif: partnerNif || undefined,
       };
