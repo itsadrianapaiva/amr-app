@@ -1,0 +1,203 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - banner [ref=e3]:
+    - generic [ref=e5]:
+      - button "Go to home" [ref=e7] [cursor=pointer]:
+        - img "AMR logo" [ref=e9]
+      - navigation [ref=e10]:
+        - list [ref=e11]:
+          - listitem [ref=e12]:
+            - button "Go to home" [ref=e13] [cursor=pointer]: HOME
+          - listitem [ref=e14]:
+            - link "CATALOG" [ref=e15] [cursor=pointer]:
+              - /url: /catalog
+          - listitem [ref=e16]:
+            - button "Go to about section" [ref=e17]: ABOUT
+          - listitem [ref=e18]:
+            - button "Go to faq section" [ref=e19]: FAQ
+          - listitem [ref=e20]:
+            - button "Go to contact section" [ref=e21]: CONTACT
+        - generic [ref=e22]: Instant booking in the Algarve
+        - generic [ref=e23]:
+          - link "Visit AMR on Facebook" [ref=e24] [cursor=pointer]:
+            - /url: https://facebook.com/amr.machineryrental
+            - img [ref=e25]
+          - link "Visit AMR on Instagram" [ref=e27] [cursor=pointer]:
+            - /url: https://instagram.com/amr.machineryrental
+            - img [ref=e28]
+        - link "Book Online Now" [ref=e32] [cursor=pointer]:
+          - /url: /catalog
+  - generic [ref=e34]:
+    - generic [ref=e35]:
+      - heading "Analytics Debug Events" [level=1] [ref=e36]
+      - paragraph [ref=e37]: Internal testing page for GA4 and Meta Pixel tracking
+    - generic [ref=e38]:
+      - heading "⚠️ For Testing Only" [level=2] [ref=e39]
+      - list [ref=e40]:
+        - listitem [ref=e41]: • This page is only available on staging and local environments
+        - listitem [ref=e42]: • All events use dummy data and do not affect real bookings
+        - listitem [ref=e43]: • Check GA4 DebugView and Meta Events Manager to verify events are received
+        - listitem [ref=e44]:
+          - text: • Add
+          - code [ref=e45]: "?debug_mode=1"
+          - text: to see detailed console logs
+    - generic [ref=e46]:
+      - generic [ref=e47]:
+        - heading "Analytics Debug Panel" [level=2] [ref=e48]
+        - generic [ref=e49]:
+          - generic [ref=e50]:
+            - generic [ref=e51]:
+              - strong [ref=e52]: "Debug Mode:"
+              - text: Enabled
+            - generic [ref=e53]:
+              - strong [ref=e54]: "Environment:"
+              - text: development
+            - generic [ref=e55]:
+              - strong [ref=e56]: "GA4 Available:"
+              - text: "Yes"
+            - generic [ref=e57]:
+              - strong [ref=e58]: "Meta Pixel Available:"
+              - text: "Yes"
+          - paragraph [ref=e59]: Check your browser console for detailed event payloads.
+      - generic [ref=e60]: ✓ Meta Purchase sent
+      - generic [ref=e61]:
+        - heading "GA4 Test Events" [level=3] [ref=e62]
+        - paragraph [ref=e63]: These events will appear in GA4 DebugView when sent from staging/local environments.
+        - generic [ref=e64]:
+          - generic [ref=e65]:
+            - heading "Page events" [level=4] [ref=e66]
+            - button "Fire GA4 test page_view (/debug/events)" [ref=e67]
+          - generic [ref=e68]:
+            - heading "Catalog events" [level=4] [ref=e69]
+            - button "Fire GA4 test view_item_list (catalog)" [ref=e70]
+          - generic [ref=e71]:
+            - heading "Checkout events" [level=4] [ref=e72]
+            - button "Fire GA4 test begin_checkout" [ref=e73]
+          - generic [ref=e74]:
+            - heading "Purchase events" [level=4] [ref=e75]
+            - button "Fire GA4 test purchase (€123.45)" [ref=e76]
+      - generic [ref=e77]:
+        - heading "Meta Pixel Test Events" [level=3] [ref=e78]
+        - paragraph [ref=e79]: These events will appear in Meta Events Manager Test Events tool when sent from staging/local.
+        - generic [ref=e80]:
+          - generic [ref=e81]:
+            - heading "Page events" [level=4] [ref=e82]
+            - button "Fire Meta test PageView (/debug/events)" [ref=e83]
+          - generic [ref=e84]:
+            - heading "Catalog events" [level=4] [ref=e85]
+            - button "Fire Meta test catalog ViewContent" [ref=e86]
+          - generic [ref=e87]:
+            - heading "Machine events" [level=4] [ref=e88]
+            - button "Fire Meta test ViewContent (machine)" [ref=e89]
+          - generic [ref=e90]:
+            - heading "Checkout events" [level=4] [ref=e91]
+            - button "Fire Meta test InitiateCheckout (€300)" [ref=e92]
+          - generic [ref=e93]:
+            - heading "Purchase events" [level=4] [ref=e94]
+            - button "Fire Meta test Purchase (€300)" [active] [ref=e95]
+  - contentinfo [ref=e96]:
+    - generic [ref=e98]:
+      - img "Algarve Machinery Rentals" [ref=e101]
+      - generic [ref=e102]:
+        - heading "Contact" [level=4] [ref=e103]
+        - list [ref=e104]:
+          - listitem [ref=e105]:
+            - img [ref=e106]
+            - paragraph [ref=e110]: Algarve, Portugal
+          - listitem [ref=e111]:
+            - img [ref=e112]
+            - generic [ref=e114]: (+351) 934 014 611
+          - listitem [ref=e115]:
+            - img [ref=e116]
+            - link "support@amr-rentals.com" [ref=e119] [cursor=pointer]:
+              - /url: mailto:support@amr-rentals.com
+        - generic [ref=e120]:
+          - paragraph [ref=e121]: Follow us
+          - generic [ref=e122]:
+            - link "Visit AMR on Facebook" [ref=e123] [cursor=pointer]:
+              - /url: https://facebook.com/amr.machineryrental
+              - img [ref=e124]
+            - link "Visit AMR on Instagram" [ref=e126] [cursor=pointer]:
+              - /url: https://instagram.com/amr.machineryrental
+              - img [ref=e127]
+        - link "Book Online Now" [ref=e132] [cursor=pointer]:
+          - /url: /catalog
+        - paragraph [ref=e134]:
+          - generic [ref=e135]: Algarve Modern Rentals and Services
+          - generic [ref=e136]: Aluguer de Equipamentos Unipessoal Lda
+          - text: "NIPC: 517530937"
+      - generic [ref=e137]:
+        - heading "Categories" [level=4] [ref=e138]
+        - list [ref=e139]:
+          - listitem [ref=e140]:
+            - link "Excavators" [ref=e141] [cursor=pointer]:
+              - /url: /catalog?category=Excavators
+          - listitem [ref=e142]:
+            - link "Heavy Equipment" [ref=e143] [cursor=pointer]:
+              - /url: /catalog?category=Heavy%20Equipment
+          - listitem [ref=e144]:
+            - link "Light Machinery & Tools" [ref=e145] [cursor=pointer]:
+              - /url: /catalog?category=Light%20Machinery%20%26%20Tools
+          - listitem [ref=e146]:
+            - link "Skid Steer Loaders" [ref=e147] [cursor=pointer]:
+              - /url: /catalog?category=Skid%20Steer%20Loaders
+          - listitem [ref=e148]:
+            - link "Trucks and Haulers" [ref=e149] [cursor=pointer]:
+              - /url: /catalog?category=Trucks%20and%20Haulers
+      - generic [ref=e150]:
+        - heading "Pages" [level=4] [ref=e151]
+        - list [ref=e152]:
+          - listitem [ref=e153]:
+            - button "Go to home section" [ref=e154] [cursor=pointer]: Home
+          - listitem [ref=e155]:
+            - link "Catalog" [ref=e156] [cursor=pointer]:
+              - /url: /catalog
+          - listitem [ref=e157]:
+            - button "Go to contact section" [ref=e158] [cursor=pointer]: Contact
+          - listitem [ref=e159]:
+            - button "Go to faq section" [ref=e160] [cursor=pointer]: FAQ
+          - listitem [ref=e161]:
+            - link "Privacy" [ref=e162] [cursor=pointer]:
+              - /url: /legal/privacy
+          - listitem [ref=e163]:
+            - link "Terms" [ref=e164] [cursor=pointer]:
+              - /url: /legal/terms
+          - listitem [ref=e165]:
+            - link "Cookies" [ref=e166] [cursor=pointer]:
+              - /url: /legal/cookies
+          - listitem [ref=e167]:
+            - link "General Rental Conditions" [ref=e168] [cursor=pointer]:
+              - /url: /legal/general-conditions
+          - listitem [ref=e169]:
+            - link "Livro de Reclamações" [ref=e170] [cursor=pointer]:
+              - /url: https://www.livroreclamacoes.pt/inicio/
+    - generic "Trusted platforms and payment methods" [ref=e172]:
+      - img "Vendus invoicing platform logo" [ref=e174]
+      - img "Google Reviews logo" [ref=e176]
+      - img "Visa payment logo" [ref=e178]
+      - img "Mastercard payment logo" [ref=e180]
+      - img "Multibanco payment option logo" [ref=e182]
+      - img "Powered by Stripe secure payments logo" [ref=e184]
+    - generic [ref=e186]:
+      - paragraph [ref=e187]: © 2026 AMR Rentals. All rights reserved.
+      - paragraph [ref=e188]:
+        - text: Developed by
+        - link "Adriana Paiva" [ref=e189] [cursor=pointer]:
+          - /url: https://itsadrianapaiva.github.io
+  - link "Contact us on WhatsApp" [ref=e190] [cursor=pointer]:
+    - /url: https://wa.me/351934014611/?text=Hello%20AMR%2C%20I%20need%20help%20with%20something%20else.
+    - img "WhatsApp" [ref=e192]
+  - dialog "Cookie consent" [ref=e193]:
+    - generic [ref=e195]:
+      - paragraph [ref=e196]:
+        - text: We use essential cookies to make this site work and optional cookies to improve the experience. You can accept all cookies or keep only functional ones. See our
+        - link "Privacy Policy" [ref=e197] [cursor=pointer]:
+          - /url: /legal/privacy
+        - text: .
+      - generic [ref=e198]:
+        - button "Allow all cookies" [ref=e199]
+        - button "Functional only" [ref=e200]
+  - alert [ref=e201]
+```
