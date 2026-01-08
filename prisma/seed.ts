@@ -163,9 +163,16 @@ function loadCsvMachines(csvPath: string): Prisma.MachineCreateInput[] {
     const minDays = normalized.minDays as number | undefined;
     const deliveryCharge = normalized.deliveryCharge as number | undefined;
     const pickupCharge = normalized.pickupCharge as number | undefined;
+    const category = normalized.category as string;
 
-    if (dailyRate <= 0) {
+    // Addon machines (itemType ADDON) can have dailyRate = 0 (pricing comes from context)
+    const isAddon = category === "Addons";
+    if (!isAddon && dailyRate <= 0) {
       console.error(`❌ CSV row ${rowNo} (${normalized.name}): dailyRate must be > 0, got ${dailyRate}`);
+      process.exit(1);
+    }
+    if (isAddon && dailyRate !== 0) {
+      console.error(`❌ CSV row ${rowNo} (${normalized.name}): addon machines must have dailyRate = 0, got ${dailyRate}`);
       process.exit(1);
     }
     if (deposit < 0) {
@@ -197,6 +204,19 @@ function loadCsvMachines(csvPath: string): Prisma.MachineCreateInput[] {
     // Reference-only link from CSV "Image" column
     if (!("referenceUrl" in normalized)) {
       (normalized as any).referenceUrl = null;
+    }
+
+    // Set cart-ready fields based on category (isAddon already declared above)
+    if (isAddon) {
+      // Addon machines: flat charge, no time unit
+      (normalized as any).itemType = "ADDON";
+      (normalized as any).chargeModel = "PER_BOOKING";
+      (normalized as any).timeUnit = "NONE";
+    } else {
+      // Primary machines: day-based charge (default)
+      (normalized as any).itemType = "PRIMARY";
+      (normalized as any).chargeModel = "PER_BOOKING";
+      (normalized as any).timeUnit = "DAY";
     }
 
     out.push(normalized as Prisma.MachineCreateInput);
