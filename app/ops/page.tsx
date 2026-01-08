@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { getMachines } from "@/lib/data";
 import OpsCreateBookingForm from "@/components/ops/ops-create-booking-form";
 import { getDisabledRangesByMachine } from "@/lib/availability.server";
 import type { MachineOption } from "@/lib/ops/use-ops-booking-form";
@@ -13,11 +13,9 @@ function toYmd(d: Date) {
 }
 
 export default async function OpsPage() {
-  // 1) Fetch machines for the select
-  const machines = await db.machine.findMany({
-    select: { id: true, name: true },
-    orderBy: { name: "asc" },
-  });
+  // 1) Fetch machines for the select (PRIMARY only, addons excluded)
+  const allMachines = await getMachines();
+  const machines = allMachines.map((m) => ({ id: m.id, name: m.name }));
 
   // 2) Min selectable date (today)
   const today = toYmd(new Date());

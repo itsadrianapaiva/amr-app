@@ -12,8 +12,9 @@ import { db } from "@/lib/db";
 export const getFooterCategories = cache(async (): Promise<string[]> => {
   const prisma = db;
 
-  // rows: { category: string | null }[]
+  // rows: { category: string | null }[] (PRIMARY only, addons excluded)
   const rows = await prisma.machine.findMany({
+    where: { itemType: "PRIMARY" },
     select: { category: true },
     distinct: [Prisma.MachineScalarFieldEnum.category],
     orderBy: { category: "asc" },

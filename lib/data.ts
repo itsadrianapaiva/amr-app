@@ -5,7 +5,9 @@ import { filterInternalIfEnabled } from "./visibility";
 export async function getMachines() {
   noStore();
   try {
-    const machines = await db.machine.findMany();
+    const machines = await db.machine.findMany({
+      where: { itemType: "PRIMARY" },
+    });
     return filterInternalIfEnabled(machines); // only hide ZZZ test product when HIDE_INTERNAL_LIST=1
   } catch (error) {
     console.error("Database Error:", error);
