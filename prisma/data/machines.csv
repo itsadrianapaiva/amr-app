@@ -19,3 +19,7 @@ mini-dumper-loading-bucket,750,Skid Steer Loaders,Mini Dumper w/ Loading Bucket,
 concrete-projection-gun,1000,Light Machinery & Tools,Concrete Projection Gun,Koine 35 Evo,1 ton,40,40,1,120.00,,"Concrete projection gun model Koine 35 Evo designed for applying mortar and concrete in repair, reinforcement, and finishing works. Commonly used for structural repairs, shotcrete applications, and surface reinforcement on construction sites."
 
 test-internal-machine,1,Light Machinery & Tools,ZZZ Internal Test Machine (€1 - Do Not Rent),TEST-1,,0,0,1,1.00,,Internal listing to verify Stripe production checkout. Not available for hire. Charges kept at €1 per day with a €1 deposit for testing. Remove after validation.
+addon-delivery,0,Addons,Delivery Service,,,0,0,1,0.00,,System addon for delivery service charges
+addon-pickup,0,Addons,Pickup Service,,,0,0,1,0.00,,System addon for pickup service charges
+addon-insurance,0,Addons,Insurance Coverage,,,0,0,1,0.00,,System addon for insurance coverage charges
+addon-operator,0,Addons,Operator Service,,,0,0,1,0.00,,System addon for operator service charges

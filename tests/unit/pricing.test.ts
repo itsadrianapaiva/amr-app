@@ -248,4 +248,120 @@ describe("computeTotalsFromItems (Cart-ready pricing engine)", () => {
       ).toThrow("HOUR-based pricing not yet implemented");
     });
   });
+
+  describe("NONE timeUnit (flat, no duration multiplication)", () => {
+    it("applies flat charge without duration multiplication (PER_BOOKING)", () => {
+      const result = computeTotalsFromItems(
+        {
+          rentalDays: 3,
+          deliverySelected: false,
+          pickupSelected: false,
+          insuranceSelected: false,
+        },
+        [
+          {
+            quantity: 1,
+            chargeModel: "PER_BOOKING",
+            timeUnit: "NONE",
+            unitPrice: 50,
+          },
+        ]
+      );
+
+      expect(result.subtotal).toBe(50); // 50 * 1 (no duration multiplication)
+      expect(result.total).toBe(50);
+      expect(result.rentalDays).toBe(3); // context preserved
+    });
+
+    it("applies flat charge per unit (PER_UNIT)", () => {
+      const result = computeTotalsFromItems(
+        {
+          rentalDays: 2,
+          deliverySelected: false,
+          pickupSelected: false,
+          insuranceSelected: false,
+        },
+        [
+          {
+            quantity: 3,
+            chargeModel: "PER_UNIT",
+            timeUnit: "NONE",
+            unitPrice: 20,
+          },
+        ]
+      );
+
+      expect(result.subtotal).toBe(60); // 20 * 3 (quantity), no duration
+      expect(result.total).toBe(60);
+    });
+
+    it("combines PRIMARY machine (DAY) with ADDON items (NONE)", () => {
+      const result = computeTotalsFromItems(
+        {
+          rentalDays: 3,
+          deliverySelected: false,
+          pickupSelected: false,
+          insuranceSelected: false,
+        },
+        [
+          // Primary machine: day-based
+          {
+            quantity: 1,
+            chargeModel: "PER_BOOKING",
+            timeUnit: "DAY",
+            unitPrice: 99,
+          },
+          // Addon delivery: flat
+          {
+            quantity: 1,
+            chargeModel: "PER_BOOKING",
+            timeUnit: "NONE",
+            unitPrice: 40,
+          },
+          // Addon pickup: flat
+          {
+            quantity: 1,
+            chargeModel: "PER_BOOKING",
+            timeUnit: "NONE",
+            unitPrice: 40,
+          },
+        ]
+      );
+
+      expect(result.subtotal).toBe(377); // (99 * 3) + 40 + 40 = 297 + 80 = 377
+      expect(result.total).toBe(377);
+    });
+
+    it("handles discount with NONE items", () => {
+      const result = computeTotalsFromItems(
+        {
+          rentalDays: 2,
+          deliverySelected: false,
+          pickupSelected: false,
+          insuranceSelected: false,
+          discountPercentage: 10,
+        },
+        [
+          {
+            quantity: 1,
+            chargeModel: "PER_BOOKING",
+            timeUnit: "DAY",
+            unitPrice: 100,
+          },
+          {
+            quantity: 1,
+            chargeModel: "PER_BOOKING",
+            timeUnit: "NONE",
+            unitPrice: 50,
+          },
+        ]
+      );
+
+      const subtotal = 100 * 2 + 50; // 250
+      const discount = subtotal * 0.1; // 25
+      expect(result.subtotal).toBe(250);
+      expect(result.discount).toBe(25);
+      expect(result.total).toBe(225); // 250 - 25
+    });
+  });
 });

@@ -45,13 +45,22 @@ function validateMachineImagesFromCsv() {
   let failures = 0;
   let warnings = 0;
   let resolved = 0;
+  let skipped = 0;
 
   for (const line of dataLines) {
     const fields = line.split(",");
     const code = fields[0]?.trim();
+    const category = fields[2]?.trim();
     const name = fields[3]?.trim();
 
     if (!code) continue;
+
+    // Skip addon machines (category = "Addons") - they're never displayed in UI
+    if (category === "Addons") {
+      skipped++;
+      console.log(`⏭️  [${code}] → SKIPPED (addon machine, never displayed)`);
+      continue;
+    }
 
     const normalizedCode = toSlugLike(code);
     const canResolve = canResolveImage(code);
@@ -77,6 +86,7 @@ function validateMachineImagesFromCsv() {
   console.log(`\n${"=".repeat(60)}`);
   console.log(`Total machines: ${dataLines.length}`);
   console.log(`✅ Resolved: ${resolved}`);
+  console.log(`⏭️  Skipped (addon machines): ${skipped}`);
   console.log(`⚠️  Warnings (test machines): ${warnings}`);
   console.log(`❌ Failures (missing mappings): ${failures}`);
   console.log(`${"=".repeat(60)}\n`);
