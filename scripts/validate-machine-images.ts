@@ -34,14 +34,22 @@ async function validateMachineImages() {
   console.log("🔍 Validating machine image resolution...\n");
 
   const machines = await db.machine.findMany({
-    select: { id: true, code: true, name: true },
+    select: { id: true, code: true, name: true, itemType: true },
     orderBy: { code: "asc" },
   });
 
   let failures = 0;
   let warnings = 0;
+  let skipped = 0;
 
   for (const machine of machines) {
+    // Skip ADDON machines - they're never displayed in UI
+    if (machine.itemType === "ADDON") {
+      skipped++;
+      console.log(`⏭️  [${machine.code}] → SKIPPED (addon machine, never displayed)`);
+      continue;
+    }
+
     const normalizedCode = toSlugLike(machine.code);
     const canResolve = canResolveImage(machine.code);
 
@@ -66,7 +74,8 @@ async function validateMachineImages() {
 
   console.log(`\n${"=".repeat(60)}`);
   console.log(`Total machines: ${machines.length}`);
-  console.log(`✅ Resolved: ${machines.length - failures - warnings}`);
+  console.log(`✅ Resolved: ${machines.length - failures - warnings - skipped}`);
+  console.log(`⏭️  Skipped (addon machines): ${skipped}`);
   console.log(`⚠️  Warnings (test machines): ${warnings}`);
   console.log(`❌ Failures (missing mappings): ${failures}`);
   console.log(`${"=".repeat(60)}\n`);
