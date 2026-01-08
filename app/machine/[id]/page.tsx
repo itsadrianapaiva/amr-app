@@ -16,6 +16,7 @@ import { shouldHideDetailByName } from "@/lib/visibility";
 import ProductJsonLd from "@/components/seo/product-jsonld";
 import HowToBook from "@/components/how-to-book";
 import MachineMetaViewContent from "@/components/analytics/machine-meta-viewcontent";
+import { db } from "@/lib/db";
 
 /** Safe reader for either 'category' (new) or 'type' (legacy) without using 'any'. */
 function getCategoryOrType(m: unknown): string {
@@ -58,6 +59,21 @@ export default async function MachineDetailPage({
 
   // Get merged, JSON-safe disabled ranges for this machine
   const disabledRangesJSON = await getDisabledDateRangesForMachine(machine.id);
+
+  // Fetch equipment addon machines for the booking form
+  const equipmentAddons = await db.machine.findMany({
+    where: { itemType: "ADDON", addonGroup: "EQUIPMENT" },
+    select: { code: true, name: true, dailyRate: true },
+    orderBy: { name: "asc" },
+  });
+
+  // Serialize equipment for client
+  const equipmentList = equipmentAddons.map((e) => ({
+    code: e.code,
+    name: e.name,
+    unitPrice: Number(e.dailyRate),
+    unitLabel: "per day",
+  }));
 
   // Use shared serializer, then pick only what the form needs
   const s = serializeMachine(machine);
@@ -175,6 +191,7 @@ export default async function MachineDetailPage({
                 <BookingForm
                   machine={formMachine}
                   disabledRangesJSON={disabledRangesJSON}
+                  equipment={equipmentList}
                 />
               </div>
             </div>

@@ -68,9 +68,10 @@ function makeCheckoutIdempotencyKey(args: {
   pickup: boolean;
   insurance: boolean;
   operator: boolean;
+  equipment?: Array<{ code: string; quantity: number }>;
 }) {
   const fp = shortHash(args);
-  return `booking-${args.bookingId}-full-v3-${fp}`;
+  return `booking-${args.bookingId}-full-v4-${fp}`;
 }
 
 export async function createCheckoutAction(
@@ -117,7 +118,7 @@ export async function createCheckoutAction(
       discountPercentage,
     };
 
-    // Build single-item array (Slice 4: single-machine behavior preserved)
+    // Build item array: primary machine + equipment addons
     // Hardcoded overrides ensure safety even if Machine has HOUR or PER_UNIT configured
     const items: PricingItemInput[] = [
       {
@@ -127,6 +128,40 @@ export async function createCheckoutAction(
         unitPrice: Number(machine.dailyRate),
       },
     ];
+
+    // Add equipment addon items if any selected (Slice 6: equipment with quantity)
+    const equipmentAddons = payload.equipmentAddons ?? [];
+    if (equipmentAddons.length > 0) {
+      // Fetch equipment addon machines to get pricing info
+      const equipmentCodes = equipmentAddons.map((e: any) => e.code);
+      const { db } = await import("@/lib/db");
+      const equipmentMachines = await db.machine.findMany({
+        where: {
+          code: { in: equipmentCodes },
+          itemType: "ADDON",
+          addonGroup: "EQUIPMENT",
+        },
+        select: { code: true, dailyRate: true, chargeModel: true, timeUnit: true },
+      });
+
+      // Build map for quick lookup
+      const equipmentMap = new Map(
+        equipmentMachines.map((m) => [m.code, m])
+      );
+
+      // Add equipment items to pricing
+      for (const selectedEquip of equipmentAddons) {
+        const equipMachine = equipmentMap.get(selectedEquip.code);
+        if (equipMachine) {
+          items.push({
+            quantity: Number(selectedEquip.quantity),
+            chargeModel: equipMachine.chargeModel as "PER_BOOKING" | "PER_UNIT",
+            timeUnit: equipMachine.timeUnit as "DAY" | "HOUR" | "NONE",
+            unitPrice: Number(equipMachine.dailyRate),
+          });
+        }
+      }
+    }
 
     const totals = computeTotalsFromItems(context, items);
 
@@ -184,6 +219,9 @@ export async function createCheckoutAction(
 
       // Store discount percentage for audit trail
       discountPercentage: Number(payload.discountPercentage ?? 0),
+
+      // Equipment addons with quantities (Slice 6)
+      equipmentAddons: equipmentAddons.length > 0 ? equipmentAddons : undefined,
     };
 
     const booking = await persistPendingBooking(dto);
@@ -213,6 +251,7 @@ export async function createCheckoutAction(
       pickup: !!payload.pickupSelected,
       insurance: !!payload.insuranceSelected,
       operator: !!payload.operatorSelected,
+      equipment: equipmentAddons.length > 0 ? equipmentAddons : undefined,
     });
 
     // Debug: log full Stripe session params

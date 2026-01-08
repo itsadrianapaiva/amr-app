@@ -165,14 +165,25 @@ function loadCsvMachines(csvPath: string): Prisma.MachineCreateInput[] {
     const pickupCharge = normalized.pickupCharge as number | undefined;
     const category = normalized.category as string;
 
-    // Addon machines (itemType ADDON) can have dailyRate = 0 (pricing comes from context)
+    // Addon validation: service addons must have dailyRate = 0, equipment addons can have > 0
     const isAddon = category === "Addons";
+    const code = normalized.code as string;
+    const isEquipmentAddon = code.startsWith("addon-equip-");
+
     if (!isAddon && dailyRate <= 0) {
       console.error(`❌ CSV row ${rowNo} (${normalized.name}): dailyRate must be > 0, got ${dailyRate}`);
       process.exit(1);
     }
-    if (isAddon && dailyRate !== 0) {
-      console.error(`❌ CSV row ${rowNo} (${normalized.name}): addon machines must have dailyRate = 0, got ${dailyRate}`);
+
+    // Service addons must have dailyRate = 0 (pricing from config)
+    if (isAddon && !isEquipmentAddon && dailyRate !== 0) {
+      console.error(`❌ CSV row ${rowNo} (${normalized.name}): service addon must have dailyRate = 0, got ${dailyRate}`);
+      process.exit(1);
+    }
+
+    // Equipment addons must have dailyRate > 0 (per-unit pricing)
+    if (isAddon && isEquipmentAddon && dailyRate <= 0) {
+      console.error(`❌ CSV row ${rowNo} (${normalized.name}): equipment addon must have dailyRate > 0, got ${dailyRate}`);
       process.exit(1);
     }
     if (deposit < 0) {
@@ -208,18 +219,34 @@ function loadCsvMachines(csvPath: string): Prisma.MachineCreateInput[] {
 
     // Set cart-ready fields based on category (isAddon already declared above)
     if (isAddon) {
-      // Addon machines: determine timeUnit based on code
-      (normalized as any).itemType = "ADDON";
-      (normalized as any).chargeModel = "PER_BOOKING";
-
-      // Operator is charged per day, other addons are flat
+      // Addon machines: determine timeUnit, chargeModel, and addonGroup based on code
       const code = normalized.code as string;
-      (normalized as any).timeUnit = code === "addon-operator" ? "DAY" : "NONE";
+      (normalized as any).itemType = "ADDON";
+
+      // Service addons: flat charge, no duration multiplication
+      if (code.startsWith("addon-") && !code.startsWith("addon-equip-")) {
+        (normalized as any).chargeModel = "PER_BOOKING";
+        (normalized as any).timeUnit = code === "addon-operator" ? "DAY" : "NONE";
+        (normalized as any).addonGroup = "SERVICE";
+      }
+      // Equipment addons: per-unit per-day charge
+      else if (code.startsWith("addon-equip-")) {
+        (normalized as any).chargeModel = "PER_UNIT";
+        (normalized as any).timeUnit = "DAY";
+        (normalized as any).addonGroup = "EQUIPMENT";
+      }
+      // Fallback for unknown addon types
+      else {
+        (normalized as any).chargeModel = "PER_BOOKING";
+        (normalized as any).timeUnit = "NONE";
+        (normalized as any).addonGroup = null;
+      }
     } else {
       // Primary machines: day-based charge (default)
       (normalized as any).itemType = "PRIMARY";
       (normalized as any).chargeModel = "PER_BOOKING";
       (normalized as any).timeUnit = "DAY";
+      (normalized as any).addonGroup = null;
     }
 
     out.push(normalized as Prisma.MachineCreateInput);
