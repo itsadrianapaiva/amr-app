@@ -2,14 +2,10 @@
 
 import { useFieldArray, Control, useWatch } from "react-hook-form";
 import { BookingFormValues } from "@/lib/validation/booking";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Minus, Plus } from "lucide-react";
 
 export type EquipmentAddon = {
@@ -61,7 +57,7 @@ export default function EquipmentAddonsPanel({
     }
   };
 
-  // Handle quantity change
+  // Handle quantity change via +/- buttons
   const handleQuantityChange = (code: string, delta: number) => {
     const index = fields.findIndex((f) => f.code === code);
     if (index >= 0) {
@@ -76,85 +72,106 @@ export default function EquipmentAddonsPanel({
     }
   };
 
+  // Handle direct quantity input
+  const handleQuantitySet = (code: string, newQuantity: number) => {
+    const index = fields.findIndex((f) => f.code === code);
+    if (index >= 0) {
+      const updatedFields = [...fields];
+      updatedFields[index] = { ...updatedFields[index], quantity: newQuantity };
+      remove();
+      updatedFields.forEach((f) => append(f));
+    }
+  };
+
   return (
-    <Accordion type="single" collapsible className="w-full">
-      <AccordionItem value="equipment">
-        <AccordionTrigger className="text-base font-medium">
-          Extra equipment
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">
+          Extra Equipment
           {selectedCount > 0 && (
-            <span className="ml-2 text-sm text-gray-500">
+            <span className="ml-2 text-sm font-normal text-muted-foreground">
               ({selectedCount} selected)
             </span>
           )}
-        </AccordionTrigger>
-        <AccordionContent>
-          <div className="space-y-4 pt-2">
-            {equipment.map((item) => {
-              const selected = isSelected(item.code);
-              const quantity = getQuantity(item.code);
-              const lineTotal = (quantity * item.unitPrice).toFixed(2);
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {equipment.map((item) => {
+            const selected = isSelected(item.code);
+            const quantity = getQuantity(item.code);
+            const lineTotal = (quantity * item.unitPrice).toFixed(2);
 
-              return (
-                <div
-                  key={item.code}
-                  className="flex items-start gap-4 rounded-lg border p-4"
-                >
-                  <Checkbox
-                    id={`equip-${item.code}`}
-                    checked={selected}
-                    onCheckedChange={(checked) =>
-                      handleToggle(item.code, checked === true)
-                    }
-                  />
-                  <div className="flex-1">
-                    <label
-                      htmlFor={`equip-${item.code}`}
-                      className="font-medium cursor-pointer"
-                    >
-                      {item.name}
-                    </label>
-                    <div className="text-sm text-gray-600 mt-1">
-                      €{item.unitPrice.toFixed(2)} {item.unitLabel}
-                    </div>
-                    {selected && (
-                      <div className="flex items-center gap-3 mt-3">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleQuantityChange(item.code, -1)}
-                            disabled={quantity <= 1}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Minus className="h-4 w-4" />
-                          </Button>
-                          <span className="w-12 text-center font-medium">
-                            {quantity}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleQuantityChange(item.code, 1)}
-                            disabled={quantity >= 999}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          = €{lineTotal}
-                        </div>
-                      </div>
-                    )}
+            return (
+              <div
+                key={item.code}
+                className="flex items-start gap-4 rounded-lg border p-4"
+              >
+                <Checkbox
+                  id={`equip-${item.code}`}
+                  checked={selected}
+                  onCheckedChange={(checked) =>
+                    handleToggle(item.code, checked === true)
+                  }
+                />
+                <div className="flex-1">
+                  <label
+                    htmlFor={`equip-${item.code}`}
+                    className="font-medium cursor-pointer"
+                  >
+                    {item.name}
+                  </label>
+                  <div className="text-sm text-gray-600 mt-1">
+                    €{item.unitPrice.toFixed(2)} {item.unitLabel}
                   </div>
+                  {selected && (
+                    <div className="flex items-center gap-3 mt-3">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleQuantityChange(item.code, -1)}
+                          disabled={quantity <= 1}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={999}
+                          value={quantity}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            if (!isNaN(val) && val >= 1 && val <= 999) {
+                              handleQuantitySet(item.code, val);
+                            }
+                          }}
+                          className="h-8 w-20 text-center"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleQuantityChange(item.code, 1)}
+                          disabled={quantity >= 999}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        = €{lineTotal}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              );
-            })}
-          </div>
-        </AccordionContent>
-      </AccordionItem>
-    </Accordion>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

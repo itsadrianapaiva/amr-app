@@ -22,6 +22,13 @@ type Props = {
 
   // Discount
   discountPercentage?: number;
+
+  // Equipment addons (Slice 6)
+  equipmentAddons?: Array<{
+    name: string;
+    unitPrice: number;
+    quantity: number;
+  }>;
 };
 
 /**
@@ -44,6 +51,7 @@ export default function SummaryPanel({
   insuranceCharge,
   operatorCharge,
   discountPercentage = 0,
+  equipmentAddons,
 }: Props) {
   if (rentalDays <= 0) return null;
 
@@ -62,6 +70,7 @@ export default function SummaryPanel({
         operatorSelected={operatorSelected}
         operatorCharge={operatorCharge}
         discountPercentage={discountPercentage}
+        equipmentAddons={equipmentAddons}
       />
     </div>
   );

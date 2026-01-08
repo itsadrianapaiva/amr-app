@@ -118,6 +118,23 @@ export function BookingForm({ machine, disabledRangesJSON, equipment = [] }: Boo
     onToggleOperator,
   } = useAddonToggles(form);
 
+  // 5.5) Watch equipment addon selections for live pricing
+  const equipmentAddonsRaw = form.watch("equipmentAddons") ?? [];
+
+  // Map to display format with names from equipment prop
+  const equipmentAddonsDisplay = React.useMemo(() => {
+    if (!equipmentAddonsRaw || equipmentAddonsRaw.length === 0) return [];
+
+    return equipmentAddonsRaw.map((selected) => {
+      const equipInfo = equipment.find((e) => e.code === selected.code);
+      return {
+        name: equipInfo?.name ?? selected.code,
+        unitPrice: equipInfo?.unitPrice ?? 0,
+        quantity: selected.quantity,
+      };
+    });
+  }, [equipmentAddonsRaw, equipment]);
+
   // 6) Date error for presenter visuals
   const { message: dateErrorMessage, invalid: isDateInvalid } =
     deriveDateRangeError({
@@ -236,6 +253,7 @@ export function BookingForm({ machine, disabledRangesJSON, equipment = [] }: Boo
                   insuranceCharge={INSURANCE_CHARGE}
                   operatorCharge={operatorSelected ? OPERATOR_CHARGE : null}
                   discountPercentage={discountPercentage}
+                  equipmentAddons={equipmentAddonsDisplay}
                 />
               }
               onTaxIdBlur={checkDiscount}
