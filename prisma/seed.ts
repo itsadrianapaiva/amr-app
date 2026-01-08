@@ -208,10 +208,13 @@ function loadCsvMachines(csvPath: string): Prisma.MachineCreateInput[] {
 
     // Set cart-ready fields based on category (isAddon already declared above)
     if (isAddon) {
-      // Addon machines: flat charge, no time unit
+      // Addon machines: determine timeUnit based on code
       (normalized as any).itemType = "ADDON";
       (normalized as any).chargeModel = "PER_BOOKING";
-      (normalized as any).timeUnit = "NONE";
+
+      // Operator is charged per day, other addons are flat
+      const code = normalized.code as string;
+      (normalized as any).timeUnit = code === "addon-operator" ? "DAY" : "NONE";
     } else {
       // Primary machines: day-based charge (default)
       (normalized as any).itemType = "PRIMARY";
