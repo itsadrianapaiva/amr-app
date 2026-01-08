@@ -265,6 +265,7 @@ enum ChargeModel {
 enum TimeUnit {
   DAY
   HOUR
+  NONE
 }
 
 /// Cart-ready: Booking duration unit

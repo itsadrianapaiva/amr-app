@@ -243,6 +243,8 @@ export async function createOrReusePendingBooking(
           itemType: true,
           chargeModel: true,
           timeUnit: true,
+          deliveryCharge: true,
+          pickupCharge: true,
         },
       });
 
@@ -251,6 +253,35 @@ export async function createOrReusePendingBooking(
           `Machine with id ${machineId} not found. This should not happen.`
         );
       }
+
+      // Fetch addon machines by code for creating addon BookingItems
+      const addonCodes: string[] = [];
+      if (deliverySelected) addonCodes.push("addon-delivery");
+      if (pickupSelected) addonCodes.push("addon-pickup");
+      if (insuranceSelected) addonCodes.push("addon-insurance");
+      if (operatorSelected) addonCodes.push("addon-operator");
+
+      const addonMachines = addonCodes.length > 0
+        ? await tx.machine.findMany({
+            where: { code: { in: addonCodes } },
+            select: {
+              id: true,
+              code: true,
+              dailyRate: true,
+              itemType: true,
+              chargeModel: true,
+              timeUnit: true,
+            },
+          })
+        : [];
+
+      // Map addon code → unitPrice from charges
+      const addonPriceMap: Record<string, number> = {
+        "addon-delivery": Number(machine.deliveryCharge ?? 0),
+        "addon-pickup": Number(machine.pickupCharge ?? 0),
+        "addon-insurance": 50, // INSURANCE_CHARGE from config
+        "addon-operator": 350, // OPERATOR_CHARGE from config
+      };
 
       // 3) Reuse: same machine + same exact dates + same email + still PENDING.
       const existing = await tx.booking.findFirst({
@@ -285,6 +316,7 @@ export async function createOrReusePendingBooking(
           where: { bookingId: existing.id },
         });
 
+        // Create primary machine item
         await tx.bookingItem.create({
           data: {
             bookingId: existing.id,
@@ -297,6 +329,22 @@ export async function createOrReusePendingBooking(
             timeUnit: machine.timeUnit,
           },
         });
+
+        // Create addon items (if selected)
+        for (const addon of addonMachines) {
+          await tx.bookingItem.create({
+            data: {
+              bookingId: existing.id,
+              machineId: addon.id,
+              quantity: 1,
+              isPrimary: false,
+              unitPrice: addonPriceMap[addon.code] ?? 0,
+              itemType: addon.itemType,
+              chargeModel: addon.chargeModel,
+              timeUnit: addon.timeUnit,
+            },
+          });
+        }
 
         return { id: existing.id };
       }
@@ -341,7 +389,8 @@ export async function createOrReusePendingBooking(
           select: { id: true },
         });
 
-        // Write BookingItem row for new booking
+        // Write BookingItem rows for new booking
+        // Primary machine item
         await tx.bookingItem.create({
           data: {
             bookingId: created.id,
@@ -354,6 +403,22 @@ export async function createOrReusePendingBooking(
             timeUnit: machine.timeUnit,
           },
         });
+
+        // Create addon items (if selected)
+        for (const addon of addonMachines) {
+          await tx.bookingItem.create({
+            data: {
+              bookingId: created.id,
+              machineId: addon.id,
+              quantity: 1,
+              isPrimary: false,
+              unitPrice: addonPriceMap[addon.code] ?? 0,
+              itemType: addon.itemType,
+              chargeModel: addon.chargeModel,
+              timeUnit: addon.timeUnit,
+            },
+          });
+        }
 
         return created;
       } catch (e) {
