@@ -64,7 +64,7 @@ export const FAQ_CONTENT: FaqContent = {
     },
     {
       q: "Do you provide operators?",
-      a: "Yes. Add an on-site operator for €700/day directly in checkout so it appears on your booking and invoice.",
+      a: "Yes. Add an on-site operator for €350/day directly in checkout so it appears on your booking and invoice.",
     },
     {
       q: "Delivery, pickup, and returns",
