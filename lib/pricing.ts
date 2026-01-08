@@ -111,8 +111,8 @@ export type PricingItemInput = {
   quantity: number;
   /** Charge model: PER_BOOKING (flat) or PER_UNIT (multiplied by quantity) */
   chargeModel: "PER_BOOKING" | "PER_UNIT";
-  /** Time unit: DAY or HOUR */
-  timeUnit: "DAY" | "HOUR";
+  /** Time unit: DAY, HOUR, or NONE (flat, no duration multiplication) */
+  timeUnit: "DAY" | "HOUR" | "NONE";
   /** Unit price in euros (snapshot from Machine.dailyRate at booking time) */
   unitPrice: number;
 };
@@ -188,6 +188,9 @@ export function computeTotalsFromItems(
     } else if (timeUnit === "HOUR") {
       // TODO: Implement hourly pricing when needed (requires startAt/endAt timestamps)
       throw new Error("HOUR-based pricing not yet implemented");
+    } else if (timeUnit === "NONE") {
+      // Flat charge: no duration multiplication (addons like delivery, pickup)
+      itemSubtotal += base;
     } else {
       throw new Error(`Unknown timeUnit: ${timeUnit}`);
     }
