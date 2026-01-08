@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { db } from "@/lib/db";
+import { getMachines } from "@/lib/data";
 
 /**
  * Sitemap strategy:
@@ -23,11 +23,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/legal/cookies", priority: 0.2, changefreq: "yearly" as const },
   ];
 
-  // Fetch machine IDs for dynamic detail pages
-  const machines = await db.machine.findMany({
-    select: { id: true },
-    orderBy: { id: "asc" },
-  });
+  // Fetch machine IDs for dynamic detail pages (PRIMARY only, addons excluded)
+  const machines = await getMachines();
 
   // NOTE: Machine model doesn’t expose updatedAt/createdAt;
   // we'll use a single consistent timestamp for this generation.
