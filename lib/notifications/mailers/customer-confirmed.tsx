@@ -2,7 +2,8 @@
 import "server-only";
 import type { ReactElement } from "react";
 import BookingConfirmedEmail from "@/lib/emails/templates/booking-confirmed";
-import { getEmailBranding } from "@/lib/emails/branding"; 
+import { getEmailBranding } from "@/lib/emails/branding";
+import type { EmailLineItem } from "@/lib/notifications/notify-booking-confirmed";
 
 export type CustomerConfirmedView = {
   id: number;
@@ -25,6 +26,7 @@ export type CustomerConfirmedView = {
   discountedSubtotalExVat?: string;
   partnerCompanyName?: string;
   partnerNif?: string;
+  lineItems?: EmailLineItem[];
 };
 
 /**
@@ -75,6 +77,7 @@ export async function buildCustomerEmail(
       warehouseHours={warehouseHours}
       callByDateTimeLocal={null}
       machineAccessNote={null}
+      lineItems={view.lineItems}
     />
   );
 }

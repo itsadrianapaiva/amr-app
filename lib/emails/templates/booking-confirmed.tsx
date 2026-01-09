@@ -1,6 +1,7 @@
 import "server-only";
 import type { ReactElement } from "react";
 import { buildInvoiceLinkSnippet } from "@/lib/emails/invoice-link";
+import type { EmailLineItem } from "@/lib/notifications/notify-booking-confirmed";
 
 /** Props aligned to our customer-facing data contract. Money as strings "123.45". */
 export type CustomerBookingEmailProps = {
@@ -41,6 +42,7 @@ export type CustomerBookingEmailProps = {
   warehouseHours: string; // "Mon–Fri 09:00–17:00"
   callByDateTimeLocal?: string | null; // "Sep 13, 18:00 Lisbon"
   machineAccessNote?: string | null; // "3.5-ton truck"
+  lineItems?: EmailLineItem[];
 };
 
 /** Helpers */
@@ -62,6 +64,7 @@ function fmtRangeLisbon(aYmd: string, bYmd: string): string {
   return a === b ? a : `${a} to ${b}`;
 }
 const euro = (n: string) => `€${n}`;
+const centsToEuro = (cents: number) => `€${(cents / 100).toFixed(2)}`;
 
 /** Minimal inline styles for wide email client support */
 const S = {
@@ -81,12 +84,38 @@ const S = {
     border: "1px solid #e5e7eb",
   },
   h1: { fontSize: "18px", margin: "0 0 12px 0" },
+  h2: { fontSize: "14px", margin: "16px 0 8px 0", fontWeight: "600" },
   p: { margin: "8px 0" },
   k: { color: "#374151", minWidth: "132px", display: "inline-block" },
   v: { color: "#111827" },
   hr: { border: 0, borderTop: "1px solid #e5e7eb", margin: "14px 0" },
   small: { color: "#6b7280", fontSize: "12px" },
   link: { color: "#111827" },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse" as const,
+    fontSize: "13px",
+    marginTop: "8px",
+  },
+  th: {
+    textAlign: "left" as const,
+    padding: "6px 8px",
+    borderBottom: "1px solid #e5e7eb",
+    color: "#6b7280",
+    fontWeight: "500",
+    fontSize: "12px",
+  },
+  td: {
+    padding: "6px 8px",
+    borderBottom: "1px solid #f3f4f6",
+    color: "#111827",
+  },
+  tdRight: {
+    padding: "6px 8px",
+    borderBottom: "1px solid #f3f4f6",
+    color: "#111827",
+    textAlign: "right" as const,
+  },
 } as const;
 
 function Row({ k, v }: { k: string; v: string }) {
@@ -138,6 +167,7 @@ export default async function BookingConfirmedEmail(
     warehouseHours,
     callByDateTimeLocal,
     machineAccessNote,
+    lineItems,
   } = props;
 
   const dateRange = fmtRangeLisbon(startYmd, endYmd);
@@ -168,14 +198,162 @@ export default async function BookingConfirmedEmail(
             <hr style={S.hr} />
 
             <Row k="Booking #:" v={`#${bookingId}`} />
-            <Row k="Machine:" v={machineName} />
             <Row k="Dates:" v={`${dateRange} (Lisbon)`} />
             <Row
               k="Days:"
               v={`${rentalDays} day${rentalDays === 1 ? "" : "s"}`}
             />
-            <Row k="Add-ons:" v={addonsList || "None"} />
             {siteAddress ? <Row k="Service address:" v={siteAddress} /> : null}
+
+            <hr style={S.hr} />
+
+            {/* Itemized line items (2.0) or legacy addon string */}
+            {lineItems && lineItems.length > 0 ? (
+              <>
+                <h2 style={S.h2}>Your booking items</h2>
+
+                {/* Primary machine */}
+                {lineItems
+                  .filter((item) => item.kind === "PRIMARY")
+                  .map((item, idx) => (
+                    <div key={idx} style={{ marginBottom: "12px" }}>
+                      <p style={{ ...S.p, fontWeight: "600", margin: "4px 0" }}>
+                        Machine
+                      </p>
+                      <p style={{ ...S.p, margin: "4px 0" }}>{item.name}</p>
+                    </div>
+                  ))}
+
+                {/* Service add-ons */}
+                {lineItems.filter((item) => item.kind === "SERVICE_ADDON")
+                  .length > 0 && (
+                  <div style={{ marginBottom: "12px" }}>
+                    <p style={{ ...S.p, fontWeight: "600", margin: "4px 0" }}>
+                      Service add-ons
+                    </p>
+                    <table style={S.table}>
+                      <thead>
+                        <tr>
+                          <th style={S.th}>Item</th>
+                          <th style={{ ...S.th, textAlign: "right" }}>Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lineItems
+                          .filter((item) => item.kind === "SERVICE_ADDON")
+                          .map((item, idx) => {
+                            // Build description: "Operator (3 days)" or "Insurance"
+                            let description = item.name;
+                            if (
+                              item.chargeModel === "PER_UNIT" &&
+                              item.timeUnit === "DAY" &&
+                              item.days != null
+                            ) {
+                              description = `${item.name} (${item.days} day${item.days === 1 ? "" : "s"})`;
+                            }
+                            return (
+                              <tr key={idx}>
+                                <td style={S.td}>{description}</td>
+                                <td style={S.tdRight}>
+                                  {item.lineTotalCents != null
+                                    ? centsToEuro(item.lineTotalCents)
+                                    : "—"}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Equipment add-ons */}
+                {lineItems.filter((item) => item.kind === "EQUIPMENT_ADDON")
+                  .length > 0 && (
+                  <div style={{ marginBottom: "12px" }}>
+                    <p style={{ ...S.p, fontWeight: "600", margin: "4px 0" }}>
+                      Extra equipment
+                    </p>
+                    <table style={S.table}>
+                      <thead>
+                        <tr>
+                          <th style={S.th}>Item</th>
+                          <th style={{ ...S.th, textAlign: "right" }}>Qty</th>
+                          <th style={{ ...S.th, textAlign: "right" }}>Days</th>
+                          <th style={{ ...S.th, textAlign: "right" }}>
+                            Unit price
+                          </th>
+                          <th style={{ ...S.th, textAlign: "right" }}>Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lineItems
+                          .filter((item) => item.kind === "EQUIPMENT_ADDON")
+                          .map((item, idx) => (
+                            <tr key={idx}>
+                              <td style={S.td}>{item.name}</td>
+                              <td style={S.tdRight}>{item.quantity}</td>
+                              <td style={S.tdRight}>
+                                {item.days != null ? item.days : "—"}
+                              </td>
+                              <td style={S.tdRight}>
+                                {item.unitPriceCents != null
+                                  ? centsToEuro(item.unitPriceCents)
+                                  : "—"}
+                              </td>
+                              <td style={S.tdRight}>
+                                {item.lineTotalCents != null
+                                  ? centsToEuro(item.lineTotalCents)
+                                  : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Other add-ons (if any) */}
+                {lineItems.filter((item) => item.kind === "OTHER_ADDON")
+                  .length > 0 && (
+                  <div style={{ marginBottom: "12px" }}>
+                    <p style={{ ...S.p, fontWeight: "600", margin: "4px 0" }}>
+                      Other items
+                    </p>
+                    <table style={S.table}>
+                      <thead>
+                        <tr>
+                          <th style={S.th}>Item</th>
+                          <th style={{ ...S.th, textAlign: "right" }}>Qty</th>
+                          <th style={{ ...S.th, textAlign: "right" }}>Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lineItems
+                          .filter((item) => item.kind === "OTHER_ADDON")
+                          .map((item, idx) => (
+                            <tr key={idx}>
+                              <td style={S.td}>{item.name}</td>
+                              <td style={S.tdRight}>{item.quantity}</td>
+                              <td style={S.tdRight}>
+                                {item.lineTotalCents != null
+                                  ? centsToEuro(item.lineTotalCents)
+                                  : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {/* Legacy fallback: simple rows */}
+                <Row k="Machine:" v={machineName} />
+                <Row k="Add-ons:" v={addonsList || "None"} />
+              </>
+            )}
 
             <hr style={S.hr} />
 

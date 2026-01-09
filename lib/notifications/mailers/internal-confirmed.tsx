@@ -4,6 +4,7 @@ import type { ReactElement } from "react";
 import BookingInternalEmail from "@/lib/emails/templates/booking-internal";
 import { getInternalBranding } from "@/lib/emails/branding";
 import { resolveBaseUrl } from "@/lib/url/base";
+import type { EmailLineItem } from "@/lib/notifications/notify-booking-confirmed";
 
 export type InternalConfirmedView = {
   id: number;
@@ -30,6 +31,7 @@ export type InternalConfirmedView = {
   discountedSubtotalExVat?: string;
   partnerCompanyName?: string;
   partnerNif?: string;
+  lineItems?: EmailLineItem[];
 };
 
 export type NotifySource = "customer" | "ops";
@@ -85,6 +87,7 @@ export async function buildInternalEmail(
       invoicePdfUrl={view.invoicePdfUrl}
       googleCalendarEventId={undefined}
       googleHtmlLink={undefined}
+      lineItems={view.lineItems}
     />
   );
 }
