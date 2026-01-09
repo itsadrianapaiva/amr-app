@@ -1,12 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { useFieldArray, Control, useWatch } from "react-hook-form";
 import { BookingFormValues } from "@/lib/validation/booking";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, ChevronDown } from "lucide-react";
 
 export type EquipmentAddon = {
   code: string;
@@ -24,6 +25,8 @@ export default function EquipmentAddonsPanel({
   control,
   equipment,
 }: EquipmentAddonsPanelProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   const { fields, append, remove } = useFieldArray({
     control,
     name: "equipmentAddons",
@@ -85,19 +88,28 @@ export default function EquipmentAddonsPanel({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-base">
+      <CardHeader
+        className={`cursor-pointer transition-colors ${isExpanded ? "border-b" : ""}`}
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <CardTitle className="text-base flex items-center gap-2">
           Extra Equipment
+          <ChevronDown
+            className={`h-4 w-4 text-muted-foreground transition-transform ${
+              isExpanded ? "rotate-180" : ""
+            }`}
+          />
           {selectedCount > 0 && (
-            <span className="ml-2 text-sm font-normal text-muted-foreground">
+            <span className="ml-auto text-sm font-normal text-muted-foreground">
               ({selectedCount} selected)
             </span>
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {equipment.map((item) => {
+      {isExpanded && (
+        <CardContent>
+          <div className="space-y-4">
+            {equipment.map((item) => {
             const selected = isSelected(item.code);
             const quantity = getQuantity(item.code);
             const lineTotal = (quantity * item.unitPrice).toFixed(2);
@@ -148,7 +160,7 @@ export default function EquipmentAddonsPanel({
                               handleQuantitySet(item.code, val);
                             }
                           }}
-                          className="h-8 w-20 text-center"
+                          className="h-8 w-20 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                         <Button
                           type="button"
@@ -169,9 +181,10 @@ export default function EquipmentAddonsPanel({
                 </div>
               </div>
             );
-          })}
-        </div>
-      </CardContent>
+            })}
+          </div>
+        </CardContent>
+      )}
     </Card>
   );
 }
