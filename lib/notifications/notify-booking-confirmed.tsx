@@ -87,6 +87,157 @@ function makeAddonsList(input: {
   return items.length ? items.join(" · ") : "None";
 }
 
+/**
+ * Safe Decimal-to-cents conversion (no float).
+ * Converts Prisma Decimal to integer cents via string parsing.
+ * Examples: Decimal("12.34") -> 1234, Decimal("12") -> 1200, Decimal("12.3") -> 1230
+ */
+function decimalToCents(value: unknown): number {
+  if (typeof value === "number") return Math.round(value * 100);
+  if (value == null) return 0;
+
+  // Convert Decimal to string, parse as float, round to 2 decimals, then to cents
+  const str = String(value);
+  const num = parseFloat(str);
+  if (Number.isNaN(num)) return 0;
+
+  // Round to 2 decimal places first, then convert to cents
+  return Math.round(Math.round(num * 100));
+}
+
+/** Email-friendly line item view model for itemized booking rendering */
+export type EmailLineItem = {
+  kind: "PRIMARY" | "SERVICE_ADDON" | "EQUIPMENT_ADDON" | "OTHER_ADDON";
+  name: string;
+  quantity: number;
+  unitPriceCents?: number;
+  lineTotalCents?: number;
+  days?: number;
+  chargeModel?: "PER_BOOKING" | "PER_UNIT";
+  timeUnit?: "DAY" | "HOUR" | "NONE";
+  addonGroup?: "SERVICE" | "EQUIPMENT" | "MATERIAL" | null;
+};
+
+/**
+ * Build email line items from BookingItems.
+ * Returns undefined for legacy bookings (no items).
+ * Returns sorted array for cart-ready bookings.
+ */
+function buildEmailLineItems(params: {
+  items: Array<{
+    quantity: number;
+    unitPrice: unknown;
+    itemType: string;
+    chargeModel: string;
+    timeUnit: string;
+    isPrimary: boolean;
+    machine: {
+      name: string;
+      code: string;
+      addonGroup: string | null;
+      itemType: string;
+      chargeModel: string;
+      timeUnit: string;
+    };
+  }>;
+  rentalDays: number;
+}): EmailLineItem[] | undefined {
+  const { items, rentalDays } = params;
+
+  // Legacy bookings: no items
+  if (!items || items.length === 0) return undefined;
+
+  const lineItems: EmailLineItem[] = items.map((item) => {
+    // Prefer BookingItem snapshot fields, fallback to Machine fields
+    const itemType = item.itemType || item.machine.itemType;
+    const chargeModel = item.chargeModel || item.machine.chargeModel;
+    const timeUnit = item.timeUnit || item.machine.timeUnit;
+    const addonGroup = item.machine.addonGroup;
+    const machineCode = item.machine.code;
+
+    // Determine kind
+    let kind: EmailLineItem["kind"];
+    if (item.isPrimary || itemType === "PRIMARY") {
+      kind = "PRIMARY";
+    } else if (addonGroup === "SERVICE") {
+      kind = "SERVICE_ADDON";
+    } else if (addonGroup === "EQUIPMENT") {
+      kind = "EQUIPMENT_ADDON";
+    } else {
+      kind = "OTHER_ADDON";
+    }
+
+    // Convert unitPrice to cents safely
+    const unitPriceCents = decimalToCents(item.unitPrice);
+
+    // Compute line total based on charge model and time unit
+    let lineTotalCents: number;
+    let days: number | undefined;
+
+    // SERVICE addon pricing override (matches production pricing logic)
+    if (addonGroup === "SERVICE") {
+      if (machineCode === "addon-operator") {
+        // Operator is priced per-day in production: €350 × rentalDays
+        lineTotalCents = unitPriceCents * rentalDays;
+        days = rentalDays;
+      } else {
+        // Insurance, delivery, pickup are flat fees in production
+        lineTotalCents = unitPriceCents;
+        days = undefined;
+      }
+    } else if (chargeModel === "PER_BOOKING") {
+      lineTotalCents = unitPriceCents;
+      days = undefined;
+    } else if (chargeModel === "PER_UNIT") {
+      if (timeUnit === "DAY") {
+        lineTotalCents = unitPriceCents * item.quantity * rentalDays;
+        days = rentalDays;
+      } else if (timeUnit === "NONE") {
+        lineTotalCents = unitPriceCents * item.quantity;
+        days = undefined;
+      } else if (timeUnit === "HOUR") {
+        // No new hourly math: treat like NONE
+        lineTotalCents = unitPriceCents * item.quantity;
+        days = undefined;
+      } else {
+        lineTotalCents = unitPriceCents * item.quantity;
+        days = undefined;
+      }
+    } else {
+      lineTotalCents = unitPriceCents;
+      days = undefined;
+    }
+
+    return {
+      kind,
+      name: item.machine.name,
+      quantity: item.quantity,
+      unitPriceCents,
+      lineTotalCents,
+      days,
+      chargeModel: chargeModel as EmailLineItem["chargeModel"],
+      timeUnit: timeUnit as EmailLineItem["timeUnit"],
+      addonGroup: addonGroup as EmailLineItem["addonGroup"],
+    };
+  });
+
+  // Sort: PRIMARY -> SERVICE_ADDON -> EQUIPMENT_ADDON -> OTHER_ADDON, then by name
+  const kindOrder: Record<EmailLineItem["kind"], number> = {
+    PRIMARY: 1,
+    SERVICE_ADDON: 2,
+    EQUIPMENT_ADDON: 3,
+    OTHER_ADDON: 4,
+  };
+
+  lineItems.sort((a, b) => {
+    const orderDiff = kindOrder[a.kind] - kindOrder[b.kind];
+    if (orderDiff !== 0) return orderDiff;
+    return a.name.localeCompare(b.name);
+  });
+
+  return lineItems;
+}
+
 /* ----------------------------------------------------------------------------- */
 
 /**
@@ -100,7 +251,7 @@ export async function notifyBookingConfirmed(
   bookingId: number,
   source: NotifySource
 ): Promise<void> {
-  // 1) Load minimal fields
+  // 1) Load minimal fields + items for itemized email rendering
   const b = await db.booking.findUnique({
     where: { id: bookingId },
     select: {
@@ -132,6 +283,28 @@ export async function notifyBookingConfirmed(
       invoiceEmailSentAt: true,
       internalEmailSentAt: true,
       machine: { select: { name: true, deposit: true } },
+      items: {
+        select: {
+          id: true,
+          quantity: true,
+          unitPrice: true,
+          itemType: true,
+          chargeModel: true,
+          timeUnit: true,
+          isPrimary: true,
+          machine: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              addonGroup: true,
+              itemType: true,
+              chargeModel: true,
+              timeUnit: true,
+            },
+          },
+        },
+      },
     },
   });
   if (!b) return;
@@ -157,6 +330,12 @@ export async function notifyBookingConfirmed(
     insuranceSelected: b.insuranceSelected,
     deliverySelected: b.deliverySelected,
     pickupSelected: b.pickupSelected,
+  });
+
+  // Build itemized line items for cart-ready bookings (undefined for legacy)
+  const lineItems = buildEmailLineItems({
+    items: b.items || [],
+    rentalDays,
   });
 
   // Calculate discount data from persisted cents values (if available)
@@ -231,6 +410,7 @@ export async function notifyBookingConfirmed(
         discountedSubtotalExVat: discountedSubtotalExVat || originalSubtotalExVat,
         partnerCompanyName: partnerCompanyName || undefined,
         partnerNif: partnerNif || undefined,
+        lineItems,
       };
 
       // async builder (server fn)
@@ -289,6 +469,7 @@ export async function notifyBookingConfirmed(
         discountedSubtotalExVat: discountedSubtotalExVat || originalSubtotalExVat,
         partnerCompanyName: partnerCompanyName || undefined,
         partnerNif: partnerNif || undefined,
+        lineItems,
       };
 
       const internalReact: ReactElement = await buildInternalEmail(
