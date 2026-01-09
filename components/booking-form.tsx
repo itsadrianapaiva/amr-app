@@ -31,6 +31,13 @@ const SUPPORT_EMAIL =
 const WHATSAPP_NUMBER =
   process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "351912345678";
 
+type EquipmentAddon = {
+  code: string;
+  name: string;
+  unitPrice: number;
+  unitLabel: string;
+};
+
 type BookingFormProps = {
   machine: Pick<
     SerializableMachine,
@@ -43,9 +50,10 @@ type BookingFormProps = {
     | "minDays"
   >;
   disabledRangesJSON?: DisabledRangeJSON[];
+  equipment?: EquipmentAddon[];
 };
 
-export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
+export function BookingForm({ machine, disabledRangesJSON, equipment = [] }: BookingFormProps) {
   // Discount state
   const [discountPercentage, setDiscountPercentage] = React.useState<number>(0);
   const [isCheckingDiscount, setIsCheckingDiscount] = React.useState(false);
@@ -82,6 +90,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
       pickupSelected: true,
       insuranceSelected: true,
       operatorSelected: false,
+      equipmentAddons: [],
       billingIsBusiness: false,
       billingCompanyName: "",
       billingTaxId: "",
@@ -108,6 +117,23 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
     onToggleInsurance,
     onToggleOperator,
   } = useAddonToggles(form);
+
+  // 5.5) Watch equipment addon selections for live pricing
+  const equipmentAddonsRaw = form.watch("equipmentAddons") ?? [];
+
+  // Map to display format with names from equipment prop
+  const equipmentAddonsDisplay = React.useMemo(() => {
+    if (!equipmentAddonsRaw || equipmentAddonsRaw.length === 0) return [];
+
+    return equipmentAddonsRaw.map((selected) => {
+      const equipInfo = equipment.find((e) => e.code === selected.code);
+      return {
+        name: equipInfo?.name ?? selected.code,
+        unitPrice: equipInfo?.unitPrice ?? 0,
+        quantity: selected.quantity,
+      };
+    });
+  }, [equipmentAddonsRaw, equipment]);
 
   // 6) Date error for presenter visuals
   const { message: dateErrorMessage, invalid: isDateInvalid } =
@@ -212,6 +238,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
               rootError={rootError}
               machineId={machine.id}
               machineName={machine.name}
+              equipment={equipment}
               summary={
                 <SummaryPanel
                   rentalDays={rentalDays}
@@ -226,6 +253,7 @@ export function BookingForm({ machine, disabledRangesJSON }: BookingFormProps) {
                   insuranceCharge={INSURANCE_CHARGE}
                   operatorCharge={operatorSelected ? OPERATOR_CHARGE : null}
                   discountPercentage={discountPercentage}
+                  equipmentAddons={equipmentAddonsDisplay}
                 />
               }
               onTaxIdBlur={checkDiscount}

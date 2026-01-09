@@ -9,6 +9,9 @@ import { DateRangeSection } from "@/components/booking/sections/date-range-secti
 import { ContactSection } from "@/components/booking/sections/contact-section";
 import DeliveryAddressSection from "@/components/booking/sections/delivery-address-section";
 import { BillingSection } from "@/components/booking/sections/billing-section";
+import EquipmentAddonsPanel, {
+  type EquipmentAddon,
+} from "@/components/booking/equipment-addons-panel";
 
 import { Button } from "@/components/ui/button";
 import type { BookingFormValues } from "@/lib/validation/booking";
@@ -67,6 +70,9 @@ export default function BookingFormFields(props: {
   // Machine context for analytics
   machineId: number;
   machineName?: string;
+
+  // Equipment addons
+  equipment?: EquipmentAddon[];
 }) {
   const {
     control,
@@ -100,6 +106,8 @@ export default function BookingFormFields(props: {
 
     isSubmitDisabled,
     rootError,
+
+    equipment = [],
   } = props;
 
   return (
@@ -126,6 +134,11 @@ export default function BookingFormFields(props: {
         onToggleInsurance={onToggleInsurance}
         minDays={minDays}
       />
+
+      {/* Equipment add-ons with quantity */}
+      {equipment.length > 0 && (
+        <EquipmentAddonsPanel control={control} equipment={equipment} />
+      )}
 
       {/* Summary slot (renders pricing breakdown + notes) */}
       {summary ?? null}
