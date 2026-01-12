@@ -215,14 +215,33 @@ export default async function BookingConfirmedEmail(
                 {/* Primary machine */}
                 {lineItems
                   .filter((item) => item.kind === "PRIMARY")
-                  .map((item, idx) => (
-                    <div key={idx} style={{ marginBottom: "12px" }}>
-                      <p style={{ ...S.p, fontWeight: "600", margin: "4px 0" }}>
-                        Machine
-                      </p>
-                      <p style={{ ...S.p, margin: "4px 0" }}>{item.name}</p>
-                    </div>
-                  ))}
+                  .map((item, idx) => {
+                    // Build pricing display: "€99.00/day × 2 days = €198.00"
+                    const unitPriceStr =
+                      item.unitPriceCents != null
+                        ? centsToEuro(item.unitPriceCents)
+                        : "—";
+                    const totalStr =
+                      item.lineTotalCents != null
+                        ? centsToEuro(item.lineTotalCents)
+                        : "—";
+                    const daysDisplay =
+                      item.days != null
+                        ? ` × ${item.days} day${item.days === 1 ? "" : "s"}`
+                        : "";
+                    const pricingLine = `${unitPriceStr}/day${daysDisplay} = ${totalStr}`;
+
+                    return (
+                      <div key={idx} style={{ marginBottom: "12px" }}>
+                        <p style={{ ...S.p, fontWeight: "600", margin: "4px 0" }}>
+                          Machine
+                        </p>
+                        <p style={{ ...S.p, margin: "4px 0" }}>
+                          {item.name}: {pricingLine}
+                        </p>
+                      </div>
+                    );
+                  })}
 
                 {/* Service add-ons */}
                 {lineItems.filter((item) => item.kind === "SERVICE_ADDON")

@@ -245,47 +245,10 @@ export default function BookingInternalEmail(
 
             <hr style={S.hr} />
 
-            {/* Booking items (detailed) */}
+            {/* Booking items (technical) */}
             {lineItems && lineItems.length > 0 ? (
               <>
-                <h2 style={S.h2}>Booking items</h2>
-                <table style={S.table}>
-                  <thead>
-                    <tr>
-                      <th style={S.th}>Item</th>
-                      <th style={{ ...S.th, textAlign: "right" }}>Qty</th>
-                      <th style={{ ...S.th, textAlign: "right" }}>Days</th>
-                      <th style={{ ...S.th, textAlign: "right" }}>Unit</th>
-                      <th style={{ ...S.th, textAlign: "right" }}>Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lineItems.map((item, idx) => (
-                      <tr key={idx}>
-                        <td style={S.td}>
-                          {item.name}
-                          {item.kind === "PRIMARY" && " (primary)"}
-                        </td>
-                        <td style={S.tdRight}>{item.quantity}</td>
-                        <td style={S.tdRight}>
-                          {item.days != null ? item.days : "—"}
-                        </td>
-                        <td style={S.tdRight}>
-                          {item.unitPriceCents != null
-                            ? centsToEuro(item.unitPriceCents)
-                            : "—"}
-                        </td>
-                        <td style={S.tdRight}>
-                          {item.lineTotalCents != null
-                            ? centsToEuro(item.lineTotalCents)
-                            : "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                <h2 style={{ ...S.h2, marginTop: "16px" }}>Technical details</h2>
+                <h2 style={S.h2}>Booking items (technical)</h2>
                 <table style={S.table}>
                   <thead>
                     <tr>
@@ -297,6 +260,7 @@ export default function BookingInternalEmail(
                       <th style={{ ...S.th, textAlign: "right" }}>Unit €</th>
                       <th style={{ ...S.th, textAlign: "right" }}>Qty</th>
                       <th style={{ ...S.th, textAlign: "right" }}>Days</th>
+                      <th style={{ ...S.th, textAlign: "right" }}>Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -317,6 +281,11 @@ export default function BookingInternalEmail(
                         </td>
                         <td style={{ ...S.tdSmall, textAlign: "right" }}>
                           {item.days != null ? item.days : "—"}
+                        </td>
+                        <td style={{ ...S.tdSmall, textAlign: "right" }}>
+                          {item.lineTotalCents != null
+                            ? centsToEuro(item.lineTotalCents)
+                            : "—"}
                         </td>
                       </tr>
                     ))}
