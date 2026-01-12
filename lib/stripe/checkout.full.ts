@@ -6,6 +6,13 @@ import { isoDate, lineDesc } from "./checkout";
 
 /* Types */
 
+export type CheckoutLineItem = {
+  name: string;
+  description?: string;
+  unitAmountCents: number;
+  quantity: number;
+};
+
 export type BuildFullSessionArgs = {
   bookingId: number;
   machine: { id: number; name: string };
@@ -35,6 +42,11 @@ export type BuildFullSessionArgs = {
    * Optional: original total before discount (for metadata/tracking).
    */
   originalTotalEuros?: number;
+  /**
+   * Itemized line items for Stripe Checkout (already discounted).
+   * Unit amounts are in cents, already discounted if applicable.
+   */
+  lineItems?: CheckoutLineItem[];
 };
 
 /**
@@ -56,6 +68,7 @@ export function buildFullCheckoutSessionParams(
     paymentMethodTypes,
     discountPercentage = 0,
     originalTotalEuros,
+    lineItems,
   } = args;
 
   const startDate = isoDate(from);
@@ -82,6 +95,7 @@ export function buildFullCheckoutSessionParams(
       discountPercentage,
       originalTotalEuros,
       originalTotalCents,
+      lineItemsCount: lineItems?.length ?? 0,
     });
   }
 
@@ -107,6 +121,46 @@ export function buildFullCheckoutSessionParams(
     throw new Error(
       "Missing STRIPE_TAX_RATE_PT_STANDARD env var (create a PT VAT 23% Tax Rate and set its txr_… ID)."
     );
+  }
+
+  // Build line items: use itemized if provided, otherwise fall back to legacy single-line
+  let stripeLineItems: Stripe.Checkout.SessionCreateParams.LineItem[];
+
+  if (lineItems && lineItems.length > 0) {
+    // Itemized line items (new behavior)
+    stripeLineItems = lineItems.map((item) => ({
+      price_data: {
+        unit_amount: item.unitAmountCents,
+        currency: "eur",
+        tax_behavior: "exclusive" as const,
+        product_data: {
+          name: item.name,
+          ...(item.description ? { description: item.description } : {}),
+        },
+      },
+      tax_rates: [ptVatRateId],
+      quantity: item.quantity,
+    }));
+  } else {
+    // Legacy single-line behavior (fallback for backward compatibility)
+    stripeLineItems = [
+      {
+        price_data: {
+          unit_amount: totalCents,
+          currency: "eur",
+          tax_behavior: "exclusive",
+          product_data: {
+            name: `Rental — ${machine.name}`,
+            description:
+              discountPercentage > 0
+                ? `${lineDesc(startDate, endDate, days)} (${discountPercentage}% partner discount applied)`
+                : lineDesc(startDate, endDate, days),
+          },
+        },
+        tax_rates: [ptVatRateId],
+        quantity: 1,
+      },
+    ];
   }
 
   return {
@@ -138,25 +192,8 @@ export function buildFullCheckoutSessionParams(
     // Only set payment_method_types when caller passes an override.
     ...(paymentMethodTypes ? { payment_method_types: paymentMethodTypes } : {}),
 
-    // Single line item with the discounted total (if discount was applied, totalEuros is already discounted)
-    line_items: [
-      {
-        price_data: {
-          unit_amount: totalCents, // Already in cents and validated as non-negative
-          currency: "eur",
-          tax_behavior: "exclusive",
-          product_data: {
-            name: `Rental — ${machine.name}`,
-            description:
-              discountPercentage > 0
-                ? `${lineDesc(startDate, endDate, days)} (${discountPercentage}% partner discount applied)`
-                : lineDesc(startDate, endDate, days),
-          },
-        },
-        tax_rates: [ptVatRateId],
-        quantity: 1,
-      },
-    ],
+    // Use computed line items (itemized or legacy)
+    line_items: stripeLineItems,
 
     // Return to booking success; cancel returns to machine page.
     success_url: `${appUrl}/booking/success?session_id={CHECKOUT_SESSION_ID}&booking_id=${bookingId}`,
