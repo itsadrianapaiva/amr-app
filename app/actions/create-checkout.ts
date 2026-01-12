@@ -278,12 +278,67 @@ export async function createCheckoutAction(
 
     const preDiscountLines: CheckoutLine[] = [];
 
-    // Safe Decimal-to-cents conversion (no float drift)
+    // Float-free Decimal-to-cents conversion (pure string parsing)
     function decimalToCents(value: unknown): number {
-      const str = String(value);
-      const num = parseFloat(str);
-      if (Number.isNaN(num)) return 0;
-      return Math.round(num * 100);
+      const str = String(value).trim().replace(/,/g, "");
+      if (!str || str === "") return 0;
+
+      // Handle negative (defensive; money should be non-negative in this context)
+      const isNegative = str.startsWith("-");
+      const absolute = isNegative ? str.slice(1) : str;
+
+      // Split on decimal point
+      const parts = absolute.split(".");
+      if (parts.length > 2) return 0; // Invalid format like "1.2.3"
+
+      // Parse euros (integer part)
+      const eurosStr = parts[0] || "0";
+      const euros = parseInt(eurosStr, 10);
+      if (Number.isNaN(euros)) return 0;
+
+      // Parse cents (fractional part)
+      let cents = 0;
+      if (parts.length === 2) {
+        const centsStr = parts[1];
+        if (centsStr.length === 0) {
+          cents = 0; // "99." → 9900
+        } else if (centsStr.length === 1) {
+          // "0.5" → 50 cents
+          cents = parseInt(centsStr, 10) * 10;
+        } else if (centsStr.length === 2) {
+          // "0.29" → 29 cents
+          cents = parseInt(centsStr, 10);
+        } else {
+          // "0.295" → round based on 3rd digit
+          const baseCents = parseInt(centsStr.slice(0, 2), 10);
+          const thirdDigit = parseInt(centsStr[2], 10);
+          cents = baseCents + (thirdDigit >= 5 ? 1 : 0);
+        }
+        if (Number.isNaN(cents)) return 0;
+      }
+
+      const totalCents = euros * 100 + cents;
+      return isNegative ? -totalCents : totalCents;
+    }
+
+    // Dev-only validation of decimalToCents (float-free conversion)
+    if (process.env.LOG_CHECKOUT_DEBUG === "1" || process.env.NODE_ENV !== "production") {
+      const testCases = [
+        { input: "0.29", expected: 29 },
+        { input: "99.50", expected: 9950 },
+        { input: "99", expected: 9900 },
+        { input: "0.5", expected: 50 },
+        { input: "100.00", expected: 10000 },
+        { input: "1,234.56", expected: 123456 },
+      ];
+
+      for (const { input, expected } of testCases) {
+        const result = decimalToCents(input);
+        if (result !== expected) {
+          console.error(`[decimalToCents] validation failed: ${input} → ${result}, expected ${expected}`);
+          throw new Error(`decimalToCents validation failed for "${input}"`);
+        }
+      }
     }
 
     // PRIMARY machine line: calculate from machine dailyRate (not from totals.subtotal which includes equipment)
