@@ -131,17 +131,27 @@ export async function createCheckoutAction(
 
     // Add equipment addon items if any selected (Slice 6: equipment with quantity)
     const equipmentAddons = payload.equipmentAddons ?? [];
+
+    // Fetch equipment machines upfront (needed for both pricing and line items)
+    let equipmentMachines: Array<{
+      code: string;
+      name: string;
+      dailyRate: any;
+      chargeModel: string;
+      timeUnit: string;
+    }> = [];
+
     if (equipmentAddons.length > 0) {
       // Fetch equipment addon machines to get pricing info
       const equipmentCodes = equipmentAddons.map((e: any) => e.code);
       const { db } = await import("@/lib/db");
-      const equipmentMachines = await db.machine.findMany({
+      equipmentMachines = await db.machine.findMany({
         where: {
           code: { in: equipmentCodes },
           itemType: "ADDON",
           addonGroup: "EQUIPMENT",
         },
-        select: { code: true, dailyRate: true, chargeModel: true, timeUnit: true },
+        select: { code: true, name: true, dailyRate: true, chargeModel: true, timeUnit: true },
       });
 
       // Build map for quick lookup
@@ -166,10 +176,8 @@ export async function createCheckoutAction(
     const totals = computeTotalsFromItems(context, items);
 
     // Calculate original total (before discount) for metadata tracking
-    const originalTotal =
-      discountPercentage > 0 && totals.discount > 0
-        ? totals.total + totals.discount
-        : totals.total;
+    // totals.total is the discounted total; add back the discount to get original
+    const originalTotal = totals.total + totals.discount;
 
     // Debug logging
     if (process.env.LOG_CHECKOUT_DEBUG === "1") {
@@ -226,6 +234,304 @@ export async function createCheckoutAction(
 
     const booking = await persistPendingBooking(dto);
 
+    // 4.5) Build itemized pre-discount line definitions for Stripe Checkout
+    // Compute cents for safety checks
+    const totalCents = Math.round(totals.total * 100);
+    const originalTotalCents = Math.round(originalTotal * 100);
+
+    type CheckoutLine = {
+      key: string;
+      name: string;
+      unitAmountCents: number;
+      quantity: number;
+      description?: string;
+      kind: "PRIMARY" | "EQUIPMENT" | "SERVICE";
+    };
+
+    const preDiscountLines: CheckoutLine[] = [];
+
+    // PRIMARY machine line: use subtotal from pricing engine (authoritative)
+    const subtotalCents = Math.round(totals.subtotal * 100);
+    preDiscountLines.push({
+      key: "primary",
+      name: `${machine.name} rental`,
+      unitAmountCents: Math.round(subtotalCents / days),
+      quantity: days,
+      description: `€${(totals.subtotal / days).toFixed(2)}/day × ${days} day${days > 1 ? "s" : ""}`,
+      kind: "PRIMARY",
+    });
+
+    // EQUIPMENT addon lines: compute from items pricing inputs
+    // (These were added to items array and priced by computeTotalsFromItems)
+    // We need to extract equipment subtotals from the pricing breakdown
+    // Since computeTotalsFromItems doesn't break down equipment separately,
+    // we'll compute equipment lines from the pricing inputs (items array)
+    if (equipmentAddons.length > 0) {
+      const equipmentMap = new Map(
+        equipmentMachines.map((m) => [m.code, m])
+      );
+
+      for (const selectedEquip of equipmentAddons) {
+        const equipMachine = equipmentMap.get(selectedEquip.code);
+        if (equipMachine) {
+          // Use the same pricing logic as items array construction
+          const unitPricePerDay = Number(equipMachine.dailyRate);
+          const unitPricePerDayCents = Math.round(unitPricePerDay * 100);
+          const unitAmountCents = unitPricePerDayCents * days;
+          const qty = Number(selectedEquip.quantity);
+
+          preDiscountLines.push({
+            key: `equip:${equipMachine.code}`,
+            name: equipMachine.name,
+            unitAmountCents,
+            quantity: qty,
+            description: `€${unitPricePerDay.toFixed(2)}/day × ${days} day${days > 1 ? "s" : ""}`,
+            kind: "EQUIPMENT",
+          });
+        }
+      }
+    }
+
+    // SERVICE addon lines: use values from totals breakdown (authoritative)
+    if (totals.delivery > 0) {
+      const deliveryChargeCents = Math.round(totals.delivery * 100);
+      preDiscountLines.push({
+        key: "svc:delivery",
+        name: "Delivery",
+        unitAmountCents: deliveryChargeCents,
+        quantity: 1,
+        kind: "SERVICE",
+      });
+    }
+
+    if (totals.pickup > 0) {
+      const pickupChargeCents = Math.round(totals.pickup * 100);
+      preDiscountLines.push({
+        key: "svc:pickup",
+        name: "Pickup",
+        unitAmountCents: pickupChargeCents,
+        quantity: 1,
+        kind: "SERVICE",
+      });
+    }
+
+    if (totals.insurance > 0) {
+      const insuranceChargeCents = Math.round(totals.insurance * 100);
+      preDiscountLines.push({
+        key: "svc:insurance",
+        name: "Insurance",
+        unitAmountCents: insuranceChargeCents,
+        quantity: 1,
+        kind: "SERVICE",
+      });
+    }
+
+    if (totals.operator > 0) {
+      const operatorChargeCents = Math.round(totals.operator * 100);
+      preDiscountLines.push({
+        key: "svc:operator",
+        name: "Driver / Operator",
+        unitAmountCents: Math.round(operatorChargeCents / days),
+        quantity: days,
+        description: `€${(totals.operator / days).toFixed(2)}/day × ${days} day${days > 1 ? "s" : ""}`,
+        kind: "SERVICE",
+      });
+    }
+
+    // Safety check: sum of pre-discount lines must equal originalTotalCents
+    const preDiscountSumCents = preDiscountLines.reduce(
+      (sum, line) => sum + line.unitAmountCents * line.quantity,
+      0
+    );
+
+    if (preDiscountSumCents !== originalTotalCents) {
+      console.error("[checkout] pre-discount line item mismatch", {
+        bookingId: booking.id,
+        preDiscountSumCents,
+        originalTotalCents,
+        diff: preDiscountSumCents - originalTotalCents,
+        lines: preDiscountLines,
+      });
+      return {
+        ok: false,
+        formError: "Internal pricing error. Please contact support.",
+      };
+    }
+
+    // Apply discount allocation if needed
+    type DiscountedLine = {
+      key: string;
+      name: string;
+      unitAmountCents: number;
+      quantity: number;
+      description?: string;
+    };
+
+    let discountedLines: DiscountedLine[];
+
+    if (discountPercentage <= 0) {
+      // No discount: use pre-discount lines as-is
+      discountedLines = preDiscountLines.map((line) => ({
+        key: line.key,
+        name: line.name,
+        unitAmountCents: line.unitAmountCents,
+        quantity: line.quantity,
+        description: line.description,
+      }));
+    } else {
+      // Discount allocation algorithm
+      type LineWithRemainder = {
+        line: CheckoutLine;
+        preLineTotalCents: number;
+        discountedFloorCents: number;
+        remainderNumerator: number;
+      };
+
+      const linesWithRemainder: LineWithRemainder[] = preDiscountLines.map((line) => {
+        const preLineTotalCents = line.unitAmountCents * line.quantity;
+        const factor = 100 - discountPercentage;
+        const discountedFloorCents = Math.floor((preLineTotalCents * factor) / 100);
+        const remainderNumerator = (preLineTotalCents * factor) % 100;
+
+        return {
+          line,
+          preLineTotalCents,
+          discountedFloorCents,
+          remainderNumerator,
+        };
+      });
+
+      const sumFloor = linesWithRemainder.reduce(
+        (sum, item) => sum + item.discountedFloorCents,
+        0
+      );
+
+      const remainderToDistribute = totalCents - sumFloor;
+
+      // Safety check
+      if (remainderToDistribute < 0 || remainderToDistribute >= linesWithRemainder.length) {
+        console.error("[checkout] discount allocation remainder out of bounds", {
+          bookingId: booking.id,
+          totalCents,
+          sumFloor,
+          remainderToDistribute,
+          numLines: linesWithRemainder.length,
+        });
+        return {
+          ok: false,
+          formError: "Internal discount calculation error. Please contact support.",
+        };
+      }
+
+      // Sort by remainder desc, then key asc for determinism
+      const sorted = [...linesWithRemainder].sort((a, b) => {
+        if (a.remainderNumerator !== b.remainderNumerator) {
+          return b.remainderNumerator - a.remainderNumerator;
+        }
+        return a.line.key.localeCompare(b.line.key);
+      });
+
+      // Distribute +1 cent to top remainderToDistribute lines
+      const centsToAdd = new Map<string, number>();
+      for (let i = 0; i < remainderToDistribute; i++) {
+        centsToAdd.set(sorted[i].line.key, 1);
+      }
+
+      // Build final discounted lines
+      discountedLines = linesWithRemainder.map((item) => {
+        const extraCent = centsToAdd.get(item.line.key) ?? 0;
+        const discountedLineTotalCents = item.discountedFloorCents + extraCent;
+
+        // Check divisibility: if quantity > 1 and not evenly divisible, collapse to qty=1
+        const qty = item.line.quantity;
+        let finalUnitAmountCents: number;
+        let finalQuantity: number;
+        let finalName = item.line.name;
+        let finalDescription = item.line.description;
+
+        if (qty > 1 && discountedLineTotalCents % qty !== 0) {
+          // Collapse to quantity=1 and encode original quantity in name
+          finalUnitAmountCents = discountedLineTotalCents;
+          finalQuantity = 1;
+          if (item.line.kind === "EQUIPMENT") {
+            finalName = `${item.line.name} (qty ${qty})`;
+          } else if (item.line.kind === "PRIMARY" || item.line.kind === "SERVICE") {
+            // For services/primary that use days as quantity, encode days in name
+            finalName = `${item.line.name} (${qty} day${qty > 1 ? "s" : ""})`;
+          }
+          // Clear description since qty is now encoded in name
+          finalDescription = undefined;
+        } else {
+          // Evenly divisible or qty=1
+          finalUnitAmountCents = Math.floor(discountedLineTotalCents / qty);
+          finalQuantity = qty;
+        }
+
+        return {
+          key: item.line.key,
+          name: finalName,
+          unitAmountCents: finalUnitAmountCents,
+          quantity: finalQuantity,
+          description: finalDescription,
+        };
+      });
+    }
+
+    // Final safety check: sum of discounted lines must equal totalCents
+    const discountedSumCents = discountedLines.reduce(
+      (sum, line) => sum + line.unitAmountCents * line.quantity,
+      0
+    );
+
+    if (discountedSumCents !== totalCents) {
+      console.error("[checkout] discounted line item mismatch", {
+        bookingId: booking.id,
+        discountedSumCents,
+        totalCents,
+        diff: discountedSumCents - totalCents,
+        lines: discountedLines,
+      });
+      return {
+        ok: false,
+        formError: "Internal discount calculation error. Please contact support.",
+      };
+    }
+
+    // Validate all line items
+    for (const line of discountedLines) {
+      if (line.unitAmountCents < 0 || !Number.isInteger(line.unitAmountCents)) {
+        console.error("[checkout] invalid unitAmountCents", {
+          bookingId: booking.id,
+          line,
+        });
+        return {
+          ok: false,
+          formError: "Internal pricing error. Please contact support.",
+        };
+      }
+      if (line.quantity < 1 || !Number.isInteger(line.quantity)) {
+        console.error("[checkout] invalid quantity", {
+          bookingId: booking.id,
+          line,
+        });
+        return {
+          ok: false,
+          formError: "Internal pricing error. Please contact support.",
+        };
+      }
+      // Stripe limit: unit_amount max is 99999999 (in cents, ~€1M)
+      if (line.unitAmountCents > 99999999) {
+        console.error("[checkout] unit amount exceeds Stripe limit", {
+          bookingId: booking.id,
+          line,
+        });
+        return {
+          ok: false,
+          formError: "Price exceeds payment system limits. Please contact support.",
+        };
+      }
+    }
+
     // 5) Build FULL Checkout (VAT via Stripe Tax; methods: card + MB WAY + SEPA)
     const appUrl = resolveBaseUrl();
     const sessionParams = buildFullCheckoutSessionParams({
@@ -239,6 +545,12 @@ export async function createCheckoutAction(
       appUrl,
       discountPercentage,
       originalTotalEuros: discountPercentage > 0 ? originalTotal : undefined,
+      lineItems: discountedLines.map((line) => ({
+        name: line.name,
+        description: line.description,
+        unitAmountCents: line.unitAmountCents,
+        quantity: line.quantity,
+      })),
     });
 
     // idempotency key that reflects the current selections.
