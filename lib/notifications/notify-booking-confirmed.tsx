@@ -174,8 +174,14 @@ function buildEmailLineItems(params: {
     let lineTotalCents: number;
     let days: number | undefined;
 
+    // PRIMARY machine pricing override (always per-day for rental duration)
+    if (item.isPrimary || itemType === "PRIMARY") {
+      // Primary machine rental is always priced per day: dailyRate × rentalDays
+      lineTotalCents = unitPriceCents * rentalDays;
+      days = rentalDays;
+    }
     // SERVICE addon pricing override (matches production pricing logic)
-    if (addonGroup === "SERVICE") {
+    else if (addonGroup === "SERVICE") {
       if (machineCode === "addon-operator") {
         // Operator is priced per-day in production: €350 × rentalDays
         lineTotalCents = unitPriceCents * rentalDays;

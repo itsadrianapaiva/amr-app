@@ -121,12 +121,13 @@ export function PriceSummary({
         </h3>
 
         <div className="mt-4 space-y-2 text-sm">
+          {/* Primary machine rental - separate from equipment */}
           <PriceRow
-            label={`Rental (${breakdown.rentalDays} day${
+            label={`Machine rental (${breakdown.rentalDays} day${
               breakdown.rentalDays === 1 ? "" : "s"
             })`}
           >
-            {formatCurrency(breakdown.subtotal)}
+            {formatCurrency(dailyRate * rentalDays)}
           </PriceRow>
 
           {/* Equipment addon line items */}
@@ -143,6 +144,18 @@ export function PriceSummary({
                   </PriceRow>
                 );
               })}
+              {/* Equipment subtotal */}
+              <PriceRow
+                label={`Extra equipment (${rentalDays} day${rentalDays === 1 ? "" : "s"})`}
+              >
+                {formatCurrency(
+                  equipmentAddons.reduce(
+                    (sum, equip) =>
+                      sum + equip.unitPrice * equip.quantity * rentalDays,
+                    0
+                  )
+                )}
+              </PriceRow>
             </>
           )}
 
