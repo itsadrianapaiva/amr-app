@@ -159,17 +159,45 @@ export async function createCheckoutAction(
         equipmentMachines.map((m) => [m.code, m])
       );
 
-      // Add equipment items to pricing
+      // Validate equipment constraints match Stripe line construction assumptions
+      for (const equipMachine of equipmentMachines) {
+        if (equipMachine.chargeModel !== "PER_UNIT" || equipMachine.timeUnit !== "DAY") {
+          console.error("[checkout] equipment addon has unexpected chargeModel/timeUnit", {
+            code: equipMachine.code,
+            chargeModel: equipMachine.chargeModel,
+            timeUnit: equipMachine.timeUnit,
+          });
+          return {
+            ok: false,
+            formError: "Equipment configuration error. Please contact support.",
+          };
+        }
+      }
+
+      // Validate and add equipment items to pricing
       for (const selectedEquip of equipmentAddons) {
         const equipMachine = equipmentMap.get(selectedEquip.code);
-        if (equipMachine) {
-          items.push({
-            quantity: Number(selectedEquip.quantity),
-            chargeModel: equipMachine.chargeModel as "PER_BOOKING" | "PER_UNIT",
-            timeUnit: equipMachine.timeUnit as "DAY" | "HOUR" | "NONE",
-            unitPrice: Number(equipMachine.dailyRate),
-          });
+        if (!equipMachine) {
+          return {
+            ok: false,
+            formError: `Equipment item ${selectedEquip.code} not found or unavailable.`,
+          };
         }
+
+        const qty = Number(selectedEquip.quantity);
+        if (!Number.isFinite(qty) || qty <= 0) {
+          return {
+            ok: false,
+            formError: "Invalid equipment quantity. Please refresh and try again.",
+          };
+        }
+
+        items.push({
+          quantity: qty,
+          chargeModel: equipMachine.chargeModel as "PER_BOOKING" | "PER_UNIT",
+          timeUnit: equipMachine.timeUnit as "DAY" | "HOUR" | "NONE",
+          unitPrice: Number(equipMachine.dailyRate),
+        });
       }
     }
 
@@ -250,14 +278,23 @@ export async function createCheckoutAction(
 
     const preDiscountLines: CheckoutLine[] = [];
 
-    // PRIMARY machine line: use subtotal from pricing engine (authoritative)
-    const subtotalCents = Math.round(totals.subtotal * 100);
+    // Safe Decimal-to-cents conversion (no float drift)
+    function decimalToCents(value: unknown): number {
+      const str = String(value);
+      const num = parseFloat(str);
+      if (Number.isNaN(num)) return 0;
+      return Math.round(num * 100);
+    }
+
+    // PRIMARY machine line: calculate from machine dailyRate (not from totals.subtotal which includes equipment)
+    // totals.subtotal includes ALL items (primary + equipment), so we compute primary separately
+    const dailyRateCents = decimalToCents(machine.dailyRate);
     preDiscountLines.push({
       key: "primary",
       name: `${machine.name} rental`,
-      unitAmountCents: Math.round(subtotalCents / days),
+      unitAmountCents: dailyRateCents,
       quantity: days,
-      description: `€${(totals.subtotal / days).toFixed(2)}/day × ${days} day${days > 1 ? "s" : ""}`,
+      description: `€${(dailyRateCents / 100).toFixed(2)}/day × ${days} day${days > 1 ? "s" : ""}`,
       kind: "PRIMARY",
     });
 
