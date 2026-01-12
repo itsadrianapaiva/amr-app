@@ -144,18 +144,6 @@ export function PriceSummary({
                   </PriceRow>
                 );
               })}
-              {/* Equipment subtotal */}
-              <PriceRow
-                label={`Extra equipment (${rentalDays} day${rentalDays === 1 ? "" : "s"})`}
-              >
-                {formatCurrency(
-                  equipmentAddons.reduce(
-                    (sum, equip) =>
-                      sum + equip.unitPrice * equip.quantity * rentalDays,
-                    0
-                  )
-                )}
-              </PriceRow>
             </>
           )}
 

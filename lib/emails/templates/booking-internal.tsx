@@ -21,9 +21,19 @@ export type BookingInternalEmailProps = {
   customerName?: string | null;
   customerEmail?: string | null;
   customerPhone?: string | null;
+  customerNIF?: string | null;
 
   siteAddress?: string | null;
   addonsList?: string | null;
+
+  // Business booking fields
+  billingIsBusiness?: boolean;
+  billingCompanyName?: string | null;
+  billingTaxId?: string | null;
+  billingAddressLine1?: string | null;
+  billingPostalCode?: string | null;
+  billingCity?: string | null;
+  billingCountry?: string | null;
 
   // explicit fulfilment flags (optional so existing callers don't break)
   /** Delivery = AMR delivers to customer at START */
@@ -167,8 +177,17 @@ export default function BookingInternalEmail(
     customerName,
     customerEmail,
     customerPhone,
+    customerNIF,
     siteAddress,
     addonsList,
+    // Business fields
+    billingIsBusiness,
+    billingCompanyName,
+    billingTaxId,
+    billingAddressLine1,
+    billingPostalCode,
+    billingCity,
+    billingCountry,
     // NEW flags
     deliverySelected,
     pickupSelected,
@@ -234,6 +253,35 @@ export default function BookingInternalEmail(
               ].join("")}
             />
 
+            {/* Customer NIF */}
+            {customerNIF && <Row k="Customer NIF:" v={customerNIF} />}
+
+            {/* Business billing info */}
+            {billingIsBusiness && (
+              <>
+                {billingCompanyName && (
+                  <Row k="Business:" v={billingCompanyName} />
+                )}
+                {billingTaxId && <Row k="VAT/Tax ID:" v={billingTaxId} />}
+                {(billingAddressLine1 ||
+                  billingPostalCode ||
+                  billingCity ||
+                  billingCountry) && (
+                  <Row
+                    k="Billing address:"
+                    v={[
+                      billingAddressLine1,
+                      billingPostalCode,
+                      billingCity,
+                      billingCountry,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
+                  />
+                )}
+              </>
+            )}
+
             <Row k="Address:" v={siteAddress || "—"} />
 
             {/* NEW: explicit logistics for start and end of rental */}
@@ -248,16 +296,11 @@ export default function BookingInternalEmail(
             {/* Booking items (technical) */}
             {lineItems && lineItems.length > 0 ? (
               <>
-                <h2 style={S.h2}>Booking items (technical)</h2>
+                <h2 style={S.h2}>Booking items</h2>
                 <table style={S.table}>
                   <thead>
                     <tr>
                       <th style={S.th}>Item</th>
-                      <th style={S.th}>Kind</th>
-                      <th style={S.th}>Group</th>
-                      <th style={S.th}>Charge</th>
-                      <th style={S.th}>Time</th>
-                      <th style={{ ...S.th, textAlign: "right" }}>Unit €</th>
                       <th style={{ ...S.th, textAlign: "right" }}>Qty</th>
                       <th style={{ ...S.th, textAlign: "right" }}>Days</th>
                       <th style={{ ...S.th, textAlign: "right" }}>Total</th>
@@ -265,29 +308,37 @@ export default function BookingInternalEmail(
                   </thead>
                   <tbody>
                     {lineItems.map((item, idx) => (
-                      <tr key={idx}>
-                        <td style={S.tdSmall}>{item.name}</td>
-                        <td style={S.tdSmall}>{item.kind}</td>
-                        <td style={S.tdSmall}>{item.addonGroup || "—"}</td>
-                        <td style={S.tdSmall}>{item.chargeModel || "—"}</td>
-                        <td style={S.tdSmall}>{item.timeUnit || "—"}</td>
-                        <td style={{ ...S.tdSmall, textAlign: "right" }}>
-                          {item.unitPriceCents != null
-                            ? centsToEuro(item.unitPriceCents)
-                            : "—"}
-                        </td>
-                        <td style={{ ...S.tdSmall, textAlign: "right" }}>
-                          {item.quantity}
-                        </td>
-                        <td style={{ ...S.tdSmall, textAlign: "right" }}>
-                          {item.days != null ? item.days : "—"}
-                        </td>
-                        <td style={{ ...S.tdSmall, textAlign: "right" }}>
-                          {item.lineTotalCents != null
-                            ? centsToEuro(item.lineTotalCents)
-                            : "—"}
-                        </td>
-                      </tr>
+                      <>
+                        <tr key={`${idx}-main`}>
+                          <td style={S.td}>{item.name}</td>
+                          <td style={S.tdRight}>{item.quantity}</td>
+                          <td style={S.tdRight}>
+                            {item.days != null ? item.days : "—"}
+                          </td>
+                          <td style={S.tdRight}>
+                            {item.lineTotalCents != null
+                              ? centsToEuro(item.lineTotalCents)
+                              : "—"}
+                          </td>
+                        </tr>
+                        <tr key={`${idx}-detail`}>
+                          <td
+                            colSpan={4}
+                            style={{
+                              ...S.tdSmall,
+                              paddingTop: "2px",
+                              paddingBottom: "8px",
+                            }}
+                          >
+                            Kind: {item.kind} | Group: {item.addonGroup || "—"}{" "}
+                            | Charge: {item.chargeModel || "—"} | Time:{" "}
+                            {item.timeUnit || "—"} | Unit:{" "}
+                            {item.unitPriceCents != null
+                              ? centsToEuro(item.unitPriceCents)
+                              : "—"}
+                          </td>
+                        </tr>
+                      </>
                     ))}
                   </tbody>
                 </table>
