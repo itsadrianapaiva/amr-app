@@ -241,13 +241,25 @@ async function executeIssueInvoice(
 
 /**
  * Fetch booking facts for invoice issuance.
- * Reuses logic from webhook handlers.
+ * Loads BookingItems, service addons, and discount metadata for cart-ready invoicing.
  */
 async function fetchBookingFacts(bookingId: number): Promise<BookingFacts> {
   const booking = await db.booking.findUnique({
     where: { id: bookingId },
     include: {
-      machine: { select: { name: true, dailyRate: true } },
+      machine: {
+        select: {
+          name: true,
+          dailyRate: true,
+          deliveryCharge: true,
+          pickupCharge: true,
+        }
+      },
+      items: {
+        include: {
+          machine: { select: { name: true } },
+        },
+      },
     },
   });
 
@@ -291,6 +303,72 @@ async function fetchBookingFacts(bookingId: number): Promise<BookingFacts> {
     billingAddress = undefined;
   }
 
+  // Build itemized invoice lines from BookingItems
+  const items: BookingFacts["items"] = booking.items.map((item) => ({
+    bookingItemId: item.id,
+    machineId: item.machineId,
+    name: item.machine?.name || "Unknown Item",
+    quantity: item.quantity,
+    unitPriceCents: decimalToCents(item.unitPrice),
+    isPrimary: item.isPrimary,
+  }));
+
+  // Add service addons as synthetic items (delivery, pickup, insurance, operator)
+  // Service addons are NOT BookingItems yet, so we build them from booking flags + charges
+  const { INSURANCE_CHARGE, OPERATOR_CHARGE } = await import("@/lib/config");
+
+  if (booking.deliverySelected && booking.machine.deliveryCharge) {
+    items.push({
+      bookingItemId: -1, // synthetic
+      machineId: booking.machineId,
+      name: "Delivery",
+      quantity: 1,
+      unitPriceCents: decimalToCents(booking.machine.deliveryCharge),
+      isPrimary: false,
+    });
+  }
+
+  if (booking.pickupSelected && booking.machine.pickupCharge) {
+    items.push({
+      bookingItemId: -2, // synthetic
+      machineId: booking.machineId,
+      name: "Pickup",
+      quantity: 1,
+      unitPriceCents: decimalToCents(booking.machine.pickupCharge),
+      isPrimary: false,
+    });
+  }
+
+  if (booking.insuranceSelected) {
+    items.push({
+      bookingItemId: -3, // synthetic
+      machineId: booking.machineId,
+      name: "Insurance",
+      quantity: 1,
+      unitPriceCents: Math.round(INSURANCE_CHARGE * 100),
+      isPrimary: false,
+    });
+  }
+
+  if (booking.operatorSelected) {
+    // Operator is per-day; compute rental days
+    const rentalDays = Math.max(
+      1,
+      Math.round(
+        (booking.endDate.getTime() - booking.startDate.getTime()) /
+          (24 * 60 * 60 * 1000)
+      ) + 1
+    );
+    items.push({
+      bookingItemId: -4, // synthetic
+      machineId: booking.machineId,
+      name: "Operator",
+      quantity: rentalDays,
+      unitPriceCents: Math.round(OPERATOR_CHARGE * 100),
+      isPrimary: false,
+    });
+  }
+
   return {
     id: booking.id,
     startDate: booking.startDate,
@@ -304,7 +382,26 @@ async function fetchBookingFacts(bookingId: number): Promise<BookingFacts> {
     customerNIF: nif,
 
     billing: billingAddress,
+
+    // Cart-ready fields
+    items,
+    discountPercentage: booking.discountPercentage
+      ? decimalToNumber(booking.discountPercentage)
+      : null,
+    originalSubtotalExVatCents: booking.originalSubtotalExVatCents ?? null,
+    discountedSubtotalExVatCents: booking.discountedSubtotalExVatCents ?? null,
   };
+}
+
+/** Prisma Decimal-safe number conversion */
+function decimalToNumber(value: unknown): number {
+  const n =
+    typeof value === "number"
+      ? value
+      : (value as any)?.toNumber
+        ? (value as any).toNumber()
+        : Number(value);
+  return n;
 }
 
 /** Prisma Decimal-safe cents conversion */

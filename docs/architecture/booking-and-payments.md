@@ -5,8 +5,10 @@ Complete documentation of the booking workflow and Stripe payment integration.
 ## Booking Flow Overview
 
 ```
-Customer → Machine Detail Page → Booking Form → Stripe Checkout → Webhook → Confirmation
+Customer → Machine Detail Page → Booking Form → Stripe Checkout → Webhook → Confirmation → Success Page
 ```
+
+**Critical Money Invariant:** `Booking.totalCost` is the **authoritative ex-VAT total** stored in the database. VAT (23% PT) is applied only in Stripe Checkout and invoices. All email notifications and the booking success page treat `totalCost` as ex-VAT.
 
 ## Step-by-Step Flow
 
@@ -68,40 +70,74 @@ if (deliverySelected || pickupSelected) {
 
 **File:** `lib/geo/check-service-area.ts`
 
-**C. Compute Totals**
+**C. Compute Totals (Item-Aware Pricing)**
 ```typescript
-const totals = computeTotals({
-  machine,
-  days: rentalDays(startDate, endDate),
-  addOns: { delivery, pickup, insurance, operator },
-  discountPercent
-});
+// Build pricing context
+const context = {
+  rentalDays,
+  deliverySelected, pickupSelected, insuranceSelected, operatorSelected,
+  deliveryCharge, pickupCharge, insuranceCharge, operatorCharge,
+  discountPercentage
+};
 
-// Returns: { subtotalExVat, discountExVat, netExVat, vat, total }
+// Build item array (primary machine + equipment addons)
+const items = [
+  { quantity: 1, chargeModel: "PER_BOOKING", timeUnit: "DAY", unitPrice: machine.dailyRate }
+];
+
+// Compute totals (ex-VAT, euros)
+const totals = computeTotalsFromItems(context, items);
+// Returns: { subtotal, delivery, pickup, insurance, operator, discount, total }
 ```
 
-**File:** `lib/booking/compute-totals.ts`
+**Files:**
+- `lib/pricing.ts` - Item-aware pricing engine (`computeTotalsFromItems()`)
+- `app/actions/create-checkout.ts` - Checkout action with equipment addon support
 
-**D. Create/Reuse PENDING Booking**
+**Important:** All totals are **ex-VAT** (euros). VAT is applied separately in Stripe Checkout via fixed tax rate.
+
+**D. Create/Reuse PENDING Booking (with BookingItems)**
 ```typescript
 const bookingId = await createOrReusePendingBooking(dto, { bypassLeadTime: false });
 ```
 
+**Atomically:**
+1. Creates or reuses PENDING `Booking` record
+2. Creates `BookingItem` records (primary machine + equipment addons)
+3. Stores `totalCost` as **ex-VAT** total (euros)
+4. Snapshots Machine pricing fields at booking time
+
 **Idempotent Reuse Pattern:** If same customer + machine + dates exist in PENDING state within 30 minutes, reuse that booking ID and extend the hold.
 
-**File:** `lib/repos/booking-repo.ts` (lines 182-327)
+**Files:**
+- `lib/repos/booking-repo.ts` - `createOrReusePendingBooking()` (lines 186-327)
+- `lib/booking/persist-pending.ts` - Persistence adapter
 
-**E. Build Stripe Checkout Session**
+**E. Build Stripe Checkout Session (Itemized Line Items)**
 ```typescript
+// Build itemized line items with cent-exact discount allocation
+const lineItems = buildLineItemsWithDiscountAllocation({
+  primaryMachine,
+  equipmentAddons,
+  services: { delivery, pickup, insurance, operator },
+  rentalDays,
+  discountPercentage,
+  originalTotalCents,
+  discountedTotalCents
+});
+
 const params = buildFullCheckoutSessionParams({
   bookingId,
   machine,
-  startDate,
-  endDate,
-  customer: { email, name },
-  totals,
-  addOns,
-  discount
+  from: startDate,
+  to: endDate,
+  days: rentalDays,
+  totalEuros: totals.total, // ex-VAT, discounted
+  customerEmail,
+  appUrl,
+  discountPercentage,
+  originalTotalEuros: originalTotal,
+  lineItems // itemized with cent-exact discount allocation
 });
 
 const session = await createCheckoutSessionWithGuards(params);
@@ -111,13 +147,20 @@ const session = await createCheckoutSessionWithGuards(params);
 - **Mode:** `payment` (full upfront, not authorization)
 - **Locale:** `"en"` (avoid Stripe locale chunk warnings)
 - **Customer:** Always create (`customer_creation: "always"`)
-- **Tax:** Fixed PT VAT 23% (via `STRIPE_TAX_RATE_PT_STANDARD`)
-- **Metadata:** bookingId, machineId, dates, flow, discount info
+- **Tax:** Fixed PT VAT 23% applied to each line item (via `STRIPE_TAX_RATE_PT_STANDARD`)
+- **Line Items:** Itemized (machine + equipment + services) with proportional discount allocation
+- **Metadata:** bookingId, machineId, dates, flow, discount metadata (percent, original/discounted cents ex-VAT)
 - **Success URL:** `/booking/success?session_id={CHECKOUT_SESSION_ID}&booking_id={bookingId}`
 - **Cancel URL:** `/machine/{machineId}?checkout=cancelled`
 
+**Discount Allocation (Cent-Exact):**
+- Uses integer cents to prevent float drift
+- Allocates discount proportionally across line items: `Math.floor((itemCents * discountCents) / originalTotalCents)`
+- Corrects residue by allocating remaining cents to largest item
+
 **Files:**
-- `lib/stripe/checkout.full.ts` - Session builder
+- `app/actions/create-checkout.ts` - Checkout action with line item building (lines 265-450)
+- `lib/stripe/checkout.full.ts` - Session builder with itemized line items support
 - `lib/stripe/create-session.ts` - Creation wrapper with guards
 
 **Idempotency Key:**
@@ -235,7 +278,7 @@ if (session.payment_status === "paid") {
 
 Same promotion logic, triggered when async payment confirms.
 
-**E. Booking Promotion**
+**E. Booking Promotion (with Discount Metadata Persistence)**
 
 **File:** `lib/stripe/webhook-service.ts` (lines 88-180)
 
@@ -258,14 +301,16 @@ await db.$transaction(async (tx) => {
       depositPaid: true,  // "fully paid"
       holdExpiresAt: null,  // Clear hold
       stripePaymentIntentId,
-      totalCost: totalCostEuros,
-      discountPercentage,
-      originalSubtotalExVatCents,
-      discountedSubtotalExVatCents
+      // Persist discount metadata from Stripe session (idempotent, only if NULL or zero)
+      discountPercentage: args.discountPercent ?? existing.discountPercentage,
+      originalSubtotalExVatCents: args.originalSubtotalExVatCents ?? existing.originalSubtotalExVatCents,
+      discountedSubtotalExVatCents: args.discountedSubtotalExVatCents ?? existing.discountedSubtotalExVatCents
     }
   });
 });
 ```
+
+**Critical:** `totalCost` is already set during booking creation and is **ex-VAT** (not updated here). Discount metadata (cents, ex-VAT) is persisted from Stripe session metadata for email totals calculation.
 
 **F. Job Creation**
 ```typescript
@@ -534,7 +579,51 @@ None identified. Payment flow is stable and in production.
 
 ---
 
+---
+
+## Cart-Ready Implementation Notes
+
+### BookingItem Itemization
+
+**Status:** Live in production (migration `20251230120954_add_option_b_cart_foundations`)
+
+Every booking creates `BookingItem` records:
+- **Primary machine:** One item with `isPrimary=true`, `itemType=PRIMARY`, `quantity=1`
+- **Equipment addons:** Zero or more items with `itemType=ADDON`, `addonGroup=EQUIPMENT`, `chargeModel=PER_UNIT`
+- **Future:** Service addons (delivery, pickup, insurance, operator) will migrate to BookingItem records
+
+**Pricing Snapshot:**
+- `unitPrice`: Frozen at booking time (from `Machine.dailyRate`)
+- `chargeModel`: `PER_BOOKING` (flat) or `PER_UNIT` (quantity-based)
+- `timeUnit`: `DAY` (per day), `HOUR` (future), or `NONE` (flat, no duration)
+- `itemType`: `PRIMARY` (primary machine) or `ADDON` (accessory)
+
+**Source:** `lib/repos/booking-repo.ts` (lines 240-320)
+
+### Integer Cents for Money Safety
+
+All critical money calculations use integer cents to prevent float drift:
+1. **Discount allocation:** Proportional allocation with residue correction
+2. **VAT calculation in emails:** `Math.round(netExVatCents * 0.23)`
+3. **Decimal-to-cents conversion:** Pure string parsing, no floats
+
+**Source:** `app/actions/create-checkout.ts` (lines 282-380), `lib/notifications/notify-booking-confirmed.tsx` (lines 62-73)
+
+### VAT Handling Summary
+
+| Location | VAT Applied? | Source | Notes |
+|----------|--------------|--------|-------|
+| `Booking.totalCost` | ❌ No | Booking creation | Ex-VAT total (authoritative) |
+| Stripe Checkout | ✅ Yes | Fixed tax rate `STRIPE_TAX_RATE_PT_STANDARD` | 23% PT VAT on each line item |
+| Email Notifications | ✅ Yes (computed) | `Math.round(netCents * 0.23)` | Integer cents, no float drift |
+| Booking Success Page | ❌ No | No VAT computation | Ex-VAT display, directs to Stripe receipt |
+| Invoices (Vendus) | ✅ Yes | Vendus API | 23% VAT per Portuguese tax rules |
+| Analytics (GA4/Meta) | ❌ No | `Booking.totalCost` | Ex-VAT value (documented limitation) |
+
+---
+
 **See Also:**
-- [Data Model](data-model.md) - Booking schema details
+- [Data Model](data-model.md) - Booking and BookingItem schema details
 - [Async Job Queue](async-jobs.md) - Job processing
 - [Invoicing](invoicing-vendus.md) - Invoice generation after payment
+- [Cart-Ready Implementation Review](../ops/cart-ready-implementation-review.md) - Complete review of cart-ready upgrade

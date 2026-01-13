@@ -33,6 +33,24 @@ Project changelog for tracking significant changes, features, and fixes.
   - Updating machine images (static imports, image mapping, optimization)
   - Changing copy and content (centralized content modules)
   - Pricing and availability changes (rates, deposits, minimum days)
+- **Cart-Ready Implementation Review** (`docs/ops/cart-ready-implementation-review.md`) - Complete end-to-end review of cart-ready upgrade
+
+### Changed (2025-12-30 to 2026-01-13)
+- **Cart-Ready Upgrade (BookingItems model):**
+  - `BookingItem` model added for itemized booking line items (machines + equipment addons with quantity)
+  - Machine model extended with cart-ready fields (`itemType`, `chargeModel`, `timeUnit`, `addonGroup`)
+  - Item-aware pricing engine (`computeTotalsFromItems()`) with exact parity to legacy single-item pricing
+  - Checkout creates itemized Stripe line items with cent-exact discount allocation
+  - BookingItem records created atomically with Booking (primary machine + equipment addons)
+- **VAT Correctness:**
+  - `Booking.totalCost` documented as **authoritative ex-VAT total** throughout system
+  - Email notifications treat `totalCost` as ex-VAT, compute VAT using integer cents (`Math.round(netCents * 0.23)`)
+  - Booking Success Page displays ex-VAT total with note directing to Stripe receipt/invoice for VAT-inclusive total
+  - Stripe checkout metadata persists discount info (percent, original/discounted cents ex-VAT) to Booking fields
+- **Documentation Updates:**
+  - `docs/architecture/data-model.md` - Added BookingItem model docs, clarified totalCost as ex-VAT
+  - `docs/architecture/booking-and-payments.md` - Updated checkout flow with itemization, VAT handling summary, cart-ready notes
+  - `docs/workflows/pricing-and-availability-changes.md` - Already accurate (no changes needed)
 
 ---
 
