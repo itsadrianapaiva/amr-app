@@ -171,20 +171,21 @@ function buildEmailLineItems(params: {
     const unitPriceCents = decimalToCents(item.unitPrice);
 
     // Compute line total based on charge model and time unit
+    // NOTE: After BookingItem.quantity fix, quantity already includes duration for DAY items
     let lineTotalCents: number;
     let days: number | undefined;
 
     // PRIMARY machine pricing override (always per-day for rental duration)
     if (item.isPrimary || itemType === "PRIMARY") {
-      // Primary machine rental is always priced per day: dailyRate × rentalDays
-      lineTotalCents = unitPriceCents * rentalDays;
+      // Primary machine: quantity already includes rentalDays for DAY items
+      lineTotalCents = unitPriceCents * item.quantity;
       days = rentalDays;
     }
     // SERVICE addon pricing override (matches production pricing logic)
     else if (addonGroup === "SERVICE") {
       if (machineCode === "addon-operator") {
-        // Operator is priced per-day in production: €350 × rentalDays
-        lineTotalCents = unitPriceCents * rentalDays;
+        // Operator: quantity already includes rentalDays
+        lineTotalCents = unitPriceCents * item.quantity;
         days = rentalDays;
       } else {
         // Insurance, delivery, pickup are flat fees in production
@@ -196,7 +197,8 @@ function buildEmailLineItems(params: {
       days = undefined;
     } else if (chargeModel === "PER_UNIT") {
       if (timeUnit === "DAY") {
-        lineTotalCents = unitPriceCents * item.quantity * rentalDays;
+        // quantity already includes units * rentalDays
+        lineTotalCents = unitPriceCents * item.quantity;
         days = rentalDays;
       } else if (timeUnit === "NONE") {
         lineTotalCents = unitPriceCents * item.quantity;
@@ -214,10 +216,24 @@ function buildEmailLineItems(params: {
       days = undefined;
     }
 
+    // Derive display quantity (units only, not units*days)
+    // For PER_UNIT + DAY items, divide by rentalDays to show units in email
+    let displayQuantity = item.quantity;
+    if (chargeModel === "PER_UNIT" && timeUnit === "DAY" && rentalDays > 1) {
+      if (item.quantity % rentalDays === 0) {
+        displayQuantity = item.quantity / rentalDays;
+      } else {
+        // Divisibility check failed - log warning and use raw quantity
+        console.warn(
+          `[email:line-item] quantity not divisible by rentalDays: machine=${item.machine.name}, quantity=${item.quantity}, rentalDays=${rentalDays}`
+        );
+      }
+    }
+
     return {
       kind,
       name: item.machine.name,
-      quantity: item.quantity,
+      quantity: displayQuantity,
       unitPriceCents,
       lineTotalCents,
       days,

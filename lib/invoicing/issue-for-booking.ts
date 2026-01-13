@@ -4,6 +4,16 @@ import { buildInvoiceInput } from "./map-stripe-to-invoice";
 import type { InvoiceRecord } from "./provider";
 
 // ---- Public, minimal API (decoupled from Prisma) ----
+
+export type BookingFactsItem = {
+  bookingItemId: number;
+  machineId: number;
+  name: string;
+  quantity: number;
+  unitPriceCents: number; // ex-VAT
+  isPrimary: boolean;
+};
+
 export type BookingFacts = {
   id: number;
 
@@ -30,6 +40,14 @@ export type BookingFacts = {
     postalCode?: string;
     country?: "PT" | string;
   };
+
+  // Cart-ready: itemized lines (machine + equipment + service addons)
+  items: BookingFactsItem[];
+
+  // Discount metadata
+  discountPercentage?: number | null;
+  originalSubtotalExVatCents?: number | null;
+  discountedSubtotalExVatCents?: number | null;
 };
 
 /**
@@ -55,6 +73,7 @@ export async function maybeIssueInvoice(params: {
   const rentalDays = inclusiveDays(booking.startDate, booking.endDate);
 
   // Build provider-agnostic input (pure mapping layer)
+  // Pass cart-ready fields (items, discount) to buildInvoiceInput
   const input = buildInvoiceInput({
     paymentIntentId: stripePaymentIntentId,
     paidAt,
@@ -80,7 +99,12 @@ export async function maybeIssueInvoice(params: {
         : undefined,
     },
     notes: params.notes,
-  });
+    // Cart-ready fields
+    items: booking.items,
+    discountPercentage: booking.discountPercentage,
+    originalSubtotalExVatCents: booking.originalSubtotalExVatCents,
+    discountedSubtotalExVatCents: booking.discountedSubtotalExVatCents,
+  } as any);
 
   // Delegate to the provider (Vendus) — still decoupled via interface
   const record = await vendusProvider.createInvoice(input);

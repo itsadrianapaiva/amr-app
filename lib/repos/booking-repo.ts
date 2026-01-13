@@ -34,6 +34,34 @@ function toNull(s?: string | null): string | null {
 }
 
 /**
+ * Compute stored quantity for BookingItem based on charge model, time unit, and rental duration.
+ * For DAY-based items, quantity includes rentalDays multiplication to match Stripe metadata.
+ *
+ * @param baseQuantity - Units for PER_UNIT items (e.g., 2 hammers), 1 for PER_BOOKING items
+ * @param timeUnit - DAY (multiply by rentalDays), NONE/HOUR (no multiplication)
+ * @param rentalDays - Inclusive rental days
+ * @returns Stored quantity for BookingItem
+ */
+function computeStoredQuantity(
+  baseQuantity: number,
+  timeUnit: string,
+  rentalDays: number
+): number {
+  if (timeUnit === "DAY") {
+    const storedQty = baseQuantity * rentalDays;
+    // Defensive check: stored quantity must be at least rentalDays for DAY items
+    if (storedQty < rentalDays) {
+      throw new Error(
+        `Invalid stored quantity: baseQuantity=${baseQuantity}, rentalDays=${rentalDays}, storedQty=${storedQty}`
+      );
+    }
+    return storedQty;
+  }
+  // NONE or HOUR: no duration multiplication
+  return baseQuantity;
+}
+
+/**
  * Data needed to create a PENDING booking (MVP scope).
  * - Dates are already normalized to day-start (Lisbon) by the caller.
  * - Totals are computed server-side before calling this function.
@@ -312,6 +340,12 @@ export async function createOrReusePendingBooking(
         "addon-operator": 350, // OPERATOR_CHARGE from config
       };
 
+      // Compute rentalDays (inclusive days) for quantity calculation
+      const rentalDays = Math.max(
+        1,
+        Math.round((endDate.getTime() - startDate.getTime()) / 86_400_000) + 1
+      );
+
       // 3) Reuse: same machine + same exact dates + same email + still PENDING.
       const existing = await tx.booking.findFirst({
         where: {
@@ -346,11 +380,12 @@ export async function createOrReusePendingBooking(
         });
 
         // Create primary machine item
+        const primaryQuantity = computeStoredQuantity(1, machine.timeUnit, rentalDays);
         await tx.bookingItem.create({
           data: {
             bookingId: existing.id,
             machineId,
-            quantity: 1,
+            quantity: primaryQuantity,
             isPrimary: true,
             unitPrice: machine.dailyRate,
             itemType: machine.itemType,
@@ -361,11 +396,12 @@ export async function createOrReusePendingBooking(
 
         // Create service addon items (if selected)
         for (const addon of serviceAddonMachines) {
+          const addonQuantity = computeStoredQuantity(1, addon.timeUnit, rentalDays);
           await tx.bookingItem.create({
             data: {
               bookingId: existing.id,
               machineId: addon.id,
-              quantity: 1,
+              quantity: addonQuantity,
               isPrimary: false,
               unitPrice: addonPriceMap[addon.code] ?? 0,
               itemType: addon.itemType,
@@ -377,12 +413,13 @@ export async function createOrReusePendingBooking(
 
         // Create equipment addon items (Slice 6)
         for (const equipMachine of equipmentMachines) {
-          const quantity = equipmentMap.get(equipMachine.code) ?? 1;
+          const baseQuantity = equipmentMap.get(equipMachine.code) ?? 1;
+          const equipQuantity = computeStoredQuantity(baseQuantity, equipMachine.timeUnit, rentalDays);
           await tx.bookingItem.create({
             data: {
               bookingId: existing.id,
               machineId: equipMachine.id,
-              quantity,
+              quantity: equipQuantity,
               isPrimary: false,
               unitPrice: equipMachine.dailyRate,
               itemType: equipMachine.itemType,
@@ -437,11 +474,12 @@ export async function createOrReusePendingBooking(
 
         // Write BookingItem rows for new booking
         // Primary machine item
+        const primaryQuantity = computeStoredQuantity(1, machine.timeUnit, rentalDays);
         await tx.bookingItem.create({
           data: {
             bookingId: created.id,
             machineId,
-            quantity: 1,
+            quantity: primaryQuantity,
             isPrimary: true,
             unitPrice: machine.dailyRate,
             itemType: machine.itemType,
@@ -452,11 +490,12 @@ export async function createOrReusePendingBooking(
 
         // Create service addon items (if selected)
         for (const addon of serviceAddonMachines) {
+          const addonQuantity = computeStoredQuantity(1, addon.timeUnit, rentalDays);
           await tx.bookingItem.create({
             data: {
               bookingId: created.id,
               machineId: addon.id,
-              quantity: 1,
+              quantity: addonQuantity,
               isPrimary: false,
               unitPrice: addonPriceMap[addon.code] ?? 0,
               itemType: addon.itemType,
@@ -468,12 +507,13 @@ export async function createOrReusePendingBooking(
 
         // Create equipment addon items (Slice 6)
         for (const equipMachine of equipmentMachines) {
-          const quantity = equipmentMap.get(equipMachine.code) ?? 1;
+          const baseQuantity = equipmentMap.get(equipMachine.code) ?? 1;
+          const equipQuantity = computeStoredQuantity(baseQuantity, equipMachine.timeUnit, rentalDays);
           await tx.bookingItem.create({
             data: {
               bookingId: created.id,
               machineId: equipMachine.id,
-              quantity,
+              quantity: equipQuantity,
               isPrimary: false,
               unitPrice: equipMachine.dailyRate,
               itemType: equipMachine.itemType,

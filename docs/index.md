@@ -54,6 +54,9 @@ Netlify build contexts (production, staging, deploy-preview), migration policy, 
 ### [Runbooks](ops/runbooks.md)
 Practical troubleshooting guides for common production issues: webhook failures, booking confirmation problems, invoice generation issues, signed link errors, environment mismatches, and stuck job queues.
 
+### [Cart-Ready Implementation Review](ops/cart-ready-implementation-review.md)
+Complete end-to-end review of the cart-ready upgrade (BookingItems model, itemized pricing, VAT-correct emails, booking success page). Documents current system behavior, money invariants, key guardrails, and verification checklists.
+
 ---
 
 ## Testing
@@ -139,4 +142,4 @@ For questions or issues with the documentation, please reach out to the engineer
 
 ---
 
-**Last Updated:** 2026-01-07
+**Last Updated:** 2026-01-13

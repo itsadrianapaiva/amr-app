@@ -241,13 +241,25 @@ async function executeIssueInvoice(
 
 /**
  * Fetch booking facts for invoice issuance.
- * Reuses logic from webhook handlers.
+ * Loads BookingItems, service addons, and discount metadata for cart-ready invoicing.
  */
 async function fetchBookingFacts(bookingId: number): Promise<BookingFacts> {
   const booking = await db.booking.findUnique({
     where: { id: bookingId },
     include: {
-      machine: { select: { name: true, dailyRate: true } },
+      machine: {
+        select: {
+          name: true,
+          dailyRate: true,
+          deliveryCharge: true,
+          pickupCharge: true,
+        }
+      },
+      items: {
+        include: {
+          machine: { select: { name: true } },
+        },
+      },
     },
   });
 
@@ -291,6 +303,22 @@ async function fetchBookingFacts(bookingId: number): Promise<BookingFacts> {
     billingAddress = undefined;
   }
 
+  // Build itemized invoice lines from BookingItems
+  // Trust BookingItems exclusively - includes primary machine, equipment addons, and service addons
+  const items: BookingFacts["items"] = booking.items.map((item) => ({
+    bookingItemId: item.id,
+    machineId: item.machineId,
+    name: item.machine?.name || "Unknown Item",
+    quantity: item.quantity,
+    unitPriceCents: decimalToCents(item.unitPrice),
+    isPrimary: item.isPrimary,
+  }));
+
+  // Safety: fail if no BookingItems (should never happen post cart-ready)
+  if (items.length === 0) {
+    throw new Error(`Booking ${bookingId} has no BookingItems - cannot generate invoice`);
+  }
+
   return {
     id: booking.id,
     startDate: booking.startDate,
@@ -304,7 +332,26 @@ async function fetchBookingFacts(bookingId: number): Promise<BookingFacts> {
     customerNIF: nif,
 
     billing: billingAddress,
+
+    // Cart-ready fields
+    items,
+    discountPercentage: booking.discountPercentage
+      ? decimalToNumber(booking.discountPercentage)
+      : null,
+    originalSubtotalExVatCents: booking.originalSubtotalExVatCents ?? null,
+    discountedSubtotalExVatCents: booking.discountedSubtotalExVatCents ?? null,
   };
+}
+
+/** Prisma Decimal-safe number conversion */
+function decimalToNumber(value: unknown): number {
+  const n =
+    typeof value === "number"
+      ? value
+      : (value as any)?.toNumber
+        ? (value as any).toNumber()
+        : Number(value);
+  return n;
 }
 
 /** Prisma Decimal-safe cents conversion */

@@ -143,16 +143,20 @@ ALTER TABLE "Booking"
 #### Payment & Pricing
 
 ```prisma
-totalCost                    Decimal   // Authoritative pre-VAT total
+totalCost                    Decimal   // Authoritative ex-VAT total (euros, source of truth)
 depositPaid                  Boolean   @default(false)  // Repurposed: means "fully paid"
 stripePaymentIntentId        String?   @unique
 stripeChargeId               String?
 discountPercentage           Decimal?  @default(0)  // 0-100
-originalSubtotalExVatCents   Int?      // Stripe metadata
-discountedSubtotalExVatCents Int?      // Stripe metadata
+originalSubtotalExVatCents   Int?      // Stripe metadata (ex-VAT, before discount)
+discountedSubtotalExVatCents Int?      // Stripe metadata (ex-VAT, after discount)
 ```
 
+**Critical Invariant:** `totalCost` is the **authoritative ex-VAT total** in euros. VAT (23%) is applied only in Stripe Checkout and invoices, never stored in this field. All downstream systems (emails, success page, analytics) treat `totalCost` as ex-VAT.
+
 **Note:** `depositPaid` field historically meant "deposit paid", now repurposed to mean "fully paid" after pivot to full upfront payment. Future migration should rename to `fullyPaid`.
+
+**Stripe Metadata Cents:** `originalSubtotalExVatCents` and `discountedSubtotalExVatCents` are integer cents (ex-VAT) persisted from Stripe checkout metadata during webhook promotion. Used by email notifications for cent-exact VAT calculation.
 
 #### Add-ons (Boolean Flags)
 
@@ -338,6 +342,64 @@ model CompanyDiscount {
 **Lookup:** GET `/api/check-discount?nif=<string>` returns `{ discountPercentage: number }`.
 
 **Source:** `app/api/check-discount/route.ts`
+
+---
+
+### BookingItem (Cart-Ready Itemization)
+
+Itemized line items for bookings, enabling multi-item carts and quantity-based pricing.
+
+**File:** `prisma/schema.prisma` (lines 224-253)
+
+```prisma
+model BookingItem {
+  id        Int     @id @default(autoincrement())
+  bookingId Int
+  machineId Int
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  machine   Machine @relation(fields: [machineId], references: [id])
+
+  /// Quantity of this item (1 for PRIMARY machines, N for PER_UNIT addons)
+  quantity Int @default(1)
+
+  /// Snapshot: item type at booking time
+  itemType    MachineItemType @default(PRIMARY)
+  /// Snapshot: charge model at booking time
+  chargeModel ChargeModel     @default(PER_BOOKING)
+  /// Snapshot: time unit at booking time
+  timeUnit    TimeUnit        @default(DAY)
+  /// Snapshot: unit price at booking time (required, always set)
+  unitPrice   Decimal
+
+  /// Marks the primary machine for this booking (backward compat)
+  isPrimary Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([bookingId])
+  @@index([machineId])
+  @@index([bookingId, isPrimary])
+}
+```
+
+**Key Points:**
+- **Created atomically** with Booking (same transaction)
+- **Snapshots pricing** at booking time (`unitPrice`, `chargeModel`, `timeUnit`, `itemType`)
+- **Primary machine:** One item per booking with `isPrimary=true`
+- **Equipment addons:** Zero or more items with `itemType=ADDON`, `addonGroup=EQUIPMENT`, `chargeModel=PER_UNIT`
+- **Future service addons:** Delivery, pickup, insurance, operator will migrate to BookingItem records
+
+**Pricing Calculation:**
+```typescript
+// For each item:
+base = chargeModel === "PER_UNIT" ? unitPrice * quantity : unitPrice
+itemTotal = timeUnit === "DAY" ? base * rentalDays : base
+```
+
+**Source:** `lib/pricing.ts` (`computeTotalsFromItems()`)
+
+**Migration:** `20251230120954_add_option_b_cart_foundations`
 
 ---
 

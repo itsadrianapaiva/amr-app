@@ -105,14 +105,10 @@ export function buildFullCheckoutSessionParams(
     startDate,
     endDate,
     flow: "full_upfront" as const,
-    // Add discount tracking to metadata
-    ...(discountPercentage > 0
-      ? {
-          discount_percent: String(discountPercentage),
-          original_subtotal_cents: String(originalTotalCents),
-          discounted_subtotal_cents: String(totalCents),
-        }
-      : {}),
+    // Always include subtotal metadata so invoicing can validate totals for both discounted and non-discounted bookings
+    discount_percent: String(discountPercentage),
+    original_subtotal_cents: String(originalTotalCents),
+    discounted_subtotal_cents: String(totalCents),
   };
 
   // Require a tax rate env to avoid silent mis-taxing in prod.

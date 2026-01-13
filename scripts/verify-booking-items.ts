@@ -66,9 +66,24 @@ async function verify() {
   if (!item.isPrimary) {
     throw new Error("Expected isPrimary=true");
   }
-  if (item.quantity !== 1) {
-    throw new Error("Expected quantity=1");
+
+  // Compute rentalDays exactly like production inclusiveDays calculation
+  const rentalDays = Math.max(
+    1,
+    Math.round((endDate.getTime() - startDate.getTime()) / 86_400_000) + 1
+  );
+  console.log(`   - rentalDays: ${rentalDays}`);
+
+  // For DAY items, quantity should equal rentalDays
+  const expectedQuantity = item.timeUnit === "DAY" ? rentalDays : 1;
+  console.log(`   - expectedQuantity: ${expectedQuantity}`);
+
+  if (item.quantity !== expectedQuantity) {
+    throw new Error(
+      `Expected quantity=${expectedQuantity} for timeUnit=${item.timeUnit}, got ${item.quantity}`
+    );
   }
+
   if (item.unitPrice.toString() !== item.machine.dailyRate.toString()) {
     throw new Error(
       `unitPrice ${item.unitPrice} doesn't match machine.dailyRate ${item.machine.dailyRate}`
@@ -121,6 +136,14 @@ async function verify() {
   console.log(`   - isPrimary: ${item2.isPrimary}`);
   console.log(`   - quantity: ${item2.quantity}`);
   console.log(`   - unitPrice: ${item2.unitPrice} (machine.dailyRate: ${item2.machine.dailyRate})`);
+
+  // Verify quantity is still correct after reuse
+  const expectedQuantity2 = item2.timeUnit === "DAY" ? rentalDays : 1;
+  if (item2.quantity !== expectedQuantity2) {
+    throw new Error(
+      `Expected quantity=${expectedQuantity2} after reuse for timeUnit=${item2.timeUnit}, got ${item2.quantity}`
+    );
+  }
 
   // Verify booking fields were updated
   const booking = await db.booking.findUnique({
