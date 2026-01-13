@@ -119,7 +119,14 @@ export async function GET(req: Request) {
 
     const b = await db.booking.findUnique({
       where: { id },
-      include: { machine: true },
+      include: {
+        machine: true,
+        items: {
+          include: {
+            machine: { select: { name: true } },
+          },
+        },
+      },
     });
 
     if (!b) {
@@ -147,6 +154,20 @@ export async function GET(req: Request) {
             country: (b.billingCountry as "PT") || "PT",
           }
         : undefined,
+      // Cart-ready fields
+      items: b.items.map((item) => ({
+        bookingItemId: item.id,
+        machineId: item.machineId,
+        name: item.machine?.name || "Unknown Item",
+        quantity: item.quantity,
+        unitPriceCents: Math.round(Number(item.unitPrice) * 100),
+        isPrimary: item.isPrimary,
+      })),
+      discountPercentage: b.discountPercentage
+        ? Number(b.discountPercentage)
+        : null,
+      originalSubtotalExVatCents: b.originalSubtotalExVatCents ?? null,
+      discountedSubtotalExVatCents: b.discountedSubtotalExVatCents ?? null,
     } as const;
 
     const paymentIntentId = piParam || b.stripePaymentIntentId || "";

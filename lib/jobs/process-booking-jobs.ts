@@ -304,6 +304,7 @@ async function fetchBookingFacts(bookingId: number): Promise<BookingFacts> {
   }
 
   // Build itemized invoice lines from BookingItems
+  // Trust BookingItems exclusively - includes primary machine, equipment addons, and service addons
   const items: BookingFacts["items"] = booking.items.map((item) => ({
     bookingItemId: item.id,
     machineId: item.machineId,
@@ -313,60 +314,9 @@ async function fetchBookingFacts(bookingId: number): Promise<BookingFacts> {
     isPrimary: item.isPrimary,
   }));
 
-  // Add service addons as synthetic items (delivery, pickup, insurance, operator)
-  // Service addons are NOT BookingItems yet, so we build them from booking flags + charges
-  const { INSURANCE_CHARGE, OPERATOR_CHARGE } = await import("@/lib/config");
-
-  if (booking.deliverySelected && booking.machine.deliveryCharge) {
-    items.push({
-      bookingItemId: -1, // synthetic
-      machineId: booking.machineId,
-      name: "Delivery",
-      quantity: 1,
-      unitPriceCents: decimalToCents(booking.machine.deliveryCharge),
-      isPrimary: false,
-    });
-  }
-
-  if (booking.pickupSelected && booking.machine.pickupCharge) {
-    items.push({
-      bookingItemId: -2, // synthetic
-      machineId: booking.machineId,
-      name: "Pickup",
-      quantity: 1,
-      unitPriceCents: decimalToCents(booking.machine.pickupCharge),
-      isPrimary: false,
-    });
-  }
-
-  if (booking.insuranceSelected) {
-    items.push({
-      bookingItemId: -3, // synthetic
-      machineId: booking.machineId,
-      name: "Insurance",
-      quantity: 1,
-      unitPriceCents: Math.round(INSURANCE_CHARGE * 100),
-      isPrimary: false,
-    });
-  }
-
-  if (booking.operatorSelected) {
-    // Operator is per-day; compute rental days
-    const rentalDays = Math.max(
-      1,
-      Math.round(
-        (booking.endDate.getTime() - booking.startDate.getTime()) /
-          (24 * 60 * 60 * 1000)
-      ) + 1
-    );
-    items.push({
-      bookingItemId: -4, // synthetic
-      machineId: booking.machineId,
-      name: "Operator",
-      quantity: rentalDays,
-      unitPriceCents: Math.round(OPERATOR_CHARGE * 100),
-      isPrimary: false,
-    });
+  // Safety: fail if no BookingItems (should never happen post cart-ready)
+  if (items.length === 0) {
+    throw new Error(`Booking ${bookingId} has no BookingItems - cannot generate invoice`);
   }
 
   return {

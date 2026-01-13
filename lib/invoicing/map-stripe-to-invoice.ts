@@ -124,12 +124,27 @@ export function buildInvoiceInput(p: BuildInvoiceParams): InvoiceCreateInput {
     }));
   }
 
-  // Guardrail: verify invoice total matches expected
+  // Guardrail: compute invoice total and require Stripe metadata for validation
   const invoiceNetCents = lines.reduce(
     (sum, line) => sum + line.unitPriceCents * line.quantity,
     0
   );
-  const expectedNetCents = discountedSubtotalCents ?? originalSubtotalCents ?? invoiceNetCents;
+  const expectedNetCents = discountedSubtotalCents ?? originalSubtotalCents;
+
+  if (expectedNetCents == null || expectedNetCents === 0) {
+    const errorDetails = JSON.stringify({
+      bookingId: p.bookingId,
+      invoiceNetCents,
+      discountedSubtotalCents,
+      originalSubtotalCents,
+    });
+    console.error(
+      `[invoice:missing_metadata] Cannot validate invoice total: ${errorDetails}`
+    );
+    throw new Error(
+      `Cannot validate invoice total for booking ${p.bookingId}: missing Stripe metadata (discountedSubtotalExVatCents/originalSubtotalExVatCents)`
+    );
+  }
 
   if (Math.abs(invoiceNetCents - expectedNetCents) > 1) {
     const errorDetails = JSON.stringify({
