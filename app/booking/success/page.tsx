@@ -6,6 +6,7 @@ import BookingMetaPurchase from "@/components/analytics/booking-meta-purchase";
 import { Button } from "@/components/ui/button";
 import MetaCtaClickWrapper from "@/components/analytics/meta-cta-click";
 import { CONTACTS } from "@/lib/content/contacts";
+import { formatCurrency } from "@/lib/utils";
 
 /**
  * Tiny helper to format a Date as YYYY-MM-DD in the Lisbon timezone,
@@ -18,16 +19,6 @@ function formatYmdLisbon(d: Date): string {
     month: "2-digit",
     day: "2-digit",
   });
-}
-
-/**
- * Format a number as EUR currency.
- */
-function formatEUR(value: number): string {
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "EUR",
-  }).format(value);
 }
 
 /** Narrow, page-local query: keep it focused and small. */
@@ -165,7 +156,8 @@ export default async function CustomerSuccessPage({
   const start = formatYmdLisbon(booking.startDate);
   const end = formatYmdLisbon(booking.endDate);
 
-  // Safely coerce Prisma Decimal -> number for GA4
+  // Safely coerce Prisma Decimal -> number for analytics and display.
+  // Note: booking.totalCost is ex-VAT. Success page does not compute VAT or fetch Stripe totals (Option B).
   const purchaseValue = Number(booking.totalCost);
   const depositValue = Number(booking.machine?.deposit ?? 0);
 
@@ -236,17 +228,17 @@ export default async function CustomerSuccessPage({
         <h2 className="mb-3 text-lg font-semibold">Payment summary</h2>
         <dl className="space-y-2 text-sm">
           <div className="flex items-center justify-between">
-            <dt className="text-gray-600">Total paid (incl. VAT)</dt>
-            <dd className="font-semibold">{formatEUR(purchaseValue)}</dd>
+            <dt className="text-gray-600">Booking total (ex VAT)</dt>
+            <dd className="font-semibold">{formatCurrency(purchaseValue)}</dd>
           </div>
           {depositValue > 0 && (
             <div className="flex items-center justify-between">
               <dt className="text-gray-600">Refundable deposit (paid at handover)</dt>
-              <dd className="font-semibold">{formatEUR(depositValue)}</dd>
+              <dd className="font-semibold">{formatCurrency(depositValue)}</dd>
             </div>
           )}
           <div className="border-t border-gray-200 pt-2 text-xs text-gray-500">
-            VAT at 23% included.
+            VAT is added at checkout. Your Stripe receipt and invoice show the total paid (incl. VAT).
           </div>
         </dl>
       </div>
