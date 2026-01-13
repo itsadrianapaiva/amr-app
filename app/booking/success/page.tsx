@@ -5,6 +5,7 @@ import Ga4Purchase from "@/components/analytics/ga4-purchase";
 import BookingMetaPurchase from "@/components/analytics/booking-meta-purchase";
 import { Button } from "@/components/ui/button";
 import MetaCtaClickWrapper from "@/components/analytics/meta-cta-click";
+import { CONTACTS } from "@/lib/content/contacts";
 
 /**
  * Tiny helper to format a Date as YYYY-MM-DD in the Lisbon timezone,
@@ -19,6 +20,16 @@ function formatYmdLisbon(d: Date): string {
   });
 }
 
+/**
+ * Format a number as EUR currency.
+ */
+function formatEUR(value: number): string {
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "EUR",
+  }).format(value);
+}
+
 /** Narrow, page-local query: keep it focused and small. */
 async function getBookingSummary(bookingId: number) {
   return db.booking.findUnique({
@@ -28,7 +39,7 @@ async function getBookingSummary(bookingId: number) {
       startDate: true,
       endDate: true,
       totalCost: true, // needed for GA4 purchase value
-      machine: { select: { id: true, name: true } },
+      machine: { select: { id: true, name: true, deposit: true } },
       // We intentionally avoid pulling heavy relations here.
     },
   });
@@ -156,38 +167,122 @@ export default async function CustomerSuccessPage({
 
   // Safely coerce Prisma Decimal -> number for GA4
   const purchaseValue = Number(booking.totalCost);
+  const depositValue = Number(booking.machine?.deposit ?? 0);
+
+  // WhatsApp link (message-only, not tel:)
+  const whatsappUrl = "https://wa.me/351934014611";
+  const whatsappDisplay = CONTACTS.support.whatsapp.display;
+  const supportEmail = CONTACTS.support.email;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 p-6">
-      <h1 className="text-2xl font-semibold">Booking confirmed</h1>
+    <div className="mx-auto max-w-2xl space-y-8 p-6">
+      {/* Header */}
+      <div className="space-y-3">
+        <h1 className="text-3xl font-bold">Booking confirmed</h1>
+        <p className="text-sm text-gray-700">
+          Thank you! Your booking has been recorded. You should receive an email
+          with the next steps.
+        </p>
+      </div>
 
-      <p className="text-sm text-gray-700">
-        Thank you! Your booking has been recorded. You should receive an email
-        with the next steps.
-      </p>
-
-      <div className="rounded-md border bg-gray-50 p-4 text-sm text-gray-900">
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+      {/* Booking Reference */}
+      <div className="rounded-lg border bg-gray-50 p-4">
+        <div className="mb-3">
+          <span className="text-sm font-semibold text-gray-600">Booking reference</span>
+          <p className="mt-1 text-xl font-mono font-bold">#{booking.id}</p>
+          <p className="mt-1 text-xs text-gray-600">
+            Please include this reference if you contact us.
+          </p>
+        </div>
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 border-t border-gray-200 pt-3 sm:grid-cols-2">
           <div>
-            <dt className="text-gray-600">Booking ID</dt>
-            <dd className="font-mono">#{booking.id}</dd>
+            <dt className="text-sm text-gray-600">Machine</dt>
+            <dd className="mt-1 text-sm font-medium">{booking.machine?.name ?? "Selected machine"}</dd>
           </div>
           <div>
-            <dt className="text-gray-600">Machine</dt>
-            <dd>{booking.machine?.name ?? "Selected machine"}</dd>
+            <dt className="text-sm text-gray-600">Start date</dt>
+            <dd className="mt-1 text-sm font-medium">{start}</dd>
           </div>
           <div>
-            <dt className="text-gray-600">Start date</dt>
-            <dd>{start}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-600">End date</dt>
-            <dd>{end}</dd>
+            <dt className="text-sm text-gray-600">End date</dt>
+            <dd className="mt-1 text-sm font-medium">{end}</dd>
           </div>
         </dl>
       </div>
 
-      <div className="flex items-center gap-3">
+      {/* What happens next */}
+      <div className="space-y-3">
+        <h2 className="text-xl font-semibold">What happens next</h2>
+        <ul className="space-y-2 text-sm text-gray-700">
+          <li className="flex items-start gap-2">
+            <span className="mt-0.5 text-gray-400">•</span>
+            <span>You will receive a confirmation email with full booking details.</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="mt-0.5 text-gray-400">•</span>
+            <span>Our team will contact you before delivery to confirm logistics.</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="mt-0.5 text-gray-400">•</span>
+            <span>The security deposit is paid at handover and is fully refundable.</span>
+          </li>
+        </ul>
+      </div>
+
+      {/* Payment summary */}
+      <div className="rounded-lg border bg-gray-50 p-4">
+        <h2 className="mb-3 text-lg font-semibold">Payment summary</h2>
+        <dl className="space-y-2 text-sm">
+          <div className="flex items-center justify-between">
+            <dt className="text-gray-600">Total paid (incl. VAT)</dt>
+            <dd className="font-semibold">{formatEUR(purchaseValue)}</dd>
+          </div>
+          {depositValue > 0 && (
+            <div className="flex items-center justify-between">
+              <dt className="text-gray-600">Refundable deposit</dt>
+              <dd className="font-semibold">{formatEUR(depositValue)}</dd>
+            </div>
+          )}
+          <div className="border-t border-gray-200 pt-2 text-xs text-gray-500">
+            VAT at 23% included.
+          </div>
+        </dl>
+      </div>
+
+      {/* Support */}
+      <div className="rounded-lg border bg-blue-50 p-4">
+        <h2 className="mb-3 text-lg font-semibold">Need help?</h2>
+        <div className="space-y-2 text-sm">
+          <div className="flex items-start gap-2">
+            <span className="font-medium text-gray-700">WhatsApp us:</span>
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-blue-700 underline underline-offset-2 hover:text-blue-900"
+            >
+              {whatsappDisplay}
+            </a>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="font-medium text-gray-700">Email:</span>
+            <a
+              href={`mailto:${supportEmail}`}
+              className="font-medium text-blue-700 underline underline-offset-2 hover:text-blue-900"
+            >
+              {supportEmail}
+            </a>
+          </div>
+          {CONTACTS.support.responseTimeNote && (
+            <p className="mt-2 text-xs text-gray-600">
+              {CONTACTS.support.responseTimeNote}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* CTAs */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <MetaCtaClickWrapper
           ctaType="success_back_to_catalog"
           ctaText="Back to catalog"
@@ -196,7 +291,7 @@ export default async function CustomerSuccessPage({
         >
           <Button
             asChild
-            className="rounded-md bg-black text-white px-4 py-2 text-md font-medium cursor-pointer"
+            className="rounded-md bg-black text-white px-6 py-2 text-sm font-medium cursor-pointer"
           >
             <Link href="/catalog">
               Back to catalog
@@ -204,32 +299,26 @@ export default async function CustomerSuccessPage({
           </Button>
         </MetaCtaClickWrapper>
 
-        {booking.machine?.id ? (
-          <MetaCtaClickWrapper
-            ctaType="success_view_machine"
-            ctaText="View machine"
-            ctaDestination={`/machine/${booking.machine.id}`}
-            ctaLocation="booking_success"
+        <MetaCtaClickWrapper
+          ctaType="success_whatsapp"
+          ctaText="Contact on WhatsApp"
+          ctaDestination={whatsappUrl}
+          ctaLocation="booking_success"
+        >
+          <Button
+            asChild
+            variant="outline"
+            className="rounded-md px-6 py-2 text-sm font-medium cursor-pointer"
           >
-            <Link
-              href={`/machine/${booking.machine.id}`}
-              className="underline cursor-pointer"
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
             >
-              View machine
-            </Link>
-          </MetaCtaClickWrapper>
-        ) : (
-          <MetaCtaClickWrapper
-            ctaType="success_go_home"
-            ctaText="Go to homepage"
-            ctaDestination="/"
-            ctaLocation="booking_success"
-          >
-            <Link href="/" className="underline cursor-pointer">
-              Go to homepage
-            </Link>
-          </MetaCtaClickWrapper>
-        )}
+              Contact on WhatsApp
+            </a>
+          </Button>
+        </MetaCtaClickWrapper>
       </div>
 
       {/* GA4 purchase fires once on mount */}
