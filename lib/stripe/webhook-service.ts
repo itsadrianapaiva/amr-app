@@ -116,10 +116,62 @@ export async function promoteBookingToConfirmed(
       return; // ack anyway
     }
 
-    // If already confirmed and paid, nothing to do.
+    // If already confirmed and paid, only backfill missing metadata (idempotent).
     if (existing.status === BookingStatus.CONFIRMED && existing.depositPaid) {
-      log("promote:already_confirmed", { bookingId: existing.id });
-      return;
+      const backfillData: any = {};
+
+      // Backfill PI if missing
+      if (!existing.stripePaymentIntentId && args.paymentIntentId) {
+        backfillData.stripePaymentIntentId = args.paymentIntentId;
+      }
+
+      // Backfill totalCost if missing
+      if (args.totalCostEuros != null && existing.totalCost == null) {
+        backfillData.totalCost = args.totalCostEuros;
+      }
+
+      // Backfill discount metadata if missing (same logic as main path)
+      const existingDiscountNum = Number(
+        (existing.discountPercentage as any)?.toNumber?.() ??
+          existing.discountPercentage ??
+          0
+      );
+      if (
+        args.discountPercent != null &&
+        (existing.discountPercentage == null || existingDiscountNum === 0)
+      ) {
+        backfillData.discountPercentage = args.discountPercent;
+      }
+      if (
+        args.originalSubtotalExVatCents != null &&
+        (existing.originalSubtotalExVatCents == null ||
+          existing.originalSubtotalExVatCents === 0)
+      ) {
+        backfillData.originalSubtotalExVatCents = args.originalSubtotalExVatCents;
+      }
+      if (
+        args.discountedSubtotalExVatCents != null &&
+        (existing.discountedSubtotalExVatCents == null ||
+          existing.discountedSubtotalExVatCents === 0)
+      ) {
+        backfillData.discountedSubtotalExVatCents = args.discountedSubtotalExVatCents;
+      }
+
+      // Only update if there's something to backfill
+      if (Object.keys(backfillData).length > 0) {
+        await tx.booking.update({
+          where: { id: args.bookingId },
+          data: backfillData,
+        });
+        log("promote:backfill", {
+          bookingId: args.bookingId,
+          fields: Object.keys(backfillData),
+        });
+      } else {
+        log("promote:already_confirmed", { bookingId: existing.id });
+      }
+
+      return; // Exit after backfill check
     }
 
     // Build update data - only set values if provided and not already set (idempotent)
