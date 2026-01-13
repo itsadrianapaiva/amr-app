@@ -136,7 +136,7 @@ export async function GET(req: Request) {
       );
     }
 
-    const facts = {
+    const facts: import("@/lib/invoicing/issue-for-booking").BookingFacts = {
       id: b.id,
       startDate: b.startDate,
       endDate: b.endDate,
@@ -168,7 +168,7 @@ export async function GET(req: Request) {
         : null,
       originalSubtotalExVatCents: b.originalSubtotalExVatCents ?? null,
       discountedSubtotalExVatCents: b.discountedSubtotalExVatCents ?? null,
-    } as const;
+    };
 
     const paymentIntentId = piParam || b.stripePaymentIntentId || "";
     if (!paymentIntentId) {
