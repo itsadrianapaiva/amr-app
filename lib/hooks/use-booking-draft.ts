@@ -19,6 +19,7 @@ type DraftV1 = {
   pickupSelected?: boolean;
   insuranceSelected?: boolean;
   operatorSelected?: boolean;
+  equipmentAddons?: Array<{ code?: string; quantity?: number }>;
   siteAddress?: {
     line1?: string;
     postalCode?: string;
@@ -58,6 +59,7 @@ function extract(values: BookingFormValues): DraftV1 {
     pickupSelected: !!values.pickupSelected,
     insuranceSelected: !!values.insuranceSelected,
     operatorSelected: !!values.operatorSelected,
+    equipmentAddons: values.equipmentAddons ?? [],
     siteAddress: {
       line1: values.siteAddress?.line1 ?? "",
       postalCode: values.siteAddress?.postalCode ?? "",
@@ -79,6 +81,25 @@ function merge(
   draft: DraftV1 | null
 ): BookingFormValues {
   if (!draft || draft.v !== 1) return current;
+
+  // Sanitize equipmentAddons defensively
+  let sanitizedEquipment = current.equipmentAddons;
+  if (Array.isArray(draft.equipmentAddons)) {
+    const cleaned = draft.equipmentAddons
+      .map((item) => {
+        if (!item || typeof item !== "object") return null;
+        const code = typeof item.code === "string" ? item.code.trim() : "";
+        if (!code) return null;
+        const qty = Number(item.quantity);
+        if (!Number.isFinite(qty)) return null;
+        const clampedQty = Math.max(1, Math.min(999, Math.floor(qty)));
+        return { code, quantity: clampedQty };
+      })
+      .filter((item): item is { code: string; quantity: number } => item !== null)
+      .slice(0, 20); // max 20 items
+    sanitizedEquipment = cleaned;
+  }
+
   return {
     ...current,
     dateRange: {
@@ -105,6 +126,7 @@ function merge(
       typeof draft.operatorSelected === "boolean"
         ? draft.operatorSelected
         : current.operatorSelected,
+    equipmentAddons: sanitizedEquipment,
     siteAddress: {
       line1: draft.siteAddress?.line1 ?? current.siteAddress?.line1 ?? "",
       postalCode:
