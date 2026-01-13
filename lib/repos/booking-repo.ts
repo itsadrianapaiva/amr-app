@@ -490,11 +490,12 @@ export async function createOrReusePendingBooking(
 
         // Create service addon items (if selected)
         for (const addon of serviceAddonMachines) {
+          const addonQuantity = computeStoredQuantity(1, addon.timeUnit, rentalDays);
           await tx.bookingItem.create({
             data: {
               bookingId: created.id,
               machineId: addon.id,
-              quantity: 1,
+              quantity: addonQuantity,
               isPrimary: false,
               unitPrice: addonPriceMap[addon.code] ?? 0,
               itemType: addon.itemType,
@@ -506,12 +507,13 @@ export async function createOrReusePendingBooking(
 
         // Create equipment addon items (Slice 6)
         for (const equipMachine of equipmentMachines) {
-          const quantity = equipmentMap.get(equipMachine.code) ?? 1;
+          const baseQuantity = equipmentMap.get(equipMachine.code) ?? 1;
+          const equipQuantity = computeStoredQuantity(baseQuantity, equipMachine.timeUnit, rentalDays);
           await tx.bookingItem.create({
             data: {
               bookingId: created.id,
               machineId: equipMachine.id,
-              quantity,
+              quantity: equipQuantity,
               isPrimary: false,
               unitPrice: equipMachine.dailyRate,
               itemType: equipMachine.itemType,
