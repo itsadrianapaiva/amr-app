@@ -600,6 +600,141 @@ Every booking creates `BookingItem` records:
 
 **Source:** `lib/repos/booking-repo.ts` (lines 240-320)
 
+### BookingItem Quantity Semantics (Invoice-Ready)
+
+**Status:** Live in production (P0 fix deployed 2026-01-13)
+
+**Problem:** Stripe totals (which multiply by rentalDays for DAY items) did not match BookingItems subtotals, causing Vendus invoice issuance to fail with a guardrail error. BookingItem.quantity previously stored only "base units" (e.g., 1 for primary machine, 2 for 2 hammers) and did not encode rental duration.
+
+**Solution:** BookingItem.quantity now stores "billable quantity" that matches Stripe metadata:
+- **timeUnit=DAY:** quantity is multiplied by rentalDays at persistence time
+- **timeUnit=NONE:** quantity stays as base units (usually 1 for flat charges)
+
+**Critical Invariant (must hold):**
+```typescript
+SUM(BookingItem.unitPrice * BookingItem.quantity) === originalSubtotalExVatCents / 100
+```
+
+After discount allocation in invoicing:
+```typescript
+invoiceNetCents === discountedSubtotalExVatCents (within 1 cent tolerance)
+```
+
+**Quantity Semantics Table:**
+
+| chargeModel + timeUnit | Base Units | Stored Quantity (BookingItem.quantity) | Example |
+|------------------------|------------|----------------------------------------|---------|
+| PER_BOOKING + DAY | 1 | 1 × rentalDays | Primary machine: 3-day rental → quantity=3 |
+| PER_UNIT + DAY | units (e.g., 2 hammers) | units × rentalDays | 2 hammers, 3 days → quantity=6 |
+| PER_BOOKING + NONE | 1 | 1 | Delivery fee → quantity=1 |
+| PER_UNIT + NONE | units | units | Flat per-unit charge → quantity=units |
+
+**rentalDays Calculation (inclusive):**
+```typescript
+const rentalDays = Math.max(
+  1,
+  Math.round((endDate.getTime() - startDate.getTime()) / 86_400_000) + 1
+);
+```
+
+**DO NOT DO THIS (Common Mistakes):**
+- ❌ Do not multiply BookingItem totals by rentalDays again in invoicing, emails, or PDF generation
+- ❌ Do not rebuild Stripe totals from BookingItems (Stripe uses pricing engine + user selections)
+- ❌ Do not treat BookingItem.quantity as "units only" for DAY items (it's units × days)
+- ❌ Do not compute email/invoice line totals as `unitPrice * quantity * rentalDays` (days already in quantity)
+
+**Correct Usage:**
+```typescript
+// Invoicing: quantity already includes duration for DAY items
+const lineTotalCents = item.unitPriceCents * item.quantity;
+
+// Email display: derive units from quantity for PER_UNIT + DAY items
+let displayQuantity = item.quantity;
+if (chargeModel === "PER_UNIT" && timeUnit === "DAY" && rentalDays > 1) {
+  if (item.quantity % rentalDays === 0) {
+    displayQuantity = item.quantity / rentalDays; // Show units only
+  }
+}
+```
+
+**Impacted Components:**
+- **Invoicing:** `lib/invoicing/map-stripe-to-invoice.ts` - Uses BookingItems directly to build Vendus line items. Quantity already includes days multiplication.
+- **Emails:** `lib/notifications/notify-booking-confirmed.tsx` - Must display "units only" for PER_UNIT + DAY by deriving units = quantity / rentalDays when divisible.
+- **Stripe checkout:** `app/actions/create-checkout.ts` - Uses pricing engine and user selections, NOT BookingItems. Independent path.
+
+**Verification Queries:**
+
+Query A: Verify BookingItems subtotal matches Stripe metadata
+```sql
+WITH booking_items_subtotal AS (
+  SELECT
+    bi.bookingId,
+    SUM(bi.quantity * bi.unitPrice) AS items_subtotal_euros
+  FROM "BookingItem" bi
+  GROUP BY bi.bookingId
+),
+stripe_metadata AS (
+  SELECT
+    b.id AS booking_id,
+    b.originalSubtotalExVatCents / 100.0 AS stripe_subtotal_euros,
+    b.discountedSubtotalExVatCents / 100.0 AS discounted_subtotal_euros
+  FROM "Booking" b
+  WHERE b.status = 'CONFIRMED'
+    AND b.createdAt > NOW() - INTERVAL '1 hour'
+)
+SELECT
+  sm.booking_id,
+  ROUND(bis.items_subtotal_euros::numeric, 2) AS bookingitems_subtotal,
+  ROUND(COALESCE(sm.discounted_subtotal_euros, sm.stripe_subtotal_euros)::numeric, 2) AS stripe_subtotal,
+  CASE
+    WHEN ABS(bis.items_subtotal_euros - COALESCE(sm.discounted_subtotal_euros, sm.stripe_subtotal_euros)) < 0.02
+    THEN '✅ MATCH'
+    ELSE '❌ MISMATCH'
+  END AS validation_status
+FROM booking_items_subtotal bis
+JOIN stripe_metadata sm ON sm.booking_id = bis.bookingId
+ORDER BY sm.booking_id DESC
+LIMIT 10;
+```
+
+Query B: Verify DAY semantics for primary, operator, and equipment
+```sql
+WITH booking_days AS (
+  SELECT
+    b.id AS booking_id,
+    EXTRACT(EPOCH FROM (b.endDate - b.startDate)) / 86400 + 1 AS rental_days
+  FROM "Booking" b
+  WHERE b.status IN ('PENDING', 'CONFIRMED')
+    AND b.createdAt > NOW() - INTERVAL '1 hour'
+)
+SELECT
+  b.id AS booking_id,
+  bd.rental_days,
+  m.code AS machine_code,
+  bi.quantity AS stored_quantity,
+  bi.timeUnit,
+  bi.chargeModel,
+  CASE
+    WHEN bi.isPrimary AND bi.timeUnit = 'DAY' AND bi.quantity = bd.rental_days
+      THEN '✅ PRIMARY correct'
+    WHEN m.code = 'addon-operator' AND bi.timeUnit = 'DAY' AND bi.quantity = bd.rental_days
+      THEN '✅ OPERATOR correct'
+    WHEN bi.chargeModel = 'PER_UNIT' AND bi.timeUnit = 'DAY' AND bi.quantity % bd.rental_days = 0
+      THEN '✅ EQUIPMENT correct (' || (bi.quantity / bd.rental_days)::text || ' units × ' || bd.rental_days::text || ' days)'
+    WHEN bi.timeUnit = 'NONE' AND bi.quantity = 1
+      THEN '✅ SERVICE correct'
+    ELSE '❌ MISMATCH'
+  END AS validation_status
+FROM "Booking" b
+JOIN booking_days bd ON bd.booking_id = b.id
+JOIN "BookingItem" bi ON bi.bookingId = b.id
+JOIN "Machine" m ON m.id = bi.machineId
+ORDER BY b.id DESC, bi.isPrimary DESC
+LIMIT 20;
+```
+
+**Source:** `lib/repos/booking-repo.ts` (lines 36-507)
+
 ### Integer Cents for Money Safety
 
 All critical money calculations use integer cents to prevent float drift:
