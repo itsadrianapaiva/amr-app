@@ -194,18 +194,20 @@ export default async function CustomerSuccessPage({
             Please include this reference if you contact us.
           </p>
         </div>
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 border-t border-gray-200 pt-3 sm:grid-cols-2">
+        <dl className="space-y-3 border-t border-gray-200 pt-3">
           <div>
             <dt className="text-sm text-gray-600">Machine</dt>
             <dd className="mt-1 text-sm font-medium">{booking.machine?.name ?? "Selected machine"}</dd>
           </div>
-          <div>
-            <dt className="text-sm text-gray-600">Start date</dt>
-            <dd className="mt-1 text-sm font-medium">{start}</dd>
-          </div>
-          <div>
-            <dt className="text-sm text-gray-600">End date</dt>
-            <dd className="mt-1 text-sm font-medium">{end}</dd>
+          <div className="grid grid-cols-2 gap-x-6">
+            <div>
+              <dt className="text-sm text-gray-600">Start date</dt>
+              <dd className="mt-1 text-sm font-medium">{start}</dd>
+            </div>
+            <div>
+              <dt className="text-sm text-gray-600">End date</dt>
+              <dd className="mt-1 text-sm font-medium">{end}</dd>
+            </div>
           </div>
         </dl>
       </div>
@@ -239,7 +241,7 @@ export default async function CustomerSuccessPage({
           </div>
           {depositValue > 0 && (
             <div className="flex items-center justify-between">
-              <dt className="text-gray-600">Refundable deposit</dt>
+              <dt className="text-gray-600">Refundable deposit (paid at handover)</dt>
               <dd className="font-semibold">{formatEUR(depositValue)}</dd>
             </div>
           )}
