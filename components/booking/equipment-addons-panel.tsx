@@ -27,7 +27,7 @@ export default function EquipmentAddonsPanel({
 }: EquipmentAddonsPanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, update } = useFieldArray({
     control,
     name: "equipmentAddons",
   });
@@ -66,12 +66,9 @@ export default function EquipmentAddonsPanel({
     if (index >= 0) {
       const currentQty = fields[index].quantity;
       const newQty = Math.max(1, Math.min(999, currentQty + delta));
-      // Update via field array (RHF manages state)
-      const updatedFields = [...fields];
-      updatedFields[index] = { ...updatedFields[index], quantity: newQty };
-      // Remove all and re-add (simple approach for RHF field array)
-      remove();
-      updatedFields.forEach((f) => append(f));
+      // Use update() instead of remove()+append() to avoid transient empty arrays
+      // that cause sessionStorage draft to capture equipmentAddons: []
+      update(index, { code, quantity: newQty });
     }
   };
 
@@ -79,10 +76,11 @@ export default function EquipmentAddonsPanel({
   const handleQuantitySet = (code: string, newQuantity: number) => {
     const index = fields.findIndex((f) => f.code === code);
     if (index >= 0) {
-      const updatedFields = [...fields];
-      updatedFields[index] = { ...updatedFields[index], quantity: newQuantity };
-      remove();
-      updatedFields.forEach((f) => append(f));
+      // Validate and clamp input to [1, 999]
+      if (isNaN(newQuantity)) return;
+      const clampedQty = Math.max(1, Math.min(999, newQuantity));
+      // Use update() to preserve RHF field IDs and avoid transient empty arrays
+      update(index, { code, quantity: clampedQty });
     }
   };
 
