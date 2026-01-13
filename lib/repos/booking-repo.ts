@@ -43,11 +43,14 @@ export type PendingBookingDTO = {
   startDate: Date;
   endDate: Date;
 
-  // Add-ons
+  // Add-ons (services)
   insuranceSelected: boolean;
   deliverySelected: boolean;
   pickupSelected: boolean;
   operatorSelected: boolean;
+
+  // Add-ons (equipment with quantity)
+  equipmentAddons?: Array<{ code: string; quantity: number }>;
 
   // Contact
   customer: {
@@ -254,16 +257,16 @@ export async function createOrReusePendingBooking(
         );
       }
 
-      // Fetch addon machines by code for creating addon BookingItems
-      const addonCodes: string[] = [];
-      if (deliverySelected) addonCodes.push("addon-delivery");
-      if (pickupSelected) addonCodes.push("addon-pickup");
-      if (insuranceSelected) addonCodes.push("addon-insurance");
-      if (operatorSelected) addonCodes.push("addon-operator");
+      // Fetch service addon machines by code for creating addon BookingItems
+      const serviceAddonCodes: string[] = [];
+      if (deliverySelected) serviceAddonCodes.push("addon-delivery");
+      if (pickupSelected) serviceAddonCodes.push("addon-pickup");
+      if (insuranceSelected) serviceAddonCodes.push("addon-insurance");
+      if (operatorSelected) serviceAddonCodes.push("addon-operator");
 
-      const addonMachines = addonCodes.length > 0
+      const serviceAddonMachines = serviceAddonCodes.length > 0
         ? await tx.machine.findMany({
-            where: { code: { in: addonCodes } },
+            where: { code: { in: serviceAddonCodes } },
             select: {
               id: true,
               code: true,
@@ -274,6 +277,32 @@ export async function createOrReusePendingBooking(
             },
           })
         : [];
+
+      // Fetch equipment addon machines (Slice 6)
+      const equipmentAddons = dto.equipmentAddons ?? [];
+      const equipmentCodes = equipmentAddons.map((e) => e.code);
+      const equipmentMachines = equipmentCodes.length > 0
+        ? await tx.machine.findMany({
+            where: {
+              code: { in: equipmentCodes },
+              itemType: "ADDON",
+              addonGroup: "EQUIPMENT",
+            },
+            select: {
+              id: true,
+              code: true,
+              dailyRate: true,
+              itemType: true,
+              chargeModel: true,
+              timeUnit: true,
+            },
+          })
+        : [];
+
+      // Build equipment map for quantity lookup
+      const equipmentMap = new Map(
+        equipmentAddons.map((e) => [e.code, e.quantity])
+      );
 
       // Map addon code → unitPrice from charges
       const addonPriceMap: Record<string, number> = {
@@ -330,8 +359,8 @@ export async function createOrReusePendingBooking(
           },
         });
 
-        // Create addon items (if selected)
-        for (const addon of addonMachines) {
+        // Create service addon items (if selected)
+        for (const addon of serviceAddonMachines) {
           await tx.bookingItem.create({
             data: {
               bookingId: existing.id,
@@ -342,6 +371,23 @@ export async function createOrReusePendingBooking(
               itemType: addon.itemType,
               chargeModel: addon.chargeModel,
               timeUnit: addon.timeUnit,
+            },
+          });
+        }
+
+        // Create equipment addon items (Slice 6)
+        for (const equipMachine of equipmentMachines) {
+          const quantity = equipmentMap.get(equipMachine.code) ?? 1;
+          await tx.bookingItem.create({
+            data: {
+              bookingId: existing.id,
+              machineId: equipMachine.id,
+              quantity,
+              isPrimary: false,
+              unitPrice: equipMachine.dailyRate,
+              itemType: equipMachine.itemType,
+              chargeModel: equipMachine.chargeModel,
+              timeUnit: equipMachine.timeUnit,
             },
           });
         }
@@ -404,8 +450,8 @@ export async function createOrReusePendingBooking(
           },
         });
 
-        // Create addon items (if selected)
-        for (const addon of addonMachines) {
+        // Create service addon items (if selected)
+        for (const addon of serviceAddonMachines) {
           await tx.bookingItem.create({
             data: {
               bookingId: created.id,
@@ -416,6 +462,23 @@ export async function createOrReusePendingBooking(
               itemType: addon.itemType,
               chargeModel: addon.chargeModel,
               timeUnit: addon.timeUnit,
+            },
+          });
+        }
+
+        // Create equipment addon items (Slice 6)
+        for (const equipMachine of equipmentMachines) {
+          const quantity = equipmentMap.get(equipMachine.code) ?? 1;
+          await tx.bookingItem.create({
+            data: {
+              bookingId: created.id,
+              machineId: equipMachine.id,
+              quantity,
+              isPrimary: false,
+              unitPrice: equipMachine.dailyRate,
+              itemType: equipMachine.itemType,
+              chargeModel: equipMachine.chargeModel,
+              timeUnit: equipMachine.timeUnit,
             },
           });
         }

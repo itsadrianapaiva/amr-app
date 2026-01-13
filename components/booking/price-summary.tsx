@@ -1,5 +1,5 @@
 import { cn, formatCurrency } from "@/lib/utils";
-import { computeTotals, PriceInputs } from "@/lib/pricing";
+import { computeTotalsFromItems, type PricingContextInput, type PricingItemInput } from "@/lib/pricing";
 import { Card, CardContent } from "@/components/ui/card";
 import PriceRow from "@/components/booking/price-row";
 import CheckoutTrustRow from "@/components/trust/checkout-trust-row";
@@ -31,12 +31,19 @@ type PriceSummaryProps = {
   // Deposit (shown separately; not included in the computeTotals total)
   deposit: number;
 
+  // Equipment addons (Slice 6)
+  equipmentAddons?: Array<{
+    name: string;
+    unitPrice: number;
+    quantity: number;
+  }>;
+
   className?: string;
 };
 
 /**
  * Presentational summary of pricing.
- * Delegates all *net* math to computeTotals (ex-VAT).
+ * Delegates all *net* math to computeTotalsFromItems (ex-VAT).
  * Locally computes VAT (PT 23%) in integer cents to guarantee Stripe parity.
  */
 export function PriceSummary({
@@ -52,25 +59,45 @@ export function PriceSummary({
   operatorCharge = null,
   discountPercentage = 0,
   deposit,
+  equipmentAddons = [],
   className,
 }: PriceSummaryProps) {
-  // Shape inputs for computeTotals while staying compatible with older callers
-  const inputs: PriceInputs = {
+  // Build items array: primary machine + equipment addons
+  const items: PricingItemInput[] = [
+    {
+      quantity: 1,
+      chargeModel: "PER_BOOKING",
+      timeUnit: "DAY",
+      unitPrice: dailyRate,
+    },
+  ];
+
+  // Add equipment items
+  for (const equip of equipmentAddons ?? []) {
+    items.push({
+      quantity: equip.quantity,
+      chargeModel: "PER_UNIT",
+      timeUnit: "DAY",
+      unitPrice: equip.unitPrice,
+    });
+  }
+
+  // Build pricing context
+  const context: PricingContextInput = {
     rentalDays,
-    dailyRate,
     deliverySelected,
     pickupSelected,
     insuranceSelected,
+    operatorSelected,
     deliveryCharge,
     pickupCharge,
     insuranceCharge,
-    operatorSelected,
     operatorCharge,
     discountPercentage,
   };
 
   // Net (ex-VAT) breakdown from central pricing utility
-  const breakdown = computeTotals(inputs);
+  const breakdown = computeTotalsFromItems(context, items);
 
   // --- VAT math (PT standard 23%) ------------------------------------------
   // Use integer cents to avoid floating rounding drift.
@@ -94,13 +121,31 @@ export function PriceSummary({
         </h3>
 
         <div className="mt-4 space-y-2 text-sm">
+          {/* Primary machine rental - separate from equipment */}
           <PriceRow
-            label={`Rental (${breakdown.rentalDays} day${
+            label={`Machine rental (${breakdown.rentalDays} day${
               breakdown.rentalDays === 1 ? "" : "s"
             })`}
           >
-            {formatCurrency(breakdown.subtotal)}
+            {formatCurrency(dailyRate * rentalDays)}
           </PriceRow>
+
+          {/* Equipment addon line items */}
+          {equipmentAddons && equipmentAddons.length > 0 && (
+            <>
+              {equipmentAddons.map((equip, idx) => {
+                const lineTotal = equip.unitPrice * equip.quantity * rentalDays;
+                return (
+                  <PriceRow
+                    key={idx}
+                    label={`${equip.name} (${equip.quantity} × ${rentalDays} days)`}
+                  >
+                    {formatCurrency(lineTotal)}
+                  </PriceRow>
+                );
+              })}
+            </>
+          )}
 
           {deliverySelected && (
             <PriceRow label="Delivery">

@@ -364,4 +364,161 @@ describe("computeTotalsFromItems (Cart-ready pricing engine)", () => {
       expect(result.total).toBe(225); // 250 - 25
     });
   });
+
+  describe("Equipment addons (PER_UNIT * DAY * quantity)", () => {
+    it("calculates single equipment item with quantity", () => {
+      const result = computeTotalsFromItems(
+        {
+          rentalDays: 3,
+          deliverySelected: false,
+          pickupSelected: false,
+          insuranceSelected: false,
+        },
+        [
+          // Primary machine
+          {
+            quantity: 1,
+            chargeModel: "PER_BOOKING",
+            timeUnit: "DAY",
+            unitPrice: 99,
+          },
+          // Equipment: 5 scaffolding pieces at €4/day each
+          {
+            quantity: 5,
+            chargeModel: "PER_UNIT",
+            timeUnit: "DAY",
+            unitPrice: 4,
+          },
+        ]
+      );
+
+      expect(result.subtotal).toBe(357); // (99 * 3) + (5 * 4 * 3) = 297 + 60 = 357
+      expect(result.total).toBe(357);
+      expect(result.rentalDays).toBe(3);
+    });
+
+    it("calculates multiple equipment items with different quantities", () => {
+      const result = computeTotalsFromItems(
+        {
+          rentalDays: 7,
+          deliverySelected: false,
+          pickupSelected: false,
+          insuranceSelected: false,
+        },
+        [
+          // Primary machine
+          {
+            quantity: 1,
+            chargeModel: "PER_BOOKING",
+            timeUnit: "DAY",
+            unitPrice: 185,
+          },
+          // Equipment 1: 10 scaffolding pieces at €4/day
+          {
+            quantity: 10,
+            chargeModel: "PER_UNIT",
+            timeUnit: "DAY",
+            unitPrice: 4,
+          },
+          // Equipment 2: 3 support stilts at €0.50/day
+          {
+            quantity: 3,
+            chargeModel: "PER_UNIT",
+            timeUnit: "DAY",
+            unitPrice: 0.5,
+          },
+        ]
+      );
+
+      // Primary: 185 * 7 = 1295
+      // Scaffolding: 10 * 4 * 7 = 280
+      // Stilts: 3 * 0.5 * 7 = 10.5
+      // Total: 1295 + 280 + 10.5 = 1585.5
+      expect(result.subtotal).toBe(1585.5);
+      expect(result.total).toBe(1585.5);
+    });
+
+    it("combines primary machine, service addons, and equipment addons", () => {
+      const result = computeTotalsFromItems(
+        {
+          rentalDays: 5,
+          deliverySelected: true,
+          pickupSelected: true,
+          insuranceSelected: true,
+          operatorSelected: false,
+          deliveryCharge: 40,
+          pickupCharge: 40,
+          insuranceCharge: 50,
+          operatorCharge: 0,
+        },
+        [
+          // Primary machine
+          {
+            quantity: 1,
+            chargeModel: "PER_BOOKING",
+            timeUnit: "DAY",
+            unitPrice: 99,
+          },
+          // Equipment: 2 formwork pillars at €7/day
+          {
+            quantity: 2,
+            chargeModel: "PER_UNIT",
+            timeUnit: "DAY",
+            unitPrice: 7,
+          },
+        ]
+      );
+
+      // Primary: 99 * 5 = 495
+      // Equipment: 2 * 7 * 5 = 70
+      // Delivery: 40
+      // Pickup: 40
+      // Insurance: 50
+      // Total: 495 + 70 + 40 + 40 + 50 = 695
+      expect(result.subtotal).toBe(565); // 495 + 70
+      expect(result.delivery).toBe(40);
+      expect(result.pickup).toBe(40);
+      expect(result.insurance).toBe(50);
+      expect(result.total).toBe(695);
+    });
+
+    it("applies discount to primary + equipment + delivery subtotal", () => {
+      const result = computeTotalsFromItems(
+        {
+          rentalDays: 3,
+          deliverySelected: true,
+          pickupSelected: false,
+          insuranceSelected: false,
+          deliveryCharge: 40,
+          discountPercentage: 10,
+        },
+        [
+          // Primary machine
+          {
+            quantity: 1,
+            chargeModel: "PER_BOOKING",
+            timeUnit: "DAY",
+            unitPrice: 100,
+          },
+          // Equipment: 5 items at €4/day
+          {
+            quantity: 5,
+            chargeModel: "PER_UNIT",
+            timeUnit: "DAY",
+            unitPrice: 4,
+          },
+        ]
+      );
+
+      // Subtotal: (100 * 3) + (5 * 4 * 3) = 300 + 60 = 360
+      // + Delivery: 40
+      // Subtotal with delivery: 400
+      // Discount: 400 * 0.1 = 40
+      // Total: 400 - 40 = 360
+      expect(result.subtotal).toBe(360);
+      expect(result.delivery).toBe(40);
+      expect(result.discount).toBe(40);
+      expect(result.total).toBe(360);
+    });
+  });
 });

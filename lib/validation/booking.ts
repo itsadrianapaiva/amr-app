@@ -56,11 +56,22 @@ export const baseBookingFormSchema = z
       .max(20, { message: "Phone number is too long" }),
     customerNIF: z.string().optional().nullable(),
 
-    // Add-ons
+    // Add-ons (services)
     deliverySelected: z.coerce.boolean().default(true),
     pickupSelected: z.coerce.boolean().default(true),
     insuranceSelected: z.coerce.boolean().default(true),
     operatorSelected: z.coerce.boolean().default(false),
+
+    // Add-ons (equipment)
+    equipmentAddons: z
+      .array(
+        z.object({
+          code: z.string().min(1),
+          quantity: z.coerce.number().int().min(1).max(999),
+        })
+      )
+      .max(20)
+      .default([]),
 
     // Operational site address (base-optional)
     siteAddress: siteAddressSchema.optional(),

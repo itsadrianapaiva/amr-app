@@ -40,6 +40,8 @@ model Machine {
   chargeModel ChargeModel     @default(PER_BOOKING)
   /// Cart-ready: Time unit (DAY or HOUR for future hourly)
   timeUnit    TimeUnit        @default(DAY)
+  /// Cart-ready: Addon group classification (only for ADDON items)
+  addonGroup  AddonGroup?
 
   bookings     Booking[]
   bookingItems BookingItem[]
@@ -272,4 +274,11 @@ enum TimeUnit {
 enum BookingDurationUnit {
   DAY
   HOUR
+}
+
+/// Cart-ready: Addon group classification
+enum AddonGroup {
+  SERVICE
+  EQUIPMENT
+  MATERIAL
 }

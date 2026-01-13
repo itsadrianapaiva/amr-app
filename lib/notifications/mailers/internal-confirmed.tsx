@@ -4,6 +4,7 @@ import type { ReactElement } from "react";
 import BookingInternalEmail from "@/lib/emails/templates/booking-internal";
 import { getInternalBranding } from "@/lib/emails/branding";
 import { resolveBaseUrl } from "@/lib/url/base";
+import type { EmailLineItem } from "@/lib/notifications/notify-booking-confirmed";
 
 export type InternalConfirmedView = {
   id: number;
@@ -15,6 +16,7 @@ export type InternalConfirmedView = {
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
+  customerNIF?: string;
   siteAddress?: string;
   addonsList: string;
   subtotalExVat: string;
@@ -30,6 +32,14 @@ export type InternalConfirmedView = {
   discountedSubtotalExVat?: string;
   partnerCompanyName?: string;
   partnerNif?: string;
+  billingIsBusiness?: boolean;
+  billingCompanyName?: string;
+  billingTaxId?: string;
+  billingAddressLine1?: string;
+  billingPostalCode?: string;
+  billingCity?: string;
+  billingCountry?: string;
+  lineItems?: EmailLineItem[];
 };
 
 export type NotifySource = "customer" | "ops";
@@ -63,6 +73,7 @@ export async function buildInternalEmail(
       customerName={view.customerName || undefined}
       customerEmail={view.customerEmail || undefined}
       customerPhone={view.customerPhone || undefined}
+      customerNIF={view.customerNIF || undefined}
       siteAddress={view.siteAddress || undefined}
       addonsList={view.addonsList}
       deliverySelected={Boolean(view.deliverySelected)}
@@ -78,6 +89,13 @@ export async function buildInternalEmail(
       discountedSubtotalExVat={view.discountedSubtotalExVat}
       partnerCompanyName={view.partnerCompanyName}
       partnerNif={view.partnerNif}
+      billingIsBusiness={view.billingIsBusiness}
+      billingCompanyName={view.billingCompanyName}
+      billingTaxId={view.billingTaxId}
+      billingAddressLine1={view.billingAddressLine1}
+      billingPostalCode={view.billingPostalCode}
+      billingCity={view.billingCity}
+      billingCountry={view.billingCountry}
       opsUrlForBooking={opsUrlForBooking}
       stripePiId={undefined}
       stripePiUrl={undefined}
@@ -85,6 +103,7 @@ export async function buildInternalEmail(
       invoicePdfUrl={view.invoicePdfUrl}
       googleCalendarEventId={undefined}
       googleHtmlLink={undefined}
+      lineItems={view.lineItems}
     />
   );
 }

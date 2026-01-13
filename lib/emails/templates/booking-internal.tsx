@@ -1,5 +1,6 @@
 import "server-only";
 import type { ReactElement, ReactNode } from "react";
+import type { EmailLineItem } from "@/lib/notifications/notify-booking-confirmed";
 
 /** Ops-facing fast-facts template. Money as strings "123.45". */
 export type BookingInternalEmailProps = {
@@ -20,9 +21,19 @@ export type BookingInternalEmailProps = {
   customerName?: string | null;
   customerEmail?: string | null;
   customerPhone?: string | null;
+  customerNIF?: string | null;
 
   siteAddress?: string | null;
   addonsList?: string | null;
+
+  // Business booking fields
+  billingIsBusiness?: boolean;
+  billingCompanyName?: string | null;
+  billingTaxId?: string | null;
+  billingAddressLine1?: string | null;
+  billingPostalCode?: string | null;
+  billingCity?: string | null;
+  billingCountry?: string | null;
 
   // explicit fulfilment flags (optional so existing callers don't break)
   /** Delivery = AMR delivers to customer at START */
@@ -54,6 +65,8 @@ export type BookingInternalEmailProps = {
 
   googleCalendarEventId?: string | null;
   googleHtmlLink?: string | null;
+
+  lineItems?: EmailLineItem[];
 };
 
 /** Helpers */
@@ -75,6 +88,7 @@ function fmtRangeLisbon(aYmd: string, bYmd: string): string {
   return a === b ? a : `${a} to ${b}`;
 }
 const euro = (n: string) => `€${n}`;
+const centsToEuro = (cents: number) => `€${(cents / 100).toFixed(2)}`;
 
 /** Inline styles: robust across mail clients (ASCII-only to avoid parser issues) */
 const S = {
@@ -95,12 +109,46 @@ const S = {
     border: "1px solid #e5e7eb",
   },
   h1: { fontSize: "16px", margin: "0 0 12px 0" },
+  h2: { fontSize: "14px", margin: "16px 0 8px 0", fontWeight: "600" },
   p: { margin: "8px 0" },
   k: { color: "#374151", minWidth: "132px", display: "inline-block" },
   v: { color: "#111827" },
   hr: { border: 0, borderTop: "1px solid #e5e7eb", margin: "14px 0" },
   small: { color: "#6b7280", fontSize: "12px" },
   link: { color: "#111827" },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse" as const,
+    fontSize: "12px",
+    marginTop: "8px",
+  },
+  th: {
+    textAlign: "left" as const,
+    padding: "6px 8px",
+    borderBottom: "1px solid #e5e7eb",
+    color: "#6b7280",
+    fontWeight: "500",
+    fontSize: "11px",
+  },
+  td: {
+    padding: "6px 8px",
+    borderBottom: "1px solid #f3f4f6",
+    color: "#111827",
+    fontSize: "12px",
+  },
+  tdRight: {
+    padding: "6px 8px",
+    borderBottom: "1px solid #f3f4f6",
+    color: "#111827",
+    textAlign: "right" as const,
+    fontSize: "12px",
+  },
+  tdSmall: {
+    padding: "6px 8px",
+    borderBottom: "1px solid #f3f4f6",
+    color: "#6b7280",
+    fontSize: "11px",
+  },
 } as const;
 
 /** Accept ReactNode so we can pass strings OR <a> links without casts. */
@@ -129,8 +177,17 @@ export default function BookingInternalEmail(
     customerName,
     customerEmail,
     customerPhone,
+    customerNIF,
     siteAddress,
     addonsList,
+    // Business fields
+    billingIsBusiness,
+    billingCompanyName,
+    billingTaxId,
+    billingAddressLine1,
+    billingPostalCode,
+    billingCity,
+    billingCountry,
     // NEW flags
     deliverySelected,
     pickupSelected,
@@ -152,6 +209,7 @@ export default function BookingInternalEmail(
     invoicePdfUrl,
     googleCalendarEventId,
     googleHtmlLink,
+    lineItems,
   } = props;
 
   const dateRange = fmtRangeLisbon(startYmd, endYmd);
@@ -184,7 +242,6 @@ export default function BookingInternalEmail(
               v={source === "customer" ? "Customer checkout" : "Ops console"}
             />
 
-            <Row k="Machine:" v={`${machineName} (id ${machineId})`} />
             <Row k="Dates:" v={`${dateRange} (Lisbon) • ${rentalDays}d`} />
 
             <Row
@@ -196,8 +253,36 @@ export default function BookingInternalEmail(
               ].join("")}
             />
 
+            {/* Customer NIF */}
+            {customerNIF && <Row k="Customer NIF:" v={customerNIF} />}
+
+            {/* Business billing info */}
+            {billingIsBusiness && (
+              <>
+                {billingCompanyName && (
+                  <Row k="Business:" v={billingCompanyName} />
+                )}
+                {billingTaxId && <Row k="VAT/Tax ID:" v={billingTaxId} />}
+                {(billingAddressLine1 ||
+                  billingPostalCode ||
+                  billingCity ||
+                  billingCountry) && (
+                  <Row
+                    k="Billing address:"
+                    v={[
+                      billingAddressLine1,
+                      billingPostalCode,
+                      billingCity,
+                      billingCountry,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
+                  />
+                )}
+              </>
+            )}
+
             <Row k="Address:" v={siteAddress || "—"} />
-            <Row k="Add-ons:" v={addonsList || "None"} />
 
             {/* NEW: explicit logistics for start and end of rental */}
             <Row k="Start logistics:" v={startLogistics} />
@@ -205,6 +290,66 @@ export default function BookingInternalEmail(
 
             <Row k="Lead-time:" v={heavyLeadTimeApplies ? "Applies" : "N/A"} />
             <Row k="Geofence:" v={geofenceStatus} />
+
+            <hr style={S.hr} />
+
+            {/* Booking items (technical) */}
+            {lineItems && lineItems.length > 0 ? (
+              <>
+                <h2 style={S.h2}>Booking items</h2>
+                <table style={S.table}>
+                  <thead>
+                    <tr>
+                      <th style={S.th}>Item</th>
+                      <th style={{ ...S.th, textAlign: "right" }}>Qty</th>
+                      <th style={{ ...S.th, textAlign: "right" }}>Days</th>
+                      <th style={{ ...S.th, textAlign: "right" }}>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lineItems.map((item, idx) => (
+                      <>
+                        <tr key={`${idx}-main`}>
+                          <td style={S.td}>{item.name}</td>
+                          <td style={S.tdRight}>{item.quantity}</td>
+                          <td style={S.tdRight}>
+                            {item.days != null ? item.days : "—"}
+                          </td>
+                          <td style={S.tdRight}>
+                            {item.lineTotalCents != null
+                              ? centsToEuro(item.lineTotalCents)
+                              : "—"}
+                          </td>
+                        </tr>
+                        <tr key={`${idx}-detail`}>
+                          <td
+                            colSpan={4}
+                            style={{
+                              ...S.tdSmall,
+                              paddingTop: "2px",
+                              paddingBottom: "8px",
+                            }}
+                          >
+                            Kind: {item.kind} | Group: {item.addonGroup || "—"}{" "}
+                            | Charge: {item.chargeModel || "—"} | Time:{" "}
+                            {item.timeUnit || "—"} | Unit:{" "}
+                            {item.unitPriceCents != null
+                              ? centsToEuro(item.unitPriceCents)
+                              : "—"}
+                          </td>
+                        </tr>
+                      </>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            ) : (
+              <>
+                {/* Legacy fallback */}
+                <Row k="Machine:" v={`${machineName} (id ${machineId})`} />
+                <Row k="Add-ons:" v={addonsList || "None"} />
+              </>
+            )}
 
             <hr style={S.hr} />
 
