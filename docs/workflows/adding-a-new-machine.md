@@ -40,6 +40,7 @@ Add a new row with the following columns (in order):
 | **Name**            | Yes      | Display name                                   | `Mini Dumper 500kg`           |
 | **Model**           | No       | Model/spec info                                | `Yanmar C12R`                 |
 | **Weight**          | No       | Machine weight                                 | `450kg`                       |
+| **Size Rank**       | No       | Catalog ordering (10-99, lower=smaller)        | `20`                          |
 | **Delivery charge** | No       | Delivery fee in EUR                            | `50.00`                       |
 | **Pick up charge**  | No       | Pickup fee in EUR                              | `50.00`                       |
 | **Day minimum**     | No       | Minimum rental days (>=1 if set)               | `1`                           |
@@ -47,10 +48,20 @@ Add a new row with the following columns (in order):
 | **Image**           | No       | Reference URL only (NOT rendered in UI)        | `https://example.com/ref.jpg` |
 | **Description**     | No       | Machine description                            | `Compact tracked dumper...`   |
 
+**Size Rank Convention:**
+- 10 = Micro/Ultra-compact
+- 20 = Mini/Compact
+- 30 = Medium
+- 40 = Large
+- 50+ = Extra Large/Heavy
+- 99 = Default (unranked, sorts last - used for addons)
+
+Machines within each category are displayed in order from small to large based on Size Rank.
+
 **Example CSV row:**
 
 ```csv
-MINI-DUMPER-500,100.00,Dumpers,Mini Dumper 500kg,Yanmar C12R,450kg,50.00,50.00,1,35.00,https://example.com/ref.jpg,Compact tracked dumper for narrow spaces
+MINI-DUMPER-500,100.00,Dumpers,Mini Dumper 500kg,Yanmar C12R,450kg,20,50.00,50.00,1,35.00,https://example.com/ref.jpg,Compact tracked dumper for narrow spaces
 ```
 
 ### 2. Validation Rules
@@ -305,4 +316,4 @@ DELETE FROM "Machine" WHERE code = 'MINI-DUMPER-500';
 
 ---
 
-**Last Updated:** 2026-01-02
+**Last Updated:** 2026-01-14
