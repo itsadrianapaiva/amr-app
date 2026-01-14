@@ -60,22 +60,19 @@ Machines within each category are displayed in order from small to large based o
 
 **Approved Categories:**
 
-Categories are defined in [lib/content/machine-categories.ts](../../lib/content/machine-categories.ts) as the single source of truth. Use these display labels in your CSV:
+Categories are defined in [lib/content/machine-categories.ts](../../lib/content/machine-categories.ts) as the **single source of truth**. See that file for the definitive list of all approved categories and their aliases.
 
-- **Skid Steer Loaders** (aliases: "Skid Steer", "Bobcat", "Skid Steer with Tracks")
-- **Excavators** (aliases: "Excavator", "Medium Excavator", "Large Excavator")
-- **Mini Excavators** (alias: "Mini Excavator")
-- **Telehandlers** (alias: "Telehandler")
-- **Compactors** (aliases: "Compactor", "Rammer", "Rammers")
-- **Plate Compactors** (alias: "Plate Compactor")
-- **Concrete Mixers** (aliases: "Concrete Mixer", "Mixer", "Mixers")
-- **Power Washers** (aliases: "Power Washer", "Powerwasher", "Powerwashers", "Pressure Washer", "Pressure Washers")
-- **Hole Boring Machines** (aliases: "Hole Boring Machine", "Holeboringmachine")
-- **Trucks and Haulers** (aliases: "Trucks", "Truck", "Haulers", "Hauler", "Trucksandhaulers")
-- **Addons** (for service and equipment addons)
-- **Uncategorized** (fallback)
+**Common categories** (not exhaustive):
+- Skid Steer Loaders
+- Excavators / Mini Excavators
+- Trucks and Haulers
+- Heavy Equipment
+- Light Machinery & Tools
+- Addons
 
-You can use either the display label or any alias - the system normalizes them automatically. If you need to add a new category, edit `lib/content/machine-categories.ts`.
+The system normalizes category strings automatically and supports many aliases (e.g., "Skid Steer", "Bobcat", "Trucks", "Excavator" all map to proper display labels).
+
+**To add a new category:** Edit `lib/content/machine-categories.ts` and add the normalized key → display label mapping to `CATEGORY_LABELS_BY_KEY`.
 
 **Example CSV row:**
 

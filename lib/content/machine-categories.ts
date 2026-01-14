@@ -90,7 +90,6 @@ export const CATEGORY_LABELS_BY_KEY: Record<string, string> = {
   // Known categories that use title case fallback (not primary labels but valid)
   "heavy equipment": "Heavy Equipment",
   "light machinery tools": "Light Machinery & Tools",
-  "light machinery & tools": "Light Machinery & Tools",
 
   // Addons
   addons: "Addons",
