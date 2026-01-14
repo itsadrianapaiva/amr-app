@@ -34,6 +34,9 @@ model Machine {
   /// Optional machine model (e.g., "Bobcat E35", "CAT 259D3")
   model String?
 
+  /// Explicit ordering rank for catalog display (1-99, lower = smaller/lighter)
+  sizeRank Int @default(99)
+
   /// Cart-ready: Item type (PRIMARY for machines, ADDON for accessories)
   itemType    MachineItemType @default(PRIMARY)
   /// Cart-ready: Charge model (PER_BOOKING flat or PER_UNIT with quantity)

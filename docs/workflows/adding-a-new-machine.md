@@ -36,10 +36,11 @@ Add a new row with the following columns (in order):
 | ------------------- | -------- | ---------------------------------------------- | ----------------------------- |
 | **Code**            | Yes      | Unique machine identifier (stable, unchanging) | `MINI-DUMPER-500`             |
 | **Deposits**        | Yes      | Deposit amount in EUR                          | `100.00`                      |
-| **Category**        | Yes      | Machine category (maps to `type` in DB)        | `Dumpers`                     |
+| **Category**        | Yes      | Machine category (see approved list below)     | `Trucks and Haulers`          |
 | **Name**            | Yes      | Display name                                   | `Mini Dumper 500kg`           |
 | **Model**           | No       | Model/spec info                                | `Yanmar C12R`                 |
 | **Weight**          | No       | Machine weight                                 | `450kg`                       |
+| **Size Rank**       | No       | Catalog ordering (10-99, lower=smaller)        | `20`                          |
 | **Delivery charge** | No       | Delivery fee in EUR                            | `50.00`                       |
 | **Pick up charge**  | No       | Pickup fee in EUR                              | `50.00`                       |
 | **Day minimum**     | No       | Minimum rental days (>=1 if set)               | `1`                           |
@@ -47,10 +48,36 @@ Add a new row with the following columns (in order):
 | **Image**           | No       | Reference URL only (NOT rendered in UI)        | `https://example.com/ref.jpg` |
 | **Description**     | No       | Machine description                            | `Compact tracked dumper...`   |
 
+**Size Rank Convention:**
+- 10 = Micro/Ultra-compact
+- 20 = Mini/Compact
+- 30 = Medium
+- 40 = Large
+- 50+ = Extra Large/Heavy
+- 99 = Default (unranked, sorts last - used for addons)
+
+Machines within each category are displayed in order from small to large based on Size Rank.
+
+**Approved Categories:**
+
+Categories are defined in [lib/content/machine-categories.ts](../../lib/content/machine-categories.ts) as the **single source of truth**. See that file for the definitive list of all approved categories and their aliases.
+
+**Common categories** (not exhaustive):
+- Skid Steer Loaders
+- Excavators / Mini Excavators
+- Trucks and Haulers
+- Heavy Equipment
+- Light Machinery & Tools
+- Addons
+
+The system normalizes category strings automatically and supports many aliases (e.g., "Skid Steer", "Bobcat", "Trucks", "Excavator" all map to proper display labels).
+
+**To add a new category:** Edit `lib/content/machine-categories.ts` and add the normalized key → display label mapping to `CATEGORY_LABELS_BY_KEY`.
+
 **Example CSV row:**
 
 ```csv
-MINI-DUMPER-500,100.00,Dumpers,Mini Dumper 500kg,Yanmar C12R,450kg,50.00,50.00,1,35.00,https://example.com/ref.jpg,Compact tracked dumper for narrow spaces
+MINI-DUMPER-500,100.00,Trucks and Haulers,Mini Dumper 500kg,Yanmar C12R,450kg,20,50.00,50.00,1,35.00,https://example.com/ref.jpg,Compact tracked dumper for narrow spaces
 ```
 
 ### 2. Validation Rules
@@ -61,7 +88,7 @@ The seed script validates:
 
 - `code` - Must be unique across all machines
 - `name` - Cannot be empty
-- `category` - Must match existing categories
+- `category` - Must be a known category (see approved list above)
 - `dailyRate` (Price per day) - Must be >0
 - `deposit` (Deposits) - Must be >=0
 
@@ -70,7 +97,15 @@ The seed script validates:
 - `minDays` (Day minimum) - If set, must be >=1
 - All numeric fields must parse correctly
 
-**Failure:** Script exits with error if validation fails
+**Non-Blocking Warnings:**
+
+The seed script will warn (but not fail) if:
+- A PRIMARY machine has `sizeRank` missing or defaulted to 99
+- A PRIMARY machine has an unknown/unrecognized category label
+
+These warnings help catch data quality issues early. Fix them by updating the CSV and re-running the seed.
+
+**Failure:** Script exits with error only if required validations fail
 
 ### 3. Run the Seeding Script
 
@@ -228,7 +263,7 @@ This means you can edit CSV values and re-run seed to update existing machines.
 
 **Likely causes:**
 
-1. Category doesn't match existing categories (check `lib/content/machines.ts`)
+1. Category doesn't match existing categories (check [lib/content/machine-categories.ts](../../lib/content/machine-categories.ts))
 2. Machine seeded but UI filters don't include it
 3. Cache issue (try hard refresh)
 
@@ -238,6 +273,8 @@ This means you can edit CSV values and re-run seed to update existing machines.
 # Check machine exists in DB
 npx prisma studio
 ```
+
+If you see a warning about unknown category during seed, the machine may render with title-cased fallback display. Fix by using an approved category from the list above.
 
 ---
 
@@ -298,11 +335,12 @@ DELETE FROM "Machine" WHERE code = 'MINI-DUMPER-500';
 ## Source Pointers
 
 - **CSV Source:** `prisma/data/machines.csv`
-- **Seed Script:** `prisma/seed.ts` (lines 15-120)
+- **Seed Script:** `prisma/seed.ts`
 - **Prisma Schema:** `prisma/schema.prisma` (Machine model)
+- **Category Definitions (Single Source of Truth):** `lib/content/machine-categories.ts`
 - **Machine Display Logic:** `lib/content/machines.ts`
 - **Machine Pages:** `app/machine/[code]/page.tsx`
 
 ---
 
-**Last Updated:** 2026-01-02
+**Last Updated:** 2026-01-14

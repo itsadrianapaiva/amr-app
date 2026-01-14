@@ -32,6 +32,7 @@ import { PrismaClient, Prisma } from "@prisma/client";
 import fs from "node:fs";
 import path from "node:path";
 import { parse } from "csv-parse/sync";
+import { normalizeCategoryKey, isCategoryKnown } from "../lib/content/machine-categories";
 
 const prisma = new PrismaClient();
 
@@ -60,6 +61,9 @@ function parseIntOrNull(v: unknown): number | null {
   return n == null ? null : Math.round(n);
 }
 
+// Category validation now uses shared module from lib/content/machine-categories.ts
+// All category knowledge lives in ONE place to prevent drift.
+
 /**
  * Header mapping from CSV to our model fields
  * Notes:
@@ -76,6 +80,8 @@ const HEADER_MAP: Record<string, keyof Prisma.MachineCreateInput> = {
   [norm("Model")]: "model",
   [norm("Name")]: "name",
   [norm("Weight")]: "weight",
+  [norm("Size Rank")]: "sizeRank",
+  [norm("sizerank")]: "sizeRank",
   [norm("Delivery charge")]: "deliveryCharge",
   [norm("Pick up charge")]: "pickupCharge",
   [norm("Day minimum")]: "minDays",
@@ -133,7 +139,7 @@ function loadCsvMachines(csvPath: string): Prisma.MachineCreateInput[] {
       } else if (key === "deliveryCharge" || key === "pickupCharge") {
         const n = parseNum(rawVal);
         (normalized as any)[key] = n == null ? undefined : n;
-      } else if (key === "minDays") {
+      } else if (key === "minDays" || key === "sizeRank") {
         const n = parseIntOrNull(rawVal);
         (normalized as any)[key] = n == null ? undefined : n;
       } else {
@@ -206,6 +212,9 @@ function loadCsvMachines(csvPath: string): Prisma.MachineCreateInput[] {
     // Defaults for optional fields
     if (!("weight" in normalized)) normalized.weight = "";
     if (!("description" in normalized)) normalized.description = "";
+    if (!("sizeRank" in normalized) || normalized.sizeRank === undefined) {
+      (normalized as any).sizeRank = 99; // Default: unranked, sorts last
+    }
 
     // We **do not** render DB image URLs; keep a safe local placeholder.
     if (!("imageUrl" in normalized) || !normalized.imageUrl) {
@@ -247,6 +256,27 @@ function loadCsvMachines(csvPath: string): Prisma.MachineCreateInput[] {
       (normalized as any).chargeModel = "PER_BOOKING";
       (normalized as any).timeUnit = "DAY";
       (normalized as any).addonGroup = null;
+
+      // HARDENING WARNINGS: Validate PRIMARY machines for common issues
+      const code = normalized.code as string;
+      const name = normalized.name as string;
+      const sizeRank = (normalized as any).sizeRank as number | undefined;
+
+      // Warn if sizeRank is missing/invalid/defaulted to 99
+      if (sizeRank === undefined || sizeRank === 99) {
+        console.warn(
+          `[seed][warn] PRIMARY machine missing/invalid sizeRank; defaulting to 99: ` +
+          `code=${code}, name=${name}, category=${category}, sizeRank=${sizeRank ?? 99}`
+        );
+      }
+
+      // Warn if category is unknown/unrecognized
+      if (!isCategoryKnown(category)) {
+        console.warn(
+          `[seed][warn] PRIMARY machine has unknown category label: ` +
+          `code=${code}, name=${name}, category=${category}`
+        );
+      }
     }
 
     out.push(normalized as Prisma.MachineCreateInput);
