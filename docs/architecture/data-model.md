@@ -35,6 +35,7 @@ model Machine {
   pickupCharge   Decimal?
   category       String    @default("Uncategorized") @map("type")  // DB column: "type"
   model          String?   // e.g., "Bobcat E35", "CAT 259D3"
+  sizeRank       Int       @default(99)  // Catalog ordering (1-99, lower = smaller)
   bookings       Booking[]
 }
 ```
@@ -42,6 +43,7 @@ model Machine {
 **Key Points:**
 - `category` field mapped to DB column `type` for legacy compatibility
 - `minDays` enforces minimum rental duration (typically 1-7 days)
+- `sizeRank` controls catalog display order within categories (10=micro, 20=mini, 30=medium, 40=large, 50+=heavy, 99=default/unranked)
 - `imageUrl` deprecated (app uses curated local assets instead)
 - `referenceUrl` for ops team reference only, not rendered to customers
 
@@ -505,6 +507,7 @@ PostgreSQL `tsrange` uses `'[]'` bounds (inclusive on both ends):
 | 2025-09-22 | `add_booking_confirmation_email_sent` | Email tracking |
 | 2025-10-23 | `add_company_discounts` | Company discount table + discount% on Booking |
 | 2025-12-19 | `add_booking_job` | Async job queue |
+| 2026-01-14 | `add_size_rank` | Catalog ordering field for machines |
 
 **Full History:** `prisma/migrations/` directory
 
