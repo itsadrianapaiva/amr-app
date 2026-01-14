@@ -36,7 +36,7 @@ Add a new row with the following columns (in order):
 | ------------------- | -------- | ---------------------------------------------- | ----------------------------- |
 | **Code**            | Yes      | Unique machine identifier (stable, unchanging) | `MINI-DUMPER-500`             |
 | **Deposits**        | Yes      | Deposit amount in EUR                          | `100.00`                      |
-| **Category**        | Yes      | Machine category (maps to `type` in DB)        | `Dumpers`                     |
+| **Category**        | Yes      | Machine category (see approved list below)     | `Trucks and Haulers`          |
 | **Name**            | Yes      | Display name                                   | `Mini Dumper 500kg`           |
 | **Model**           | No       | Model/spec info                                | `Yanmar C12R`                 |
 | **Weight**          | No       | Machine weight                                 | `450kg`                       |
@@ -58,10 +58,29 @@ Add a new row with the following columns (in order):
 
 Machines within each category are displayed in order from small to large based on Size Rank.
 
+**Approved Categories:**
+
+Categories are defined in [lib/content/machine-categories.ts](../../lib/content/machine-categories.ts) as the single source of truth. Use these display labels in your CSV:
+
+- **Skid Steer Loaders** (aliases: "Skid Steer", "Bobcat", "Skid Steer with Tracks")
+- **Excavators** (aliases: "Excavator", "Medium Excavator", "Large Excavator")
+- **Mini Excavators** (alias: "Mini Excavator")
+- **Telehandlers** (alias: "Telehandler")
+- **Compactors** (aliases: "Compactor", "Rammer", "Rammers")
+- **Plate Compactors** (alias: "Plate Compactor")
+- **Concrete Mixers** (aliases: "Concrete Mixer", "Mixer", "Mixers")
+- **Power Washers** (aliases: "Power Washer", "Powerwasher", "Powerwashers", "Pressure Washer", "Pressure Washers")
+- **Hole Boring Machines** (aliases: "Hole Boring Machine", "Holeboringmachine")
+- **Trucks and Haulers** (aliases: "Trucks", "Truck", "Haulers", "Hauler", "Trucksandhaulers")
+- **Addons** (for service and equipment addons)
+- **Uncategorized** (fallback)
+
+You can use either the display label or any alias - the system normalizes them automatically. If you need to add a new category, edit `lib/content/machine-categories.ts`.
+
 **Example CSV row:**
 
 ```csv
-MINI-DUMPER-500,100.00,Dumpers,Mini Dumper 500kg,Yanmar C12R,450kg,20,50.00,50.00,1,35.00,https://example.com/ref.jpg,Compact tracked dumper for narrow spaces
+MINI-DUMPER-500,100.00,Trucks and Haulers,Mini Dumper 500kg,Yanmar C12R,450kg,20,50.00,50.00,1,35.00,https://example.com/ref.jpg,Compact tracked dumper for narrow spaces
 ```
 
 ### 2. Validation Rules
@@ -72,7 +91,7 @@ The seed script validates:
 
 - `code` - Must be unique across all machines
 - `name` - Cannot be empty
-- `category` - Must match existing categories
+- `category` - Must be a known category (see approved list above)
 - `dailyRate` (Price per day) - Must be >0
 - `deposit` (Deposits) - Must be >=0
 
@@ -81,7 +100,15 @@ The seed script validates:
 - `minDays` (Day minimum) - If set, must be >=1
 - All numeric fields must parse correctly
 
-**Failure:** Script exits with error if validation fails
+**Non-Blocking Warnings:**
+
+The seed script will warn (but not fail) if:
+- A PRIMARY machine has `sizeRank` missing or defaulted to 99
+- A PRIMARY machine has an unknown/unrecognized category label
+
+These warnings help catch data quality issues early. Fix them by updating the CSV and re-running the seed.
+
+**Failure:** Script exits with error only if required validations fail
 
 ### 3. Run the Seeding Script
 
@@ -239,7 +266,7 @@ This means you can edit CSV values and re-run seed to update existing machines.
 
 **Likely causes:**
 
-1. Category doesn't match existing categories (check `lib/content/machines.ts`)
+1. Category doesn't match existing categories (check [lib/content/machine-categories.ts](../../lib/content/machine-categories.ts))
 2. Machine seeded but UI filters don't include it
 3. Cache issue (try hard refresh)
 
@@ -249,6 +276,8 @@ This means you can edit CSV values and re-run seed to update existing machines.
 # Check machine exists in DB
 npx prisma studio
 ```
+
+If you see a warning about unknown category during seed, the machine may render with title-cased fallback display. Fix by using an approved category from the list above.
 
 ---
 
@@ -309,8 +338,9 @@ DELETE FROM "Machine" WHERE code = 'MINI-DUMPER-500';
 ## Source Pointers
 
 - **CSV Source:** `prisma/data/machines.csv`
-- **Seed Script:** `prisma/seed.ts` (lines 15-120)
+- **Seed Script:** `prisma/seed.ts`
 - **Prisma Schema:** `prisma/schema.prisma` (Machine model)
+- **Category Definitions (Single Source of Truth):** `lib/content/machine-categories.ts`
 - **Machine Display Logic:** `lib/content/machines.ts`
 - **Machine Pages:** `app/machine/[code]/page.tsx`
 

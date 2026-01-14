@@ -32,6 +32,7 @@ import { PrismaClient, Prisma } from "@prisma/client";
 import fs from "node:fs";
 import path from "node:path";
 import { parse } from "csv-parse/sync";
+import { normalizeCategoryKey, isCategoryKnown } from "../lib/content/machine-categories";
 
 const prisma = new PrismaClient();
 
@@ -60,51 +61,8 @@ function parseIntOrNull(v: unknown): number | null {
   return n == null ? null : Math.round(n);
 }
 
-// Normalize category key for validation (matches lib/content/machines.ts logic)
-function normalizeCategoryKey(raw?: string | null): string {
-  if (!raw) return "uncategorized";
-  return raw
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()
-    .replace(/\s+/g, " ");
-}
-
-// Known category labels from lib/content/machines.ts CATEGORY_LABELS
-// This is a validation-only copy to detect typos in CSV without importing client code
-const KNOWN_CATEGORY_KEYS = new Set([
-  // Skid steer variations
-  "skid steer loaders", "skid steer", "skid", "bobcat", "bobcat skid steer",
-  "skid steer with tracks", "skid steer w tracks",
-  // Excavators
-  "excavators", "excavator", "mini excavators", "mini excavator",
-  "medium excavator", "large excavator",
-  // Telehandlers
-  "telehandler", "telehandlers",
-  // Compaction
-  "compactor", "compactors", "rammer", "rammers",
-  "plate compactor", "plate compactors",
-  // Concrete mixers
-  "concrete mixer", "concrete mixers", "mixer", "mixers",
-  // Power washers
-  "powerwasher", "power washer", "power washers", "powerwashers",
-  "pressure washer", "pressure washers",
-  // Hole boring
-  "holeboringmachine", "hole boring machine", "hole boring machines",
-  // Trucks and haulers
-  "trucks", "truck", "haulers", "hauler", "trucksandhaulers", "trucks and haulers",
-  // Known categories that use title case fallback (not in CATEGORY_LABELS but valid)
-  "heavy equipment", "light machinery tools", "light machinery & tools",
-  // Addons
-  "addons",
-  // Fallback
-  "uncategorized",
-]);
-
-function isCategoryKnown(category: string): boolean {
-  const normalized = normalizeCategoryKey(category);
-  return KNOWN_CATEGORY_KEYS.has(normalized);
-}
+// Category validation now uses shared module from lib/content/machine-categories.ts
+// All category knowledge lives in ONE place to prevent drift.
 
 /**
  * Header mapping from CSV to our model fields
