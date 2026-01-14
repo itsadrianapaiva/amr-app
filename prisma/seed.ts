@@ -60,6 +60,52 @@ function parseIntOrNull(v: unknown): number | null {
   return n == null ? null : Math.round(n);
 }
 
+// Normalize category key for validation (matches lib/content/machines.ts logic)
+function normalizeCategoryKey(raw?: string | null): string {
+  if (!raw) return "uncategorized";
+  return raw
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+// Known category labels from lib/content/machines.ts CATEGORY_LABELS
+// This is a validation-only copy to detect typos in CSV without importing client code
+const KNOWN_CATEGORY_KEYS = new Set([
+  // Skid steer variations
+  "skid steer loaders", "skid steer", "skid", "bobcat", "bobcat skid steer",
+  "skid steer with tracks", "skid steer w tracks",
+  // Excavators
+  "excavators", "excavator", "mini excavators", "mini excavator",
+  "medium excavator", "large excavator",
+  // Telehandlers
+  "telehandler", "telehandlers",
+  // Compaction
+  "compactor", "compactors", "rammer", "rammers",
+  "plate compactor", "plate compactors",
+  // Concrete mixers
+  "concrete mixer", "concrete mixers", "mixer", "mixers",
+  // Power washers
+  "powerwasher", "power washer", "power washers", "powerwashers",
+  "pressure washer", "pressure washers",
+  // Hole boring
+  "holeboringmachine", "hole boring machine", "hole boring machines",
+  // Trucks and haulers
+  "trucks", "truck", "haulers", "hauler", "trucksandhaulers", "trucks and haulers",
+  // Known categories that use title case fallback (not in CATEGORY_LABELS but valid)
+  "heavy equipment", "light machinery tools", "light machinery & tools",
+  // Addons
+  "addons",
+  // Fallback
+  "uncategorized",
+]);
+
+function isCategoryKnown(category: string): boolean {
+  const normalized = normalizeCategoryKey(category);
+  return KNOWN_CATEGORY_KEYS.has(normalized);
+}
+
 /**
  * Header mapping from CSV to our model fields
  * Notes:
@@ -252,6 +298,27 @@ function loadCsvMachines(csvPath: string): Prisma.MachineCreateInput[] {
       (normalized as any).chargeModel = "PER_BOOKING";
       (normalized as any).timeUnit = "DAY";
       (normalized as any).addonGroup = null;
+
+      // HARDENING WARNINGS: Validate PRIMARY machines for common issues
+      const code = normalized.code as string;
+      const name = normalized.name as string;
+      const sizeRank = (normalized as any).sizeRank as number | undefined;
+
+      // Warn if sizeRank is missing/invalid/defaulted to 99
+      if (sizeRank === undefined || sizeRank === 99) {
+        console.warn(
+          `[seed][warn] PRIMARY machine missing/invalid sizeRank; defaulting to 99: ` +
+          `code=${code}, name=${name}, category=${category}, sizeRank=${sizeRank ?? 99}`
+        );
+      }
+
+      // Warn if category is unknown/unrecognized
+      if (!isCategoryKnown(category)) {
+        console.warn(
+          `[seed][warn] PRIMARY machine has unknown category label: ` +
+          `code=${code}, name=${name}, category=${category}`
+        );
+      }
     }
 
     out.push(normalized as Prisma.MachineCreateInput);
