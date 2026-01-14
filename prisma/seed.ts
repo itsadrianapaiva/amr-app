@@ -76,6 +76,8 @@ const HEADER_MAP: Record<string, keyof Prisma.MachineCreateInput> = {
   [norm("Model")]: "model",
   [norm("Name")]: "name",
   [norm("Weight")]: "weight",
+  [norm("Size Rank")]: "sizeRank",
+  [norm("sizerank")]: "sizeRank",
   [norm("Delivery charge")]: "deliveryCharge",
   [norm("Pick up charge")]: "pickupCharge",
   [norm("Day minimum")]: "minDays",
@@ -133,7 +135,7 @@ function loadCsvMachines(csvPath: string): Prisma.MachineCreateInput[] {
       } else if (key === "deliveryCharge" || key === "pickupCharge") {
         const n = parseNum(rawVal);
         (normalized as any)[key] = n == null ? undefined : n;
-      } else if (key === "minDays") {
+      } else if (key === "minDays" || key === "sizeRank") {
         const n = parseIntOrNull(rawVal);
         (normalized as any)[key] = n == null ? undefined : n;
       } else {
@@ -206,6 +208,9 @@ function loadCsvMachines(csvPath: string): Prisma.MachineCreateInput[] {
     // Defaults for optional fields
     if (!("weight" in normalized)) normalized.weight = "";
     if (!("description" in normalized)) normalized.description = "";
+    if (!("sizeRank" in normalized) || normalized.sizeRank === undefined) {
+      (normalized as any).sizeRank = 99; // Default: unranked, sorts last
+    }
 
     // We **do not** render DB image URLs; keep a safe local placeholder.
     if (!("imageUrl" in normalized) || !normalized.imageUrl) {

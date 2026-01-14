@@ -7,6 +7,7 @@ export async function getMachines() {
   try {
     const machines = await db.machine.findMany({
       where: { itemType: "PRIMARY" },
+      orderBy: { sizeRank: "asc" },
     });
     return filterInternalIfEnabled(machines); // only hide ZZZ test product when HIDE_INTERNAL_LIST=1
   } catch (error) {
