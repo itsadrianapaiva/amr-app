@@ -27,12 +27,9 @@ export type { MachineImage } from "./images/machines";
 
 /* Hero */
 import hero01 from "@/public/images/optimized/hero/hero.webp";
-import hero02 from "@/public/images/optimized/hero/hero-02.webp";
-import hero03 from "@/public/images/optimized/hero/hero-03.webp";
 
 /* Why section */
-import whyDefault from "@/public/images/misc/homepage-02.jpg";
-import whyAlt from "@/public/images/misc/homepage.jpg";
+import whyDefault from "@/public/images/optimized/misc/homepage.webp";
 
 /* --------------------------------------------------------------------------
    Import machine images from subfolder
@@ -51,16 +48,6 @@ export const imageContent = {
         alt: "Tracked excavator working at sunrise",
         focal: "center",
       } as HeroImage,
-      alt1: {
-        src: hero02,
-        alt: "Excavator silhouetted against the evening sky",
-        focal: "center",
-      } as HeroImage,
-      alt2: {
-        src: hero03,
-        alt: "Heavy machinery at a coastal job site",
-        focal: "center",
-      } as HeroImage,
     },
   },
 
@@ -68,10 +55,6 @@ export const imageContent = {
     default: {
       src: whyDefault,
       alt: "Construction machinery operating on a sunny job site",
-    } as WhyImage,
-    alt: {
-      src: whyAlt,
-      alt: "Excavator and crew preparing a building site",
     } as WhyImage,
   },
 
