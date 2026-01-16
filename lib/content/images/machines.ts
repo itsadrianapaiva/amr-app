@@ -11,13 +11,13 @@ export interface MachineImage {
    Static imports for machine images
 ---------------------------------------------------------------------------*/
 
-import miniExcavator from "@/public/images/machines/mini-excavator.jpg";
+import miniExcavator from "@/public/images/optimized/machines/mini-excavator.webp";
 import mediumExcavator from "@/public/images/optimized/machines/medium-excavator.webp";
-import largeExcavator from "@/public/images/machines/large-excavator.jpg";
+import largeExcavator from "@/public/images/optimized/machines/large-excavator.webp";
 
-import skidTracks from "@/public/images/machines/skid-steer-loader-tracks.jpg";
-import skidTracksLg from "@/public/images/optimized/machines/lg-skid-steer-loader-tracks-02.webp";
-import skidWheels from "@/public/images/machines/wheel-skid-steer-loader-02.webp";
+import skidTracks from "@/public/images/optimized/machines/skid-steer-loader-tracks.webp";
+import skidTracksLg from "@/public/images/optimized/machines/lg-skid-steer-loader-tracks.webp";
+import skidWheels from "@/public/images/optimized/machines/wheel-skid-steer-loader.webp";
 
 import telehandler from "@/public/images/optimized/machines/telehandler.webp";
 import compactor from "@/public/images/optimized/machines/compactor.webp";
@@ -31,8 +31,8 @@ import volvoDumpTruck from "@/public/images/optimized/machines/volvo-dump-truck.
 
 import rideBehindSkidSteerMini from "@/public/images/optimized/machines/ride-behind-skidsteer-mini.webp";
 import microExcavator from "@/public/images/optimized/machines/micro-excavator.webp";
-import miniDumper from "@/public/images/machines/mini-dumper.webp";
-import concreteProjectionGun from "@/public/images/machines/concrete-projection-gun.webp";
+import miniDumper from "@/public/images/optimized/machines/mini-dumper.webp";
+import concreteProjectionGun from "@/public/images/optimized/machines/concrete-projection-gun.webp";
 
 /* Fallback image */
 export const FALLBACK_MACHINE_IMAGE = "/images/machines/_fallback.jpg" as const;

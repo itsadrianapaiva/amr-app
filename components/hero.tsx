@@ -14,8 +14,6 @@ import { metaCtaClick } from "@/lib/analytics/metaEvents";
 
 /* Static imports unlock intrinsic size + blur + preload for priority */
 import hero01 from "@/public/images/optimized/hero/hero.webp";
-import hero02 from "@/public/images/optimized/hero/hero-02.webp";
-import hero03 from "@/public/images/optimized/hero/hero-03.webp";
 
 type HeroProps = {
   pretitle?: string;
@@ -26,7 +24,7 @@ type HeroProps = {
   whatsappNumberE164?: string | null;
   whatsappLabel?: string;
   backgroundClassName?: string;
-  imageName?: "hero" | "hero-02" | "hero-03";
+  imageName?: "hero";
 };
 
 const HERO_IMAGES: Record<
@@ -34,8 +32,6 @@ const HERO_IMAGES: Record<
   StaticImageData
 > = {
   hero: hero01,
-  "hero-02": hero02,
-  "hero-03": hero03,
 };
 
 /** Build a WhatsApp deep link from E.164 (server-safe, no DOM API). */
@@ -83,7 +79,7 @@ export default function Hero({
         priority
         /* Full-bleed background should advertise viewport width */
         sizes="100vw"
-        className="absolute inset-0 object-cover"
+        className="absolute inset-10 object-cover"
       />
 
       {/* keep overlay + text fades, but NOT on the h1 */}
