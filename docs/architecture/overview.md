@@ -45,6 +45,7 @@ The system follows a domain-driven organization where business logic is grouped 
 └─ /security            # Signed links, secrets
 
 /components             # React components (organized by feature)
+├─ full-catalog-section.tsx  # URL-only state pattern for filtering
 /prisma                 # Database schema, migrations
 /tests, /e2e            # Unit, integration, E2E tests
 /scripts                # Utility scripts (build, seed, ops)
@@ -286,3 +287,4 @@ None identified. System is in production with stable behavior.
 - [Data Model](data-model.md) - Detailed schema documentation
 - [Booking & Payments](booking-and-payments.md) - Payment flow details
 - [Async Job Queue](async-jobs.md) - Job processing architecture
+- [Catalog Filtering](catalog-filtering.md) - URL-only state pattern for category filtering
