@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Pretitle from "@/components/ui/pretitle";
 import { MachineCard } from "@/components/machine-card";
 import type { SerializableMachine } from "@/lib/types";
@@ -55,8 +56,11 @@ function useCardsPerRow() {
 export default function FullCatalogSection({
   machines,
 }: FullCatalogSectionProps) {
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const cardsPerRow = useCardsPerRow();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams.get("category");
 
   // Unique, sorted categories built from labels
   const categories = useMemo(() => {
@@ -68,40 +72,47 @@ export default function FullCatalogSection({
     return ["All", ...Array.from(labels).sort((a, b) => a.localeCompare(b))];
   }, [machines]);
 
-  // Filter list by selected category
+  // Derive selectedCategory from URL (single source of truth)
+  const selectedCategory = useMemo(() => {
+    // No category param = show all
+    if (!categoryParam) return "All";
+
+    // Categories not ready yet = show all (wait for data)
+    if (categories.length <= 1) return "All";
+
+    // Case-insensitive match against available categories
+    const match = categories.find(
+      (c) => c.toLowerCase() === categoryParam.toLowerCase()
+    );
+
+    // Return matched category or fallback to "All" for invalid URLs
+    return match ?? "All";
+  }, [categoryParam, categories]);
+
+  // Filter machines based on derived selectedCategory
   const visibleMachines = useMemo(() => {
     if (selectedCategory === "All") return machines;
     return machines.filter((m) => labelFor(m) === selectedCategory);
   }, [machines, selectedCategory]);
 
-  // URL sync
-  const didInitFromURL = useRef(false);
+  // Handle category pill clicks by updating URL
+  const handleCategoryClick = useCallback(
+    (cat: string) => {
+      const next = new URLSearchParams(searchParams.toString());
 
-  // URL -> State (only once, after categories exist)
-  useEffect(() => {
-    if (didInitFromURL.current) return;
-    const url = new URL(window.location.href);
-    const qp = url.searchParams.get("category");
-    if (qp) {
-      const match = categories.find(
-        (c) => c.toLowerCase() === qp.toLowerCase()
-      );
-      if (match) setSelectedCategory(match);
-    }
-    didInitFromURL.current = true;
-  }, [categories]);
+      if (cat === "All") {
+        next.delete("category");
+      } else {
+        next.set("category", cat);
+      }
 
-  // State -> URL (only when value actually changes)
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    const current = url.searchParams.get("category");
-    const desired = selectedCategory === "All" ? null : selectedCategory;
-    if (current === desired) return;
-    if (desired === null) url.searchParams.delete("category");
-    else url.searchParams.set("category", desired);
-    const newUrl = `${url.pathname}${url.search}${url.hash}`;
-    window.history.replaceState({}, "", newUrl);
-  }, [selectedCategory]);
+      const qs = next.toString();
+      const nextUrl = qs ? `${pathname}?${qs}` : pathname;
+
+      router.replace(nextUrl, { scroll: false });
+    },
+    [searchParams, pathname, router]
+  );
 
   // Number of eager images should equal the first visual row (1 / 2 / 4)
   const eagerCount = cardsPerRow;
@@ -138,7 +149,7 @@ export default function FullCatalogSection({
               <button
                 key={cat}
                 type="button"
-                onClick={() => setSelectedCategory(cat)}
+                onClick={() => handleCategoryClick(cat)}
                 aria-pressed={selected}
                 className={[
                   "whitespace-nowrap rounded-full px-4 py-2 text-sm transition-colors",
