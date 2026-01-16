@@ -75,46 +75,68 @@ export function MachineCard({ machine, eager = false }: MachineCardProps) {
   const altToUse = img.alt;
 
   return (
-    <div className="group relative aspect-square w-full overflow-hidden">
-      {/* Optional pre-badge reinforcing USP */}
-      {MACHINE_CARD_COPY.preBadge && (
-        <span
-          className={cn(
-            "absolute left-3 top-3 z-20 rounded-full px-2.5 py-1 text-xs font-medium shadow",
-            "bg-secondary text-primary-foreground"
-          )}
-        >
-          {MACHINE_CARD_COPY.preBadge}
-        </span>
-      )}
-
-      {/* Background Image */}
-      <SafeImage
-        src={srcToUse}
-        alt={altToUse}
-        fill
-        /**
-         * Grid width hints (match 1/2/3/4 columns):
-         * - ≥1280px: 4 cols → ~25vw
-         * - ≥1024px: 3 cols → ~33vw
-         * - ≥768px:  2 cols → ~50vw
-         * - else:    1 col  → 100vw
-         */
-        sizes="(min-width:1280px) 25vw, (min-width:1024px) 33vw, (min-width:768px) 50vw, 100vw"
-        /** Only the first visible row should preload aggressively */
-        priority={Boolean(eager)}
-        loading={eager ? "eager" : "lazy"}
-        className="object-cover transition-transform duration-500 group-hover:scale-105"
+    <div className="group relative w-full">
+      {/* Stretched Link Overlay - Makes entire card clickable */}
+      <Link
+        href={`/machine/${machine.id}`}
+        className="absolute inset-0 z-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        aria-label={`View ${displayName}`}
+        onClick={() => {
+          trackGaMachineCardClick({
+            machine_id: machine.id,
+            machine_name: displayName,
+            machine_category: categoryOrType,
+          });
+          metaCtaClick({
+            cta_type: "machine_card",
+            cta_text: `View ${displayName}`,
+            cta_destination: `/machine/${machine.id}`,
+            cta_location: "catalog",
+          });
+        }}
       />
 
-      {/* Overlay */}
-      <div
-        className={cn(
-          "absolute bottom-0 w-full backdrop-blur-md transition-all duration-500",
-          "bg-surface/80 text-foreground",
-          "translate-y-0 md:translate-y-40 md:group-hover:translate-y-0"
+      {/* Image Container */}
+      <div className="relative aspect-square w-full overflow-hidden">
+        {/* Optional pre-badge reinforcing USP */}
+        {MACHINE_CARD_COPY.preBadge && (
+          <span
+            className={cn(
+              "absolute left-3 top-3 z-20 rounded-full px-2.5 py-1 text-xs font-medium shadow",
+              "bg-secondary text-primary-foreground"
+            )}
+          >
+            {MACHINE_CARD_COPY.preBadge}
+          </span>
         )}
-      >
+
+        {/* Background Image */}
+        <SafeImage
+          src={srcToUse}
+          alt={altToUse}
+          fill
+          /**
+           * Grid width hints (match 1/2/3/4 columns):
+           * - ≥1280px: 4 cols → ~25vw
+           * - ≥1024px: 3 cols → ~33vw
+           * - ≥768px:  2 cols → ~50vw
+           * - else:    1 col  → 100vw
+           */
+          sizes="(min-width:1280px) 25vw, (min-width:1024px) 33vw, (min-width:768px) 50vw, 100vw"
+          /** Only the first visible row should preload aggressively */
+          priority={Boolean(eager)}
+          loading={eager ? "eager" : "lazy"}
+          className="object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+
+        {/* Desktop Overlay Info Panel - Hidden until hover on md+ */}
+        <div
+          className={cn(
+            "hidden md:block absolute bottom-0 w-full backdrop-blur-md transition-all duration-500 z-20",
+            "bg-surface/80 text-foreground",
+            "translate-y-40 group-hover:translate-y-0"
+          )}
+        >
         <div className="grid gap-1.5 px-5 py-4">
           {/* Top row: name + CTA */}
           <div className="flex items-center justify-between">
@@ -131,7 +153,59 @@ export function MachineCard({ machine, eager = false }: MachineCardProps) {
             <Link
               href={`/machine/${machine.id}`}
               className={cn(
-                "ml-4 flex h-12 w-12 items-center justify-center rounded-full",
+                "relative z-20 ml-4 flex h-12 w-12 items-center justify-center rounded-full",
+                "bg-primary text-primary-foreground hover:bg-primary/80"
+              )}
+              aria-label={`View ${displayName}`}
+              onClick={() => {
+                trackGaMachineCardClick({
+                  machine_id: machine.id,
+                  machine_name: displayName,
+                  machine_category: categoryOrType,
+                });
+                metaCtaClick({
+                  cta_type: "machine_card",
+                  cta_text: `View ${displayName}`,
+                  cta_destination: `/machine/${machine.id}`,
+                  cta_location: "catalog",
+                });
+              }}
+            >
+              <ArrowRight className="h-5 w-5" />
+            </Link>
+          </div>
+
+          {/* Price + min days */}
+          <p className="text-sm">
+            {pricePerDay}{" "}
+            <span className="text-muted-foreground">· {minDaysText}</span>
+          </p>
+
+          {/* Compact specs line */}
+          <p className="text-xs text-muted-foreground">{specsLine}</p>
+        </div>
+        </div>
+      </div>
+
+      {/* Mobile Info Panel - Static below image on mobile only */}
+      <div className="md:hidden w-full backdrop-blur-md bg-surface/80 text-foreground">
+        <div className="grid gap-1.5 px-5 py-4">
+          {/* Top row: name + CTA */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold tracking-tight">{displayName}</h3>
+              <p
+                className="max-w-[14rem] truncate text-xs uppercase tracking-wider text-muted-foreground"
+                title={displayType}
+              >
+                {displayType}
+              </p>
+            </div>
+
+            <Link
+              href={`/machine/${machine.id}`}
+              className={cn(
+                "relative z-20 ml-4 flex h-12 w-12 items-center justify-center rounded-full",
                 "bg-primary text-primary-foreground hover:bg-primary/80"
               )}
               aria-label={`View ${displayName}`}
