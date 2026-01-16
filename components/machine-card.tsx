@@ -75,7 +75,7 @@ export function MachineCard({ machine, eager = false }: MachineCardProps) {
   const altToUse = img.alt;
 
   return (
-    <div className="group relative h-[492px] w-full overflow-hidden">
+    <div className="group relative aspect-square w-full overflow-hidden">
       {/* Optional pre-badge reinforcing USP */}
       {MACHINE_CARD_COPY.preBadge && (
         <span

@@ -143,36 +143,36 @@ export default async function MachineDetailPage({
       />
       <section className="px-4 py-8 md:py-10 md:px-8 lg:px-12">
         <div className="container mx-auto">
-          <div className="grid grid-cols-1 gap-8 lg:gap-12">
+          {/* Full-width Pretitle + Intro */}
+          <div className="mb-8 md:mb-16">
             <Pretitle center text={MACHINE_DETAIL_COPY.pretitle} />
-            <p className="mb-8 -mt-4 text-muted-foreground mx-auto text-center max-w-2xl">
+            <p className="mt-4 text-muted-foreground mx-auto text-center max-w-2xl">
               In this page you have all you need to verify availability, add
               extras and check live prices. See below for more details.
             </p>
+          </div>
 
-            {/* Column 1: Image */}
-            <div className="relative h-[400px] w-full overflow-hidden rounded-lg md:h-[500px]">
-              <Image
-                src={img.src}
-                alt={img.alt}
-                fill
-                sizes="(max-width: 768px) 100vw, 1200px"
-                priority={false}
-                /**
-                 * With AVIF/WebP enabled globally, 72 trims bytes with minimal visual loss.
-                 */
-                quality={72}
-                /**
-                 * Smooth perceived loading for static imports; no effect on LCP calculation.
-                 */
-                placeholder={isStatic ? "blur" : "empty"}
-                decoding="async"
-                className="object-cover"
-              />
+          {/* Hero Grid: 2-column on md+ (Image left, Content right) */}
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 md:items-start lg:gap-12 mb-8">
+            {/* Image Column - order-1 on mobile (after pretitle), order-1 on md+ (left side) */}
+            <div className="order-1 md:order-1 flex justify-center">
+              <div className="relative aspect-square w-full  max-w-md overflow-hidden rounded-lg">
+                <Image
+                  src={img.src}
+                  alt={img.alt}
+                  fill
+                  sizes="(min-width: 768px) 50vw, 100vw"
+                  priority={false}
+                  quality={72}
+                  placeholder={isStatic ? "blur" : "empty"}
+                  decoding="async"
+                  className="object-contain"
+                />
+              </div>
             </div>
 
-            {/* Column 2: Details & Booking Form */}
-            <div className="flex flex-col">
+            {/* Content Column - order-2 on mobile (after image), order-2 on md+ (right side) */}
+            <div className="order-2 md:order-2 flex flex-col">
               <h1 className="mb-4 text-2xl font-bold md:text-3xl uppercase">
                 {displayName}
               </h1>
@@ -181,20 +181,21 @@ export default async function MachineDetailPage({
                   {displayType}
                 </p>
               )}
-              <p className="mb-6 text-muted-foreground">
+              <p className="mb-12 text-muted-foreground max-w-xl">
                 {buildMachineDescription(machine)}
               </p>
 
               <MachineSpecs machine={machine} />
-
-              <div className="mt-8">
-                <BookingForm
-                  machine={formMachine}
-                  disabledRangesJSON={disabledRangesJSON}
-                  equipment={equipmentList}
-                />
-              </div>
             </div>
+          </div>
+
+          {/* Full-width Booking Form */}
+          <div className="mt-8 lg:mx-28">
+            <BookingForm
+              machine={formMachine}
+              disabledRangesJSON={disabledRangesJSON}
+              equipment={equipmentList}
+            />
           </div>
         </div>
       </section>
