@@ -119,11 +119,6 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // TEMPORARY: DB safety instrumentation (remove after staging verification)
-    const reqId = req.headers.get("x-nf-request-id") ?? "-";
-    const nifMasked = `***${normalizedNIF.slice(-3)}`;
-    console.log("[check-discount] db query start", { reqId, ip: clientIp, nifMasked });
-
     // Look up the company discount using normalized NIF
     const companyDiscount = await db.companyDiscount.findUnique({
       where: {
