@@ -18,7 +18,7 @@ The cart-ready upgrade has been successfully implemented and is live in producti
 6. Displays ex-VAT total on Booking Success Page with correct customer guidance
 7. Sends ex-VAT totals to GA4/Meta analytics (documented limitation)
 
-All monetary calculations use integer cents to guarantee exactness. No float arithmetic is used in critical paths.
+All monetary calculations use integer cents to guarantee exactness. Float arithmetic is minimized and results are always rounded to integer cents before storage or comparison (e.g., `Math.round(netExVatCents * 0.23)` for VAT).
 
 ---
 
@@ -218,10 +218,16 @@ All monetary calculations use integer cents to guarantee exactness. No float ari
 **Reason:** Ensures predictable Stripe line item construction
 **Future:** Support HOUR time unit when hourly pricing implemented
 
-### 5. Service Addons Not Yet Itemized
-**Status:** Future enhancement
-**Current:** Delivery, pickup, insurance, operator are boolean flags (not `BookingItem` records)
-**Future:** Migrate service addons to `BookingItem` for full itemization
+### 5. Service Addons Not Yet Persisted as BookingItems
+**Status:** Future enhancement (technical debt with ops consequences)
+**Current behavior:**
+- Services (delivery, pickup, insurance, operator) are boolean flags on `Booking` model
+- ✅ Itemized in Stripe Checkout as separate line items (with VAT)
+- ✅ Recorded in Vendus invoice
+- ❌ NOT persisted as `BookingItem` records
+- **Source of truth for service pricing at booking time:** Stripe session metadata and invoice
+**Audit risk:** If service pricing changes, historical bookings cannot be reconstructed from DB alone—requires Stripe/invoice lookup
+**Future:** Migrate service addons to `BookingItem` for full auditability
 
 ---
 
@@ -236,6 +242,7 @@ All monetary calculations use integer cents to guarantee exactness. No float ari
 
 ### Stripe Checkout
 - [ ] Checkout session has itemized line items (machine + equipment + services)
+  - Note: Services are Stripe line items but NOT persisted as `BookingItem` records (see Known Limitations §5)
 - [ ] Each line item has VAT (23%) applied via tax rate
 - [ ] Discount allocated proportionally across line items (cent-exact)
 - [ ] Checkout total (incl. VAT) matches: `Math.round(Booking.totalCost * 1.23 * 100) / 100`
