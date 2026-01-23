@@ -32,6 +32,65 @@ import { OverlapError, LeadTimeError } from "@/lib/repos/booking-repo";
 // Key changes when any relevant selection changes; identical requests reuse it.
 import { createHash } from "node:crypto";
 
+// For reading client IP in server actions
+import { headers } from "next/headers";
+
+// ---------------------------------------------------------------------------
+// Rate limiting (best-effort, per-instance)
+// NOTE: This is in-memory per serverless instance. Under high concurrency or
+// horizontal scaling, limits are not shared across instances. For stronger
+// guarantees, a shared KV store (e.g., Upstash Redis) would be required.
+// ---------------------------------------------------------------------------
+const RATE_LIMIT_WINDOW_MS = 5 * 60_000; // 5 minutes
+const RATE_LIMIT_MAX = 10; // max checkout attempts per window per IP
+
+type RateLimitEntry = { count: number; resetAtMs: number };
+const rateLimitMap = new Map<string, RateLimitEntry>();
+
+async function getClientIp(): Promise<string> {
+  const hdrs = await headers();
+
+  // Netlify-specific header
+  const nfIp = hdrs.get("x-nf-client-connection-ip");
+  if (nfIp) return nfIp.trim();
+
+  // Standard forwarded header (first value)
+  const xff = hdrs.get("x-forwarded-for");
+  if (xff) {
+    const first = xff.split(",")[0]?.trim();
+    if (first) return first;
+  }
+
+  return "unknown";
+}
+
+function checkRateLimit(ip: string): {
+  allowed: boolean;
+  count: number;
+  retryAfterSeconds: number;
+} {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+
+  if (!entry || now >= entry.resetAtMs) {
+    // New window
+    rateLimitMap.set(ip, { count: 1, resetAtMs: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true, count: 1, retryAfterSeconds: 0 };
+  }
+
+  // Existing window
+  entry.count += 1;
+  const retryAfterSeconds = Math.max(1, Math.ceil((entry.resetAtMs - now) / 1000));
+
+  if (entry.count > RATE_LIMIT_MAX) {
+    return { allowed: false, count: entry.count, retryAfterSeconds };
+  }
+
+  return { allowed: true, count: entry.count, retryAfterSeconds };
+}
+
+// ---------------------------------------------------------------------------
+
 // Return shape supports form-level errors
 type CheckoutResult =
   | { ok: true; url: string }
@@ -77,6 +136,22 @@ function makeCheckoutIdempotencyKey(args: {
 export async function createCheckoutAction(
   input: unknown
 ): Promise<CheckoutResult> {
+  // Rate limiting: block abusive bursts before any DB/Stripe work
+  const clientIp = await getClientIp();
+  const rateCheck = checkRateLimit(clientIp);
+
+  if (!rateCheck.allowed) {
+    const hdrs = await headers();
+    const reqId = hdrs.get("x-nf-request-id") ?? "-";
+    console.warn(
+      `[rate-limit:create-checkout] ip=${clientIp} reqId=${reqId} count=${rateCheck.count} limit=${RATE_LIMIT_MAX} retryAfter=${rateCheck.retryAfterSeconds}s`
+    );
+    return {
+      ok: false,
+      formError: "Too many attempts. Please wait a moment and try again.",
+    };
+  }
+
   try {
     // 1) Fetch machine
     const machineId = Number((input as any)?.machineId);
