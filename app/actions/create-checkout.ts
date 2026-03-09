@@ -80,7 +80,10 @@ function checkRateLimit(ip: string): {
 
   // Existing window
   entry.count += 1;
-  const retryAfterSeconds = Math.max(1, Math.ceil((entry.resetAtMs - now) / 1000));
+  const retryAfterSeconds = Math.max(
+    1,
+    Math.ceil((entry.resetAtMs - now) / 1000),
+  );
 
   if (entry.count > RATE_LIMIT_MAX) {
     return { allowed: false, count: entry.count, retryAfterSeconds };
@@ -95,7 +98,6 @@ function checkRateLimit(ip: string): {
 type CheckoutResult =
   | { ok: true; url: string }
   | { ok: false; formError: string };
-
 
 /** Return YYYY-MM-DD without timezone drift. */
 function ymdLisbon(d: Date): string {
@@ -134,7 +136,7 @@ function makeCheckoutIdempotencyKey(args: {
 }
 
 export async function createCheckoutAction(
-  input: unknown
+  input: unknown,
 ): Promise<CheckoutResult> {
   // Rate limiting: block abusive bursts before any DB/Stripe work
   const clientIp = await getClientIp();
@@ -144,7 +146,7 @@ export async function createCheckoutAction(
     const hdrs = await headers();
     const reqId = hdrs.get("x-nf-request-id") ?? "-";
     console.warn(
-      `[rate-limit:create-checkout] ip=${clientIp} reqId=${reqId} count=${rateCheck.count} limit=${RATE_LIMIT_MAX} retryAfter=${rateCheck.retryAfterSeconds}s`
+      `[rate-limit:create-checkout] ip=${clientIp} reqId=${reqId} count=${rateCheck.count} limit=${RATE_LIMIT_MAX} retryAfter=${rateCheck.retryAfterSeconds}s`,
     );
     return {
       ok: false,
@@ -226,22 +228,32 @@ export async function createCheckoutAction(
           itemType: "ADDON",
           addonGroup: "EQUIPMENT",
         },
-        select: { code: true, name: true, dailyRate: true, chargeModel: true, timeUnit: true },
+        select: {
+          code: true,
+          name: true,
+          dailyRate: true,
+          chargeModel: true,
+          timeUnit: true,
+        },
       });
 
       // Build map for quick lookup
-      const equipmentMap = new Map(
-        equipmentMachines.map((m) => [m.code, m])
-      );
+      const equipmentMap = new Map(equipmentMachines.map((m) => [m.code, m]));
 
       // Validate equipment constraints match Stripe line construction assumptions
       for (const equipMachine of equipmentMachines) {
-        if (equipMachine.chargeModel !== "PER_UNIT" || equipMachine.timeUnit !== "DAY") {
-          console.error("[checkout] equipment addon has unexpected chargeModel/timeUnit", {
-            code: equipMachine.code,
-            chargeModel: equipMachine.chargeModel,
-            timeUnit: equipMachine.timeUnit,
-          });
+        if (
+          equipMachine.chargeModel !== "PER_UNIT" ||
+          equipMachine.timeUnit !== "DAY"
+        ) {
+          console.error(
+            "[checkout] equipment addon has unexpected chargeModel/timeUnit",
+            {
+              code: equipMachine.code,
+              chargeModel: equipMachine.chargeModel,
+              timeUnit: equipMachine.timeUnit,
+            },
+          );
           return {
             ok: false,
             formError: "Equipment configuration error. Please contact support.",
@@ -263,7 +275,8 @@ export async function createCheckoutAction(
         if (!Number.isFinite(qty) || qty <= 0) {
           return {
             ok: false,
-            formError: "Invalid equipment quantity. Please refresh and try again.",
+            formError:
+              "Invalid equipment quantity. Please refresh and try again.",
           };
         }
 
@@ -335,6 +348,10 @@ export async function createCheckoutAction(
       equipmentAddons: equipmentAddons.length > 0 ? equipmentAddons : undefined,
     };
 
+    if (process.env.PORTFOLIO_DEMO === "true") {
+      return { ok: true, url: "/demo-booking-success" };
+    }
+
     const booking = await persistPendingBooking(dto);
 
     // 4.5) Build itemized pre-discount line definitions for Stripe Checkout
@@ -397,7 +414,10 @@ export async function createCheckoutAction(
     }
 
     // Dev-only validation of decimalToCents (float-free conversion)
-    if (process.env.LOG_CHECKOUT_DEBUG === "1" || process.env.NODE_ENV !== "production") {
+    if (
+      process.env.LOG_CHECKOUT_DEBUG === "1" ||
+      process.env.NODE_ENV !== "production"
+    ) {
       const testCases = [
         { input: "0.29", expected: 29 },
         { input: "99.50", expected: 9950 },
@@ -410,7 +430,9 @@ export async function createCheckoutAction(
       for (const { input, expected } of testCases) {
         const result = decimalToCents(input);
         if (result !== expected) {
-          console.error(`[decimalToCents] validation failed: ${input} → ${result}, expected ${expected}`);
+          console.error(
+            `[decimalToCents] validation failed: ${input} → ${result}, expected ${expected}`,
+          );
           throw new Error(`decimalToCents validation failed for "${input}"`);
         }
       }
@@ -434,9 +456,7 @@ export async function createCheckoutAction(
     // Since computeTotalsFromItems doesn't break down equipment separately,
     // we'll compute equipment lines from the pricing inputs (items array)
     if (equipmentAddons.length > 0) {
-      const equipmentMap = new Map(
-        equipmentMachines.map((m) => [m.code, m])
-      );
+      const equipmentMap = new Map(equipmentMachines.map((m) => [m.code, m]));
 
       for (const selectedEquip of equipmentAddons) {
         const equipMachine = equipmentMap.get(selectedEquip.code);
@@ -508,7 +528,7 @@ export async function createCheckoutAction(
     // Safety check: sum of pre-discount lines must equal originalTotalCents
     const preDiscountSumCents = preDiscountLines.reduce(
       (sum, line) => sum + line.unitAmountCents * line.quantity,
-      0
+      0,
     );
 
     if (preDiscountSumCents !== originalTotalCents) {
@@ -554,39 +574,50 @@ export async function createCheckoutAction(
         remainderNumerator: number;
       };
 
-      const linesWithRemainder: LineWithRemainder[] = preDiscountLines.map((line) => {
-        const preLineTotalCents = line.unitAmountCents * line.quantity;
-        const factor = 100 - discountPercentage;
-        const discountedFloorCents = Math.floor((preLineTotalCents * factor) / 100);
-        const remainderNumerator = (preLineTotalCents * factor) % 100;
+      const linesWithRemainder: LineWithRemainder[] = preDiscountLines.map(
+        (line) => {
+          const preLineTotalCents = line.unitAmountCents * line.quantity;
+          const factor = 100 - discountPercentage;
+          const discountedFloorCents = Math.floor(
+            (preLineTotalCents * factor) / 100,
+          );
+          const remainderNumerator = (preLineTotalCents * factor) % 100;
 
-        return {
-          line,
-          preLineTotalCents,
-          discountedFloorCents,
-          remainderNumerator,
-        };
-      });
+          return {
+            line,
+            preLineTotalCents,
+            discountedFloorCents,
+            remainderNumerator,
+          };
+        },
+      );
 
       const sumFloor = linesWithRemainder.reduce(
         (sum, item) => sum + item.discountedFloorCents,
-        0
+        0,
       );
 
       const remainderToDistribute = totalCents - sumFloor;
 
       // Safety check
-      if (remainderToDistribute < 0 || remainderToDistribute >= linesWithRemainder.length) {
-        console.error("[checkout] discount allocation remainder out of bounds", {
-          bookingId: booking.id,
-          totalCents,
-          sumFloor,
-          remainderToDistribute,
-          numLines: linesWithRemainder.length,
-        });
+      if (
+        remainderToDistribute < 0 ||
+        remainderToDistribute >= linesWithRemainder.length
+      ) {
+        console.error(
+          "[checkout] discount allocation remainder out of bounds",
+          {
+            bookingId: booking.id,
+            totalCents,
+            sumFloor,
+            remainderToDistribute,
+            numLines: linesWithRemainder.length,
+          },
+        );
         return {
           ok: false,
-          formError: "Internal discount calculation error. Please contact support.",
+          formError:
+            "Internal discount calculation error. Please contact support.",
         };
       }
 
@@ -622,7 +653,10 @@ export async function createCheckoutAction(
           finalQuantity = 1;
           if (item.line.kind === "EQUIPMENT") {
             finalName = `${item.line.name} (qty ${qty})`;
-          } else if (item.line.kind === "PRIMARY" || item.line.kind === "SERVICE") {
+          } else if (
+            item.line.kind === "PRIMARY" ||
+            item.line.kind === "SERVICE"
+          ) {
             // For services/primary that use days as quantity, encode days in name
             finalName = `${item.line.name} (${qty} day${qty > 1 ? "s" : ""})`;
           }
@@ -647,7 +681,7 @@ export async function createCheckoutAction(
     // Final safety check: sum of discounted lines must equal totalCents
     const discountedSumCents = discountedLines.reduce(
       (sum, line) => sum + line.unitAmountCents * line.quantity,
-      0
+      0,
     );
 
     if (discountedSumCents !== totalCents) {
@@ -660,7 +694,8 @@ export async function createCheckoutAction(
       });
       return {
         ok: false,
-        formError: "Internal discount calculation error. Please contact support.",
+        formError:
+          "Internal discount calculation error. Please contact support.",
       };
     }
 
@@ -694,7 +729,8 @@ export async function createCheckoutAction(
         });
         return {
           ok: false,
-          formError: "Price exceeds payment system limits. Please contact support.",
+          formError:
+            "Price exceeds payment system limits. Please contact support.",
         };
       }
     }
@@ -741,6 +777,10 @@ export async function createCheckoutAction(
         metadata: sessionParams.metadata,
         line_items: JSON.stringify(sessionParams.line_items, null, 2),
       });
+    }
+
+    if (process.env.PORTFOLIO_DEMO === "true") {
+      return { ok: true, url: "/demo-booking-success" };
     }
 
     const session = await createCheckoutSessionWithGuards(sessionParams, {

@@ -47,12 +47,12 @@ export const LEGAL_PRIVACY: LegalDoc = {
       id: "controller",
       title: "Data Controller",
       body: [
-        'Company: Algarve Modern Rentals and Services - Aluguer de Equipamentos, Unipessoal Lda',
-        'Registered address: Espartal, lote I 13, 8670-119, Aljezur, Portugal',
-        'Warehouse address: Barranco da Vaca, 8670-116, Aljezur, Portugal',
+        'Company: Aluguer de Equipamentos, Unipessoal Lda',
+        'Registered address: Portugal',
+        'Warehouse address:Portugal',
         'Warehouse hours: Mo–Fr 09:00–17:00',
-        'Website: https://amr-rentals.com',
-        'Email: support@amr-rentals.com',
+        'Website: ',
+        'Email: email@amr-rentals.com',
       ],
     },
     {

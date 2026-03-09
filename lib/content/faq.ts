@@ -72,7 +72,7 @@ export const FAQ_CONTENT: FaqContent = {
     },
     {
       q: "Need urgent help?",
-      a: "WhatsApp us at (+351) 934 014 611 or email support@amr-rentals.com. We respond quickly during working hours and monitor emergencies out of hours.",
+      a: "WhatsApp us at (+351) 000 000 000 or email email@amr-rentals.com. We respond quickly during working hours and monitor emergencies out of hours.",
     },
   ],
 };

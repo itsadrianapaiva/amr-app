@@ -9,148 +9,116 @@ datasource db {
 }
 
 model Machine {
-  id          Int    @id @default(autoincrement())
-  code        String @unique
-  name        String @unique
-  description String
-
+  id             Int             @id @default(autoincrement())
+  name           String          @unique
+  description    String
   /// Deprecated for rendering; we now use curated local assets.
   /// Keep for compatibility until we fully remove usages.
-  imageUrl String
-
-  /// Reference-only link to the exact model (CSV "Image" column).
-  /// Not rendered in the UI; for Ops/context.
-  referenceUrl   String?
+  imageUrl       String
   dailyRate      Decimal
   weight         String
   deposit        Decimal
   deliveryCharge Decimal?
-  minDays        Int      @default(1)
+  minDays        Int             @default(1)
   pickupCharge   Decimal?
-
   /// Renamed in Prisma to 'category' but still mapped to the existing DB column 'type'.
-  category String @default("Uncategorized") @map("type")
-
+  category       String          @default("Uncategorized") @map("type")
   /// Optional machine model (e.g., "Bobcat E35", "CAT 259D3")
-  model String?
-
-  /// Explicit ordering rank for catalog display (1-99, lower = smaller/lighter)
-  sizeRank Int @default(99)
-
-  /// Cart-ready: Item type (PRIMARY for machines, ADDON for accessories)
-  itemType    MachineItemType @default(PRIMARY)
+  model          String?
+  /// Reference-only link to the exact model (CSV "Image" column).
+  /// Not rendered in the UI; for Ops/context.
+  referenceUrl   String?
+  code           String          @unique
   /// Cart-ready: Charge model (PER_BOOKING flat or PER_UNIT with quantity)
-  chargeModel ChargeModel     @default(PER_BOOKING)
+  chargeModel    ChargeModel     @default(PER_BOOKING)
+  /// Cart-ready: Item type (PRIMARY for machines, ADDON for accessories)
+  itemType       MachineItemType @default(PRIMARY)
   /// Cart-ready: Time unit (DAY or HOUR for future hourly)
-  timeUnit    TimeUnit        @default(DAY)
+  timeUnit       TimeUnit        @default(DAY)
   /// Cart-ready: Addon group classification (only for ADDON items)
-  addonGroup  AddonGroup?
-
-  bookings     Booking[]
-  bookingItems BookingItem[]
+  addonGroup     AddonGroup?
+  /// Explicit ordering rank for catalog display (1-99, lower = smaller/lighter)
+  sizeRank       Int             @default(99)
+  bookings       Booking[]
+  bookingItems   BookingItem[]
 }
 
 model Booking {
-  id        Int     @id @default(autoincrement())
-  machineId Int
-  machine   Machine @relation(fields: [machineId], references: [id])
-
-  startDate     DateTime
-  endDate       DateTime
-  holdExpiresAt DateTime? @db.Timestamp(6)
-
-  status BookingStatus @default(PENDING)
-
-  customerName  String
-  customerEmail String
-  customerPhone String
-
-  totalCost   Decimal
+  id                           Int                     @id @default(autoincrement())
+  machineId                    Int
+  startDate                    DateTime
+  endDate                      DateTime
+  insuranceSelected            Boolean                 @default(true)
+  customerName                 String
+  customerEmail                String
+  customerPhone                String
+  totalCost                    Decimal
   /// Temporarily reused to mean "fully paid" after the pivot.
   /// (Optional: rename to `paid` in a later migration.)
-  depositPaid Boolean @default(false)
-
+  depositPaid                  Boolean                 @default(false)
   /// PI for the successful full payment (card/MB WAY/SEPA once confirmed).
-  stripePaymentIntentId String? @unique
-
-  customerNIF String?
-
-  insuranceSelected Boolean @default(true)
-  deliverySelected  Boolean @default(true)
-  pickupSelected    Boolean @default(true)
-
-  billingAddressLine1 String?
-  billingCity         String?
-  billingCompanyName  String?
-  billingCountry      String?
-  billingIsBusiness   Boolean @default(false)
-  billingPostalCode   String?
-  billingTaxId        String?
-
-  operatorSelected Boolean @default(false)
-
-  siteAddressCity       String?
+  stripePaymentIntentId        String?                 @unique
+  status                       BookingStatus           @default(PENDING)
+  createdAt                    DateTime                @default(now())
+  updatedAt                    DateTime                @updatedAt
+  customerNIF                  String?
+  deliverySelected             Boolean                 @default(true)
+  pickupSelected               Boolean                 @default(true)
+  billingAddressLine1          String?
+  billingCity                  String?
+  billingCompanyName           String?
+  billingCountry               String?
+  billingIsBusiness            Boolean                 @default(false)
+  billingPostalCode            String?
+  billingTaxId                 String?
+  operatorSelected             Boolean                 @default(false)
+  siteAddressCity              String?
   /// Operational site address (NOT for invoicing)
-  siteAddressLine1      String?
-  siteAddressNotes      String?
-  siteAddressPostalCode String?
-
-  during Unsupported("tsrange")? @default(dbgenerated("tsrange(\"startDate\", \"endDate\", '[]'::text)"))
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Invoicing persistence (MVP) 
-  /// e.g., "vendus" for now; keeps door open to swap providers later.
-  invoiceProvider   String?
-  /// Provider’s internal document ID (stringified); paired with provider for uniqueness.
-  invoiceProviderId String?
-  /// Human-facing document number (e.g., "FT 2025/123").
-  invoiceNumber     String?
-  /// Public HTTPS link to the PDF (as returned by provider).
-  invoicePdfUrl     String?
+  siteAddressLine1             String?
+  siteAddressNotes             String?
+  siteAddressPostalCode        String?
+  during                       Unsupported("tsrange")? @default(dbgenerated("tsrange(\"startDate\", \"endDate\", '[]'::text)"))
+  holdExpiresAt                DateTime?               @db.Timestamp(6)
   /// ATCUD (if the series has a validation code configured).
-  invoiceAtcud      String?
-
-  confirmationEmailSentAt DateTime? @db.Timestamp(6)
-  invoiceEmailSentAt      DateTime? @db.Timestamp(6)
-  internalEmailSentAt     DateTime? @db.Timestamp(6)
-
-  /// Aggregated refund info (Stripe amounts are in cents).
-  refundStatus        RefundStatus @default(NONE)
-  refundedAmountCents Int          @default(0)
-  /// Collected refund IDs from Stripe (e.g., ["re_123", "re_456"])
-  refundIds           String[]
-
+  invoiceAtcud                 String?
+  /// Human-facing document number (e.g., "FT 2025/123").
+  invoiceNumber                String?
+  /// Public HTTPS link to the PDF (as returned by provider).
+  invoicePdfUrl                String?
+  /// e.g., "vendus" for now; keeps door open to swap providers later.
+  invoiceProvider              String?
+  /// Provider’s internal document ID (stringified); paired with provider for uniqueness.
+  invoiceProviderId            String?
+  disputeClosedAt              DateTime?
   /// Latest dispute snapshot (if any).
-  disputeId       String?
-  disputeStatus   DisputeStatus @default(NONE)
-  disputeReason   String?
-  disputeClosedAt DateTime?
-
+  disputeId                    String?
+  disputeReason                String?
+  disputeStatus                DisputeStatus           @default(NONE)
+  /// Collected refund IDs from Stripe (e.g., ["re_123", "re_456"])
+  refundIds                    String[]
+  /// Aggregated refund info (Stripe amounts are in cents).
+  refundStatus                 RefundStatus            @default(NONE)
+  refundedAmountCents          Int                     @default(0)
   /// Optional Stripe charge id for reconciliation.
-  stripeChargeId String?
-
+  stripeChargeId               String?
+  confirmationEmailSentAt      DateTime?               @db.Timestamp(6)
+  invoiceEmailSentAt           DateTime?               @db.Timestamp(6)
+  internalEmailSentAt          DateTime?               @db.Timestamp(6)
   /// Discount percentage applied (0-100)
-  discountPercentage Decimal? @default(0)
-
-  /// Original subtotal before discount (cents, ex VAT) from Stripe metadata
-  originalSubtotalExVatCents Int?
-
+  discountPercentage           Decimal?                @default(0)
   /// Discounted subtotal after discount (cents, ex VAT) from Stripe metadata
   discountedSubtotalExVatCents Int?
-
+  /// Original subtotal before discount (cents, ex VAT) from Stripe metadata
+  originalSubtotalExVatCents   Int?
   /// Cart-ready: Duration unit (DAY or HOUR for future hourly)
-  durationUnit BookingDurationUnit @default(DAY)
-  /// Cart-ready: Hourly start timestamp (future use)
-  startAt      DateTime?
+  durationUnit                 BookingDurationUnit     @default(DAY)
   /// Cart-ready: Hourly end timestamp (future use)
-  endAt        DateTime?
-
-  /// Async jobs for this booking (invoice issuance, email sending, etc.)
-  jobs  BookingJob[]
-  /// Cart-ready: Itemized booking items (machines + addons)
-  items BookingItem[]
+  endAt                        DateTime?
+  /// Cart-ready: Hourly start timestamp (future use)
+  startAt                      DateTime?
+  machine                      Machine                 @relation(fields: [machineId], references: [id])
+  items                        BookingItem[]
+  jobs                         BookingJob[]
 
   @@unique([invoiceProvider, invoiceProviderId])
   @@index([status, holdExpiresAt])
@@ -164,6 +132,64 @@ model StripeEvent {
   type      String
   bookingId Int?
   createdAt DateTime @default(now())
+}
+
+/// Durable async job queue for booking-related side effects
+model BookingJob {
+  id          Int       @id @default(autoincrement())
+  bookingId   Int
+  type        String
+  status      String
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  payload     Json?
+  result      Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  processedAt DateTime?
+  booking     Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, type])
+  @@index([status, createdAt])
+  @@index([bookingId, type])
+}
+
+/// Company-specific discounts based on NIF
+model CompanyDiscount {
+  id                 Int      @id @default(autoincrement())
+  nif                String   @unique
+  discountPercentage Decimal
+  companyName        String?
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+/// Cart-ready: Itemized booking line items (machines + addons with quantity)
+model BookingItem {
+  id          Int             @id @default(autoincrement())
+  bookingId   Int
+  machineId   Int
+  /// Quantity of this item (1 for PRIMARY machines, N for PER_UNIT addons)
+  quantity    Int             @default(1)
+  /// Snapshot: item type at booking time
+  itemType    MachineItemType @default(PRIMARY)
+  /// Snapshot: charge model at booking time
+  chargeModel ChargeModel     @default(PER_BOOKING)
+  /// Snapshot: time unit at booking time
+  timeUnit    TimeUnit        @default(DAY)
+  /// Snapshot: unit price at booking time (required, always set)
+  unitPrice   Decimal
+  /// Marks the primary machine for this booking (backward compat)
+  isPrimary   Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  booking     Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  machine     Machine         @relation(fields: [machineId], references: [id])
+
+  @@index([bookingId])
+  @@index([machineId])
+  @@index([bookingId, isPrimary])
 }
 
 enum BookingStatus {
@@ -185,73 +211,6 @@ enum DisputeStatus {
   OPEN
   WON
   LOST
-}
-
-/// Durable async job queue for booking-related side effects
-model BookingJob {
-  id        Int     @id @default(autoincrement())
-  bookingId Int
-  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-
-  type   String // "issue_invoice" | "send_customer_confirmation" | "send_internal_confirmation" | "send_invoice_ready"
-  status String // "pending" | "processing" | "completed" | "failed"
-
-  attempts    Int @default(0)
-  maxAttempts Int @default(3)
-
-  payload Json? // Optional job-specific data
-  result  Json? // Result or error message
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  processedAt DateTime?
-
-  @@unique([bookingId, type])
-  @@index([status, createdAt])
-  @@index([bookingId, type])
-}
-
-/// Company-specific discounts based on NIF
-model CompanyDiscount {
-  id                 Int      @id @default(autoincrement())
-  nif                String   @unique
-  discountPercentage Decimal
-  companyName        String?
-  active             Boolean  @default(true)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-}
-
-/// Cart-ready: Itemized booking line items (machines + addons with quantity)
-model BookingItem {
-  id        Int     @id @default(autoincrement())
-  bookingId Int
-  machineId Int
-  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  machine   Machine @relation(fields: [machineId], references: [id])
-
-  /// Quantity of this item (1 for PRIMARY machines, N for PER_UNIT addons)
-  quantity Int @default(1)
-
-  /// Snapshot: item type at booking time
-  itemType    MachineItemType @default(PRIMARY)
-  /// Snapshot: charge model at booking time
-  chargeModel ChargeModel     @default(PER_BOOKING)
-  /// Snapshot: time unit at booking time
-  timeUnit    TimeUnit        @default(DAY)
-  /// Snapshot: unit price at booking time (required, always set)
-  unitPrice   Decimal
-
-  /// Marks the primary machine for this booking (backward compat)
-  isPrimary Boolean @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([bookingId])
-  @@index([machineId])
-  @@index([bookingId, isPrimary])
 }
 
 /// Cart-ready: Machine item type

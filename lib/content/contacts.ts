@@ -48,10 +48,10 @@ export const CONTACTS: ContactContent = {
   subtitle:
     "Fast support via WhatsApp or email. Prefer a message? Use the short form and we’ll reply soon.",
   support: {
-    email: "support@amr-rentals.com",
+    email: "email@amr-rentals.com",
     whatsapp: {
-      e164: "+351934014611",
-      display: "(+351) 934 014 611",
+      e164: "+351000000000",
+      display: "(+351) --- --- ---",
       messageTemplate: "Hello AMR, I need help with something else.",
     },
     responseTimeNote: "Mon–Fri, 09:00–17:00 (Lisbon)",
@@ -59,8 +59,8 @@ export const CONTACTS: ContactContent = {
   location: {
     label: "Head Office",
     addressLine1: "",
-    city: "Aljezur",
-    region: "Barranco da Vaca",
+    city: "PT",
+    region: "PT",
     postalCode: "8670-116",
     country: "Portugal",
     mapsUrl: "https://maps.app.goo.gl/cETjGMd9irmcvAj89", // simple link; no embed yet

@@ -63,8 +63,8 @@ async function loadFromContacts(): Promise<Partial<CompanyProfile> | null> {
 export async function getCompanyProfile(): Promise<CompanyProfile> {
   const fromContacts = await loadFromContacts();
 
-  const envName = readEnv("COMPANY_NAME", true) ?? "Algarve Machinery Rental";
-  const envLegal = readEnv("COMPANY_LEGAL_NAME", true) ?? "Algarve Modern Rentals and Services - Aluguer de Equipamentos, Unipessoal Lda";
+  const envName = readEnv("COMPANY_NAME", true) ?? " Machinery Rental";
+  const envLegal = readEnv("COMPANY_LEGAL_NAME", true) ?? "Aluguer de Equipamentos, Unipessoal Lda";
   const envNif = readEnv("COMPANY_NIF", true) ?? "000000000";
   const envAddr = readEnv("COMPANY_LEGAL_ADDRESS", true) ?? "Address, 0000-000 City, Portugal";
 

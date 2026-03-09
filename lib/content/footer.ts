@@ -31,15 +31,15 @@ export const FOOTER_CONTENT: FooterContent = {
   addressLines: ["Algarve, Portugal"],
 
   // No phone yet — placeholder for layout; set to null to hide completely.
-  phoneDisplay: "(+351) 934 014 611", // "Your phone here",
+  phoneDisplay: "(+351) 000 000 000", // "Your phone here",
   // Set when ready (e.g., "hello@amr.pt"); null hides the email row.
-  email: "support@amr-rentals.com", //add correct one later
+  email: "email@amr-rentals.com", //add correct one later
 
   // Small CTA in the footer. Mirrors primary funnel.
   footerCta: { label: "Book Online Now", href: "/catalog" },
 
   // Credits (can hide by setting to nulls).
-  copyrightOwner: "AMR Rentals",
+  copyrightOwner: "Machinery Rentals",
   designedBy: {
     label: "Adriana Paiva",
     href: "https://itsadrianapaiva.github.io",
@@ -47,8 +47,8 @@ export const FOOTER_CONTENT: FooterContent = {
 
   // Full legal business registration (Meta verification requirement).
   legalBusinessInfo: [
-    "Algarve Modern Rentals and Services",
-    "Aluguer de Equipamentos Unipessoal Lda",
-    "NIPC: 517530937",
+    "Rentals and Services",
+    "Unipessoal Lda",
+    "NIPC: 000000000",
   ],
 };
