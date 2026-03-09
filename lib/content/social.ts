@@ -20,11 +20,11 @@ export const SOCIAL_LINKS: SocialLink[] = [
   {
     id: "facebook",
     label: "Facebook",
-    href: "https://facebook.com/amr.machineryrental",
+    href: "https://facebook.com/machineryrental",
   },
   {
     id: "instagram",
     label: "Instagram",
-    href: "https://instagram.com/amr.machineryrental",
+    href: "https://instagram.com/machineryrental",
   },
 ];

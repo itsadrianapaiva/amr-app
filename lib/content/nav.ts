@@ -47,8 +47,8 @@ export const NAV_CONTENT: NavContent = {
     href: "/catalog",
   },
 
-  phoneDisplay: "(+351) 934 014 611",
-  whatsappE164: "+351934014611",
+  phoneDisplay: "(+351) 000 000 000",
+  whatsappE164: "+351---------",
   // Optional small tagline for a skinny top bar or badge near CTA.
   uspShort: "Instant booking in the Algarve",
 };
