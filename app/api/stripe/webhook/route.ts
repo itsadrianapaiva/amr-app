@@ -28,6 +28,11 @@ function dbg() {
 }
 
 export async function POST(req: NextRequest) {
+  // Demo mode: ignore all Stripe events
+  if (process.env.PORTFOLIO_DEMO === "true") {
+    return new Response("demo mode - webhook disabled", { status: 200 });
+  }
+
   // Basic request metadata (no payload, no secrets)
   if (dbg()) {
     log("req_meta", {

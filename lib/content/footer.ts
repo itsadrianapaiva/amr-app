@@ -39,7 +39,7 @@ export const FOOTER_CONTENT: FooterContent = {
   footerCta: { label: "Book Online Now", href: "/catalog" },
 
   // Credits (can hide by setting to nulls).
-  copyrightOwner: "AMR Rentals",
+  copyrightOwner: "Machinery Rentals",
   designedBy: {
     label: "Adriana Paiva",
     href: "https://itsadrianapaiva.github.io",

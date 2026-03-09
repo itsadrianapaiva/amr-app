@@ -48,7 +48,7 @@ export const CONTACTS: ContactContent = {
   subtitle:
     "Fast support via WhatsApp or email. Prefer a message? Use the short form and we’ll reply soon.",
   support: {
-    email: "support@amr-rentals.com",
+    email: "email@amr-rentals.com",
     whatsapp: {
       e164: "+351000000000",
       display: "(+351) --- --- ---",
