@@ -24,8 +24,7 @@ export const SOCIAL_PROOF: SocialProofContent = {
   reviewCount: 5,
   sourceLabel: "Google Reviews",
   ctaLabel: "See all reviews on Google",
-  ctaHref:
-    "https://www.google.com/maps/place/AMR+-+Algarve+Machinery+Rental/@37.2680891,-8.8082611,17z/data=!4m8!3m7!1s0x2d1e8a709d7c67b1:0x589be09d3f5feca7!8m2!3d37.2680891!4d-8.8082611!9m1!1b1!16s%2Fg%2F11zk7wn4t9?entry=ttu&g_ep=EgoyMDI1MTEyMy4xIKXMDSoASAFQAw%3D%3D",
+  ctaHref: "",
   // Note: featuredReview is used as default copy and fallback.
   // The section now also reads from SOCIAL_PROOF_REVIEWS for rotating testimonials.
   featuredReview: {
